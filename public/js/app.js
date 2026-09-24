@@ -13,6 +13,7 @@ const VIEWS = {
   field: () => import('./field.js'),
   knowledge: () => import('./knowledge.js'),
   qr: () => import('./qr.js'),
+  card: () => import('./card.js'),
 };
 
 const TITLES = {
@@ -23,6 +24,7 @@ const TITLES = {
   field: '實地考察',
   knowledge: '保育科普',
   qr: 'QR 碼',
+  card: '列印',
 };
 
 let current = null;

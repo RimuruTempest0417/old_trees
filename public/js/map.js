@@ -289,6 +289,7 @@ export async function render(section, params) {
           <a class="btn btn-primary btn-sm" id="go-field" href="#/field?tree=${esc(t.tree_no)}">＋ 為這株樹新增實地考察紀錄</a>
           <button class="btn btn-sm" id="show-qr" type="button">顯示二維碼</button>
           <a class="btn btn-sm" id="qr-sheet" href="#/qr?tree=${esc(t.tree_no)}">列印標籤</a>
+          <a class="btn btn-sm" id="card-link" href="#/card?tree=${esc(t.tree_no)}">A4 檔案卡</a>
         </div>
         <div class="notice notice-info small" style="margin-top:1rem">
           保育提醒：觀賞時請勿攀爬、刻字、採果或踩踏樹根區；如發現枯枝、樹皮剝落或周邊施工，可向市政署反映。

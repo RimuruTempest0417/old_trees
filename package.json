@@ -23,6 +23,7 @@
     "test:router": "node --test tests/router.test.js",
     "test:diagnostics": "node --test tests/diagnostics.test.js",
     "test:qr": "node --test tests/qr.test.js",
+    "test:card": "node --test tests/card.test.js",
     "qr:verify": "node scripts/qr-roundtrip.mjs && python3 scripts/qr-decode.py .qr-check",
     "verify": "npm run check && npm test",
     "vendor": "node scripts/vendor.mjs",

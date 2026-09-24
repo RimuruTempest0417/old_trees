@@ -183,6 +183,7 @@ export async function render(section, params) {
       <div class="row">
         <button class="btn btn-sm" id="btn-copy">複製路綫摘要</button>
         <button class="btn btn-sm" id="btn-csv-route">匯出路綫 CSV</button>
+        <a class="btn btn-sm" id="btn-book" href="#/card?mode=book&route=${encodeURIComponent(r.route.code || '')}">列印路綫資料冊</a>
         <a class="btn btn-sm" target="_blank" rel="noopener" href="${esc(gmaps(pts))}${waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : ''}">在 Google Maps 導航</a>
       </div>
       ${r.route.tips ? `<div class="notice small" style="margin-top:.6rem">${esc(r.route.tips)}</div>` : ''}
