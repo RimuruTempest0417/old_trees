@@ -21,7 +21,9 @@
 8. [連接 Supabase](#八連接-supabase)
 9. [部署到 Vercel](#九部署到-vercel)
 10. [測試與驗證](#十測試與驗證)
-11. [資料來源與授權](#十一資料來源與授權)
+11. [離線使用與安裝（PWA）](#十一離線使用與安裝pwa)
+12. [疑難排解（部署後常見狀況）](#十二疑難排解部署後常見狀況)
+13. [資料來源與授權](#十三資料來源與授權)
 
 ---
 
@@ -135,16 +137,16 @@ macau-heritage-trees/
 │   ├── router.js           路由表與分派（線上與本機共用）
 │   ├── routes/             13 個端點的 handler（health／trees／tree／stats…）
 │   ├── analysis.js｜geo.js｜repo.js｜http.js
-├── public/                 前端（index.html、css/、js/、photos/、vendor/）
+├── public/                 前端（index.html、css/、js/、photos/、vendor/、sw.js、manifest.webmanifest、offline.html、icons/）
 │   └── photos/trees/       658 張古樹官方照片（市政署，縮圖）
 ├── supabase/
 │   ├── schema.sql          資料表、檢視表、RPC、RLS、版本升級段落（可直接貼進 Supabase SQL Editor）
 │   ├── seed.sql            658 筆古樹（含官方座標／照片／描述）＋ 品種 ＋ 地點 ＋ 文章 ＋ 時間線
 │   └── init.sql            schema.sql ＋ seed.sql 合併檔（一鍵初始化）
 ├── data/                   建置產物（snapshot.json、iam_trees.json、conservation.json、species.json…）
-├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed）＋ 開發伺服器＋驗證腳本（Node）
+├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed／make_icons）、開發伺服器、驗證腳本（Node：check-syntax／vendor／build-sw／qr-roundtrip；Python：card-check／card-pdf／pwa-check／qr-decode）
 ├── source-data/            原始 CSV 與 docx
-└── tests/                  13 組測試（統計／SQL／API／路由／安全／機密／官方資料／前端／實地考察／二維碼／列印／Supabase 查詢形狀）
+└── tests/                  14 組測試（統計／SQL／API／路由／安全／機密／官方資料／前端／實地考察／二維碼／列印／Supabase 查詢形狀／離線 PWA）
 ```
 
 ---
@@ -358,7 +360,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 13 組測試，共 186 項
+npm test               # 14 組測試，共 202 項
 npm run verify         # check ＋ test
 ```
 
@@ -368,6 +370,7 @@ npm run verify         # check ＋ test
 | `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄）、**官方胸徑／胸圍入庫與多主幹株數**，以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 33 |
 | `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性（含 `/api/tree?no=` 與路徑形式一致、**官方胸徑／胸圍**、**主題路綫一定要產生停靠站**） | 16 |
 | `tests/supabase-path.test.js` | **Supabase 模式的查詢形狀**：以假的 `fetch` 攔截 PostgREST 請求，驗證 `allTrees()` 送出的欄位含座標（線上事故：曾誤用只回散佈圖欄位的 `rpc_scatter`，候選古樹全被濾掉，路綫推薦回 `route: null`） | 3 |
+| `tests/pwa.test.js` | **離線 PWA**：manifest 欄位與圖示尺寸（實際讀 PNG 標頭比對）、`sw.js` 預載清單與實際檔案同步（重跑產生器必須無差異，且逐一以 HTTP 確認 200）、`index.html` 引用的每個本機資源都在預載清單內、只處理 GET、`/api/health` 不快取、照片與圖磚有上限、離線狀態文案（含「伺服器連不上但裝置有網路」的情況）、伺服器以正確 MIME 提供 `sw.js`／manifest | 16 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為、單段落＋查詢參數形式、**前端不得出現多段落呼叫**、`vercel.json` 的 rewrite | 7 |
 | `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 17 |
@@ -428,7 +431,49 @@ bash scripts/ui-audit.sh 3351          # 有問題時離開碼為 1
 
 ---
 
-## 十一、疑難排解（部署後常見狀況）
+## 十一、離線使用與安裝（PWA）
+
+野外考察常常沒有訊號，因此網站是可安裝的離線應用（Progressive Web App）。
+
+### 使用方式
+
+1. **手機安裝**：以 Chrome（Android）或 Safari（iOS）開啟 `https://old-trees-mylearning.vercel.app`，
+   選單選「加到主畫面／安裝應用程式」，之後從主畫面圖示開啟即為獨立視窗（不顯示瀏覽器網址列）。
+2. **離線瀏覽**：第一次連線時，介面（HTML／CSS／12 個前端模組／vendor／圖示，共 56 項）會存到本機。
+   之後即使完全斷網，仍可開啟網站、切換分頁、查看上次的統計與清單。
+3. **狀態徽章**：頁首右上角有一顆可點的徽章 —— 「離線可用」／「離線準備中」／「離線模式」／「有新版本」。
+   點開可看已快取項目數、**清除離線快取**、**安裝到主畫面**。
+
+```bash
+node scripts/build-sw.mjs          # 重新產生 sw.js 的預載清單與快取版本（改動前端檔案後要跑）
+node scripts/build-sw.mjs --check  # 只檢查是否同步（測試會用這個）
+npm run pwa:check                  # 真實斷網測試：關掉伺服器後頁面是否仍開得起來
+```
+
+### 快取策略
+
+| 對象 | 策略 | 上限 |
+| --- | --- | --- |
+| 導覽（HTML） | 先網路、失敗回快取的 App shell | 1 份 |
+| `/api/*`（除 `/api/health`） | stale-while-revalidate：先回上次結果、背景更新 | 依瀏覽器額度 |
+| `/photos/*`（古樹照片） | cache-first，只存看過的 | 150 張，超過自動修剪 |
+| OpenStreetMap 圖磚 | cache-first，只存看過的（**不批量下載**，遵守 OSM 政策） | 200 張 |
+| `/api/health` | 不快取 | — |
+| `POST`（實地考察送出） | 不介入，一律走網路 | — |
+
+> 快取名稱帶版本（`mht-shell-v0.8.0`…），新版本啟用時會自動刪掉舊版快取；`sw.js` 的版本由
+> `scripts/build-sw.mjs` 依 `lib/repo.js` 的 `API_VERSION` 自動同步，不會出現「改了程式但使用者拿到舊快取」。
+
+### 已知限制
+
+- **只有看過的區域能離線看地圖**：圖磚僅快取使用者實際瀏覽過的（不提供全澳離線圖磚包）。
+- **第一次就是離線狀態**：從未連上過本站時 service worker 還沒安裝，會顯示自製的 `offline.html`
+  （連上網路一次之後才有離線能力）。
+- iOS Safari 以 `apple-touch-icon` 顯示圖示，不支援 `shortcuts` 長按捷徑。
+- 裝置有網路但伺服器連不上時（公司網路攔截、伺服器重啟），徽章同樣會顯示「離線模式」並說明
+  顯示的是快取資料 —— 這個判斷來自 `api.js` 回報的實際請求結果，不是 `navigator.onLine`。
+
+## 十二、疑難排解（部署後常見狀況）
 
 ### 症狀：某些分頁出現「伺服器處理請求時發生錯誤」，實地考察頁寫「無法連線 API」
 
@@ -534,7 +579,7 @@ Vercel 專案的 **Deployment Protection** 開啟了（`Vercel Authentication`�
 
 ---
 
-## 十二、資料來源與授權
+## 十三、資料來源與授權
 
 | 項目 | 來源 |
 | --- | --- |

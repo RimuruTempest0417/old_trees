@@ -4,6 +4,7 @@
  */
 import { api, cached, healthRaw } from './api.js';
 import { esc, errText, errDetail, toast, closeModal } from './ui.js';
+import { initPwa } from './pwa.js';
 
 const VIEWS = {
   overview: () => import('./dashboard.js'),
@@ -140,6 +141,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   initSourceBadge();
   checkSchema();
+  initPwa();
   route();
 });
 

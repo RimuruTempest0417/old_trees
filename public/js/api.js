@@ -4,6 +4,21 @@ const BASE = '/api';
 
 import { errText } from './ui.js';
 
+/**
+ * 通知應用「剛剛的請求成功／失敗」。
+ *
+ * 為什麼不只看 navigator.onLine：伺服器掛掉、被公司網路攔截、captive portal 等情況下
+ * navigator.onLine 仍然是 true，畫面就不會提示「你在看快取資料」。離線 PWA 的狀態
+ * （public/js/pwa.js）因此改為同時參考這裡回報的實際請求結果。
+ */
+function notifyNetwork(ok) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.dispatchEvent(new CustomEvent('app:netissue', { detail: { ok: !!ok } }));
+  } catch (err) { /* 事件不支援時不影響 API 行為 */ }
+}
+
 async function request(path, params = {}, options = {}) {
   const url = new URL(BASE + path, window.location.origin);
   for (const [k, v] of Object.entries(params)) {
@@ -16,10 +31,14 @@ async function request(path, params = {}, options = {}) {
     res = await fetch(url, { headers: { Accept: 'application/json' }, ...options });
   } catch (err) {
     // 網路層失敗（離線、DNS、被攔截）：一樣給出可讀訊息與位置
+    notifyNetwork(false);
     const e = new Error(`無法連線伺服器：${errText(err)}`);
     e.path = shown; e.status = 0;
     throw e;
   }
+  // 由 service worker 快取回答的回應不算「即時連線」（離線時它也會回 200），
+  // 否則頁首會在斷網時一直顯示「離線可用」。
+  if (res.headers.get('x-mht-cache') !== 'hit') notifyNetwork(true);
   let body;
   try {
     body = await res.json();
@@ -28,6 +47,7 @@ async function request(path, params = {}, options = {}) {
     e.path = shown; e.status = res.status;
     throw e;
   }
+  if (body && body.offline === true) notifyNetwork(false);
   if (!res.ok || body.ok === false) {
     // 伺服器可能回字串、物件、或 Vercel 自己的 {error:{...}}；
     // 一律轉成可讀文字，並附上端點與狀態碼，避免畫面出現「[object Object]」。
@@ -71,7 +91,15 @@ export const api = {
  * 只有在連線本身失敗時才丟錯。
  */
 export async function healthRaw() {
-  const res = await fetch(`${BASE}/health`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+  let res;
+  try {
+    // health 是唯一不被 service worker 快取的端點，因此也是「現在連得到伺服器嗎」最可靠的探針
+    res = await fetch(`${BASE}/health`, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    notifyNetwork(true);
+  } catch (err) {
+    notifyNetwork(false);
+    throw err;
+  }
   if (!res.ok) {
     const e = new Error(`健康檢查失敗（HTTP ${res.status}）`);
     e.path = '/api/health'; e.status = res.status;

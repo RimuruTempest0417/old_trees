@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>目前離線｜澳門古樹保育研究平台</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#14532d">
+<meta name="theme-color" content="#101613" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  :root {
+    --paper: #f6f7f4; --ink: #1c2b21; --muted: #5c6b60; --line: #d7ded7;
+    --accent: #14532d; --accent-soft: #e3efe6; --card: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101613; --ink: #e7efe8; --muted: #9fb0a4; --line: #2a3a2f;
+      --accent: #7fd8a3; --accent-soft: #16241b; --card: #182019;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 1.5rem;
+    background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.75;
+  }
+  .panel { max-width: 34rem; width: 100%; background: var(--card); border: 1px solid var(--line);
+    border-radius: 1rem; padding: 1.8rem 1.6rem; }
+  .mark { font-size: 2.6rem; line-height: 1; }
+  h1 { font-size: 1.35rem; margin: .6rem 0 .4rem; }
+  p { margin: .6rem 0; color: var(--muted); }
+  ul { margin: .8rem 0 0; padding-left: 1.2rem; color: var(--muted); }
+  li { margin: .35rem 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.2rem; }
+  a.btn, button.btn {
+    font: inherit; cursor: pointer; text-decoration: none; border-radius: .6rem;
+    padding: .6rem 1rem; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  }
+  a.btn.primary, button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { a.btn.primary, button.btn.primary { color: #08120c; } }
+  .hint { font-size: .85rem; }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <div class="mark" aria-hidden="true">🌳</div>
+    <h1>目前離線，這個頁面也還沒被快取</h1>
+    <p>裝置現在沒有網路，而您要開的頁面先前沒有瀏覽過，因此沒有可用的離線副本。</p>
+    <ul>
+      <li>連上網路後重新整理，即可正常使用。</li>
+      <li>已瀏覽過的頁面（總覽、地圖、路綫、數據分析、QR 碼、列印）在離線時仍可開啟。</li>
+      <li>離線時古樹照片與地圖圖磚只有「先前看過的」顯示得出來。</li>
+    </ul>
+    <div class="actions">
+      <button class="btn primary" onclick="location.reload()">重新載入</button>
+      <a class="btn" href="/index.html#/overview">回首頁（離線時可開啟）</a>
+    </div>
+    <p class="hint">資料來源：澳門市政署《古樹名木保護名錄》與「澳門自然網」古樹名木公開資料。</p>
+  </main>
+</body>
+</html>

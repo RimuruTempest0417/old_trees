@@ -386,6 +386,22 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
   padding: .6rem .9rem; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: .88rem;
 }
 .notice-info { border-left-color: var(--blue-600); background: color-mix(in srgb, var(--blue-100) 60%, transparent); }
+.notice-good { border-left-color: var(--green-900); background: color-mix(in srgb, var(--green-100) 70%, transparent); }
+.notice-fair { border-left-color: var(--amber-600); }
+.notice-bad { border-left-color: var(--red-600); background: color-mix(in srgb, var(--red-100) 70%, transparent); }
+.notice-muted { border-left-color: var(--line); background: color-mix(in srgb, var(--line) 45%, transparent); }
+
+/* ── 離線 PWA 狀態 ──────────────────────────────────────────
+   頁首的「離線可用／離線模式」徽章是一顆按鈕（點了看離線狀態面板），
+   因此要中和瀏覽器預設按鈕樣式；離線橫幅插在 main 最前面。 */
+button.badge {
+  font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer;
+  border: 1px solid transparent; line-height: 1.5;
+}
+button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset: 2px; }
+#pwa-banner-host:not(:empty) { margin-bottom: .9rem; }
+#pwa-banner { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; }
+#pwa-banner .btn { flex: 0 0 auto; }
 
 /* ── 圖表小結 ───────────────────────────────────────────────
    每一張分析圖下方都附一段「小結」，以左側色條＋淺底呈現，

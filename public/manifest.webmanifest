@@ -1,0 +1,25 @@
+{
+  "name": "澳門古樹保育研究平台",
+  "short_name": "澳門古樹",
+  "description": "以澳門市政署《古樹名木保護名錄》658 筆資料建立的古樹保育研究平台：地圖查詢、路綫推薦、數據分析、實地考察與列印。支援離線使用。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "/index.html#/overview",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#101613",
+  "theme_color": "#14532d",
+  "categories": ["education", "reference", "books"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "地圖查詢", "short_name": "地圖", "url": "/index.html#/map" },
+    { "name": "列印檔案卡", "short_name": "列印", "url": "/index.html#/card" },
+    { "name": "實地考察紀錄", "short_name": "考察", "url": "/index.html#/field" }
+  ]
+}
