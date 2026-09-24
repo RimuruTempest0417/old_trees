@@ -190,6 +190,66 @@ test('只執行 seed.sql（未執行 schema 升級段）也能自我修復舊版
   await old.close();
 });
 
+test('舊資料庫（缺欄位／缺表／舊 CHECK）跑完 init.sql 後，健康檢查每一項都通過', async () => {
+  // 完整模擬使用者的處境：舊庫 → 貼上 init.sql → 重新整理頁面應顯示一切正常。
+  const { SCHEMA_PROBES } = await import('../lib/repo.js');
+  const db = new PGlite();
+  await db.exec(SCHEMA);
+  await db.exec(`
+    alter table public.trees  drop column if exists official_no cascade;
+    alter table public.trees  drop column if exists official_age_years cascade;
+    alter table public.routes drop column if exists species_focus cascade;
+    drop table if exists public.field_records cascade;          -- v0.6.0 才新增的表
+    drop view if exists public.v_trees cascade;                 -- 舊庫可能沒有這個檢視表
+    alter table public.sites drop constraint if exists sites_geo_precision_check;
+    alter table public.sites add constraint sites_geo_precision_check
+      check (geo_precision in ('exact','approx','parish'));
+  `);
+  await db.exec(SCHEMA);        // 等同使用者貼上 init.sql 的前半
+  await db.exec(SEED);          // 等同 init.sql 的後半
+
+  for (const p of SCHEMA_PROBES) {
+    let err = null;
+    try { await db.query(`select ${p.columns} from public.${p.table} limit 1`); }
+    catch (e) { err = e; }
+    assert.ok(!err, `升級後探測項「${p.label}」仍失敗：${err && err.message}`);
+  }
+  const def = (await db.query(`select pg_get_constraintdef(oid) d from pg_constraint
+      where conname = 'sites_geo_precision_check'`)).rows[0].d;
+  assert.match(def, /official/, '升級後 sites.geo_precision 應允許 official');
+  assert.match(def, /parish/, '升級後 sites.geo_precision 應允許 parish');
+  const official = (await db.query(
+    `select count(*)::int n from public.sites where geo_precision = 'official'`)).rows[0].n;
+  assert.ok(official > 0, '升級後 official 座標地點應寫得進去');
+  await db.close();
+});
+
+test('健康檢查的探測清單與綱要一致（每一張表／欄位／函式都真實存在）', async () => {
+  // 這項測試是為了防止 2026-09-24 的誤報：健康檢查曾要求 v_trees.photo_url、
+  // trees.species、routes.slug —— 這三個欄位在 schema.sql 裡根本不存在
+  // （檢視表叫 tree_photo、trees 用 species_id、routes 用 code），
+  // 於是資料庫明明已經升級完成，畫面仍顯示「資料庫需要升級」。
+  const { SCHEMA_PROBES, RPC_PROBES } = await import('../lib/repo.js');
+  const db = new PGlite();
+  await db.exec(SCHEMA);
+  await db.exec(SEED);
+
+  for (const p of SCHEMA_PROBES) {
+    let err = null;
+    try { await db.query(`select ${p.columns} from public.${p.table} limit 1`); }
+    catch (e) { err = e; }
+    assert.ok(!err, `探測項「${p.label}」失敗：${p.table}(${p.columns}) — ${err && err.message}`);
+  }
+
+  const fns = (await db.query(`select proname, count(*)::int n from pg_proc
+      where pronamespace = 'public'::regnamespace group by proname`)).rows;
+  const have = new Set(fns.map((r) => r.proname));
+  for (const r of RPC_PROBES) {
+    assert.ok(have.has(r.fn), `探測的資料庫函式不存在：${r.fn}`);
+  }
+  await db.close();
+});
+
 test('seed.sql 的限制條件自我修復段落存在（防止未來被產生器覆蓋掉）', () => {
   assert.match(SEED, /限制條件自我修復/);
   assert.match(SEED, /alter table public\.sites add constraint sites_geo_precision_check/);

@@ -356,14 +356,14 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 10 組測試，共 126 項
+npm test               # 10 組測試，共 133 項
 npm run verify         # check ＋ test
 ```
 
 | 測試檔 | 內容 | 項數 |
 | --- | --- | --- |
 | `tests/analysis.test.js` | 統計函式單元測試（相關係數、迴歸、F 分佈、卡方分佈） | 18 |
-| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔，以及**舊版資料庫就地升級**（缺欄位的舊表跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄） | 25 |
+| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄），以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 30 |
 | `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為 | 4 |
@@ -453,6 +453,17 @@ end if;
 ```
 
 （`trees.grade`、`trees.health` 同樣處理。）已納入 `tests/sql.test.js` 回歸測試。
+
+### 畫面顯示「資料庫需要升級」，但 `init.sql` 已經跑完了？
+
+先開 `https://<你的網址>/api/health` 看 `version` 與 `schema.missing`。
+
+**2026-09-24 曾發生誤報**：健康檢查當時期待 `v_trees.photo_url`、`trees.species`、`routes.slug`
+三個欄位，但綱要裡實際是 `v_trees.tree_photo`／`trees.species_id`／`routes.code`，
+於是資料庫明明已升級完成，畫面仍一直顯示需要升級（v0.6.6 已修正）。
+因此：**探測清單必須以真資料庫驗證**——`tests/sql.test.js` 現在會在 PGlite 上
+逐一執行每個探測查詢，欄位或函式不存在就讓測試失敗；另有一項測試模擬
+「舊庫缺欄位／缺表／舊 CHECK」跑完 `init.sql` 後所有探測項都必須通過。
 
 ### 錯誤碼對照
 
