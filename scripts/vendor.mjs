@@ -3,7 +3,7 @@
  * 把前端相依的第三方函式庫複製到 public/vendor/，令網站不依賴 CDN、
  * 可離線運作，也讓後續的自動化測試不需要外網。
  *
- *   npm install --no-save leaflet leaflet.markercluster chart.js marked katex
+ *   npm install --no-save leaflet leaflet.markercluster chart.js marked katex qrcode-generator
  *   node scripts/vendor.mjs
  */
 import fs from 'node:fs';
@@ -29,14 +29,27 @@ const COPIES = [
   ['katex/dist/katex.min.js', 'katex/katex.min.js'],
   ['katex/dist/katex.min.css', 'katex/katex.min.css'],
   ['katex/dist/contrib/auto-render.min.js', 'katex/auto-render.min.js'],
+  ['qrcode-generator/dist/qrcode.js', 'qrcode.js'],
 ];
+
+/** 複製後要加上的來源說明（授權與版本可追溯；重跑 vendor 不會遺失） */
+const NOTES = {
+  'qrcode.js': '/* ---------------------------------------------------------------------------\n'
+    + ' * 第三方資源：qrcode-generator（Kazuhiko Arase，MIT 授權）\n'
+    + ' *   原始碼：https://github.com/kazuhikoarase/qrcode-generator\n'
+    + ' *   用途：產生每株古樹的二維碼（見 public/js/qr.js）。\n'
+    + ' *   本檔除本段說明外未做任何修改。\n'
+    + ' * ------------------------------------------------------------------------- */\n',
+};
 
 function copy(rel, dest) {
   const src = path.join(NM, rel);
   const target = path.join(OUT, dest);
   if (!fs.existsSync(src)) return { rel, ok: false };
   fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.copyFileSync(src, target);
+  const note = NOTES[dest];
+  if (note) fs.writeFileSync(target, note + fs.readFileSync(src, 'utf8'), 'utf8');
+  else fs.copyFileSync(src, target);
   return { rel, ok: true, bytes: fs.statSync(target).size };
 }
 
@@ -60,7 +73,7 @@ for (const r of results) {
 }
 console.log(`✓ KaTeX 字型 ${fonts} 個`);
 if (failed.length) {
-  console.error(`✗ 有 ${failed.length} 個檔案未複製，請先執行 npm install --no-save leaflet leaflet.markercluster chart.js marked katex`);
+  console.error(`✗ 有 ${failed.length} 個檔案未複製，請先執行 npm install --no-save leaflet leaflet.markercluster chart.js marked katex qrcode-generator`);
   process.exit(1);
 }
 console.log(`完成：public/vendor 共 ${results.length + fonts} 個檔案`);

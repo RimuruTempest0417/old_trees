@@ -27,7 +27,7 @@
 
 ## 一、線上功能
 
-網站分為六個分頁：
+網站分為七個分頁：
 
 | 分頁 | 內容 |
 | --- | --- |
@@ -36,6 +36,7 @@
 | **路綫推薦** | 5 條精選路綫（列表顯示站數、距離、步行時間），或以堂區／品種／主題即時生成自訂路綫；地圖繪製路徑與編號站點，並提供 Google Maps 導航連結 |
 | **數據分析** | 描述統計、5 個數學模型擬合比較（線性／對數／冪律／飽和指數／含品種啞變數迴歸）、ANOVA、卡方檢定、存續預測曲線、可下載的分析資料 CSV；**每張分析圖皆附一段「小結」說明** |
 | **實地考察** | 現場記錄表單（古樹編號、觀察日期、記錄者、天氣、健康狀況、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、照片、座標一鍵定位）、紀錄清單與 CSV 匯出、現場檢查清單與安全提醒；紀錄存於 `field_records` 表，官方名錄不會被覆寫 |
+| **QR 碼** | 為 658 株古樹各產生一個二維碼：可選「掃描後開啟古樹詳情」或「實地考察表單」、依堂區／關鍵字／排序篩選、可下載單張 SVG；列印時自動三欄排版，適合做樹上掛牌或考察任務卡（編碼用 qrcode-generator，MIT） |
 | **保育科普** | 11 篇繁體中文專題文章（含 KaTeX 數學式）、立法時間線、每篇附參考來源 |
 
 > **實地考察紀錄的儲存方式**：連接 Supabase 時寫入 `field_records` 資料表（所有人可見）；
@@ -121,7 +122,7 @@ Vercel Serverless Function（api/[[...route]].js，唯一入口，Node.js 20+）
 
 - **為什麼只有一個 Function**：Vercel Hobby 方案限制「每個 Deployment 最多 12 個 Serverless Function」，而 `api/` 底下每個 `.js` 都算一個。原本 12 個端點 ＋ 1 個動態路由 = 13 個，部署會直接失敗（`No more than 12 Serverless Functions can be added to a Deployment`）。因此把所有 handler 移到 `lib/routes/`（`lib/` 不算 Function），`api/` 只留萬用入口 `api/[[...route]].js`，由 `lib/router.js` 分派——端點網址完全不變。
 - **無 SQLite**：資料庫只有 Supabase（PostgreSQL）一種；`data/snapshot.json` 是同源唯讀快照，讓專案在沒有資料庫連線時仍可完整展示，並非替代資料庫。
-- **前端零依賴外部 CDN**：Leaflet、Chart.js、marked、KaTeX 全部置於 `public/vendor/`。
+- **前端零依賴外部 CDN**：Leaflet、Chart.js、marked、KaTeX、qrcode-generator（二維碼）全部置於 `public/vendor/`（`node scripts/vendor.mjs` 可重建；`scripts/` 下有來源與授權說明）。
 
 ### 目錄結構
 
@@ -356,7 +357,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 10 組測試，共 137 項
+npm test               # 11 組測試，共 148 項
 npm run verify         # check ＋ test
 ```
 
@@ -372,6 +373,7 @@ npm run verify         # check ＋ test
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
 | `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級 | 17 |
 | `tests/field.test.js` | 實地考察：API 清單與新增、輸入驗證（必填、健康值、數值範圍、長度截斷）、`schema.sql`／`init.sql` 含 `field_records`、前端分頁與地圖入口串接 | 10 |
+| `tests/qr.test.js` | 二維碼：標準尺寸公式、三個定位圖案、時序圖案、靜區、決定性、資料過大時明確報錯、URL 產生器（絕對網址／特殊字元編碼）、SVG 與下載檔格式、**658 株全部試算一次** | 11 |
 
 ### API 安全測試涵蓋範圍
 
@@ -388,6 +390,18 @@ npm run verify         # check ＋ test
 ### 前端渲染驗證
 
 `scripts/verify-ui.sh <port>` 以無頭 Chrome 抓取五個分頁渲染後的 DOM，確認 JavaScript 真的執行、圖表與地圖標記真的產生（而非只檢查原始碼）。實測結果：總覽 5 張圖表、地圖 658 個標記、分析頁 5 張圖表。
+
+### 二維碼「真的掃得出來」驗證
+
+矩陣結構正確 ≠ 手機掃得出來，所以除了 `tests/qr.test.js` 的結構檢查，另有獨立解碼驗證：
+
+```bash
+node scripts/qr-roundtrip.mjs     # 產生 SVG，再用無頭 Chrome 轉成 PNG（輸出到 .qr-check/）
+pip install opencv-python-headless
+python3 scripts/qr-decode.py .qr-check   # 用 OpenCV（與本專案無關的實作）解碼並比對原文
+npm run qr:verify                 # 等同上面兩步
+```
+取樣包含固定編號、最老一株、官方照片已下架的一株、編號最大的一株，每株各產生「詳情」與「實地考察」兩種碼。
 
 `scripts/ui-audit.sh <port>` 是**裝置適配稽核**：在 360／390／414／834／1440 px 與深淺色共 50 組組合下，量測頁面橫向溢出、元素溢出、觸控目標高度、文字輸入框字級、統計卡欄數、地圖是否排到最前、頁籤是否改為橫向滑動。因為無頭 Chrome 的視窗寬度下限約 500 px，量測在**同源 iframe** 內進行（寬度才真正可控）：
 

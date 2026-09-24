@@ -2,7 +2,7 @@
 import { api, cached } from './api.js';
 import {
   esc, num, healthBadge, gradeBadge, safeUrl, loading, openModal, closeModal, toast, downloadCsv, healthColor,
-  errDetail,
+  errDetail, errText,
 } from './ui.js';
 
 const MACAU_CENTER = [22.1630, 113.5540];
@@ -287,6 +287,8 @@ export async function render(section, params) {
           </div>` : ''}
         <div class="row" style="margin-top:.8rem">
           <a class="btn btn-primary btn-sm" id="go-field" href="#/field?tree=${esc(t.tree_no)}">＋ 為這株樹新增實地考察紀錄</a>
+          <button class="btn btn-sm" id="show-qr" type="button">顯示二維碼</button>
+          <a class="btn btn-sm" id="qr-sheet" href="#/qr?tree=${esc(t.tree_no)}">列印標籤</a>
         </div>
         <div class="notice notice-info small" style="margin-top:1rem">
           保育提醒：觀賞時請勿攀爬、刻字、採果或踩踏樹根區；如發現枯枝、樹皮剝落或周邊施工，可向市政署反映。
@@ -294,6 +296,18 @@ export async function render(section, params) {
       bindDetailButtons(document.getElementById('modal-body'));
       const goField = document.getElementById('go-field');
       if (goField) goField.addEventListener('click', () => closeModal());
+      // 二維碼：掃描即可在手機開啟這一株（實地考察掛牌用）
+      const qrBtn = document.getElementById('show-qr');
+      if (qrBtn) qrBtn.addEventListener('click', async () => {
+        try {
+          const { openTreeQr } = await import('./qr.js');
+          openTreeQr(t);
+        } catch (err) {
+          toast(`二維碼產生失敗：${errText(err)}`);
+        }
+      });
+      const qrSheet = document.getElementById('qr-sheet');
+      if (qrSheet) qrSheet.addEventListener('click', () => closeModal());
     } catch (err) {
       openModal(`<h3>讀取失敗</h3><p class="muted">${esc(errDetail(err))}</p>`);
     }

@@ -16,7 +16,8 @@ const EXT = new Set(['.js', '.mjs', '.cjs']);
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const rel = path.relative(ROOT, path.join(dir, entry.name));
-    if (SKIP.has(entry.name) || SKIP.has(rel)) continue;
+    // 跳過隱藏目錄／檔案：.git、.vercel，以及工具產生的暫存目錄（例如 .qr-check 內的 Chrome profile）
+    if (entry.name.startsWith('.') || SKIP.has(entry.name) || SKIP.has(rel)) continue;
     if (entry.isDirectory()) walk(path.join(dir, entry.name), out);
     else if (EXT.has(path.extname(entry.name))) out.push(path.join(dir, entry.name));
   }

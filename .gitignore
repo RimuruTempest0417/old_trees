@@ -11,3 +11,6 @@ __pycache__/
 
 # 裝置適配稽核用的暫存頁（執行 scripts/ui-audit.sh 時產生，不應進版控）
 public/__*.html
+
+# 二維碼可掃性驗證的產物（npm run qr:verify）
+.qr-check/

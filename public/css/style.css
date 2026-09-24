@@ -553,3 +553,40 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
   .card { box-shadow: none; border-color: #999; page-break-inside: avoid; }
   #map { height: 320px; }
 }
+
+/* ── 每株古樹的二維碼（QR 碼）分頁 ───────────────────────────── */
+.qr-controls { display: flex; flex-wrap: wrap; gap: .6rem 1rem; margin: .8rem 0; }
+.qr-controls label { display: flex; flex-direction: column; gap: .25rem; font-size: .85rem; color: var(--ink-soft); }
+.qr-controls select, .qr-controls input { padding: .35rem .5rem; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--card); color: var(--ink); font: inherit; }
+.qr-controls input[type="search"] { min-width: 12rem; }
+.qr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .4rem 0 .2rem; }
+
+.qr-sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.qr-label {
+  margin: 0; padding: .7rem; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  break-inside: avoid; page-break-inside: avoid;
+}
+.qr-box { width: 150px; height: 150px; aspect-ratio: 1 / 1; background: #fff; padding: 4px; border-radius: 6px; }
+.qr-box .qr-svg { display: block; width: 100%; height: 100%; }
+.qr-label figcaption { display: flex; flex-direction: column; gap: .15rem; text-align: center; line-height: 1.35; }
+.qr-label figcaption strong { font-size: .95rem; }
+.qr-species { color: var(--link); font-weight: 600; font-size: .9rem; }
+.qr-label-actions { display: flex; gap: .35rem; justify-content: center; margin-top: .35rem; }
+
+.qr-preview { width: 220px; height: 220px; max-width: 70vw; margin: .6rem auto; background: #fff; padding: 6px; border-radius: 8px; }
+.qr-preview .qr-svg { display: block; width: 100%; height: 100%; }
+.qr-url { word-break: break-all; text-align: center; }
+.qr-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+
+/* 列印二維碼標籤：白底黑碼、三欄排列、不要陰影與按鈕 */
+@media print {
+  .qr-controls, .qr-toolbar, .qr-label-actions, #qr-sheet + *, .skip-link { display: none !important; }
+  .qr-sheet { grid-template-columns: repeat(3, 1fr) !important; gap: 6mm; }
+  .qr-label { box-shadow: none; border: 1px solid #999; padding: 4mm; }
+  .qr-box { width: 44mm; height: 44mm; }
+  .qr-label figcaption strong { font-size: 11pt; }
+  .qr-label figcaption .small { font-size: 8pt; }
+  .card { border: none !important; padding: 0 !important; }
+}

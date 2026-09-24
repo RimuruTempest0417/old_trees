@@ -12,6 +12,7 @@ const VIEWS = {
   analytics: () => import('./analytics.js'),
   field: () => import('./field.js'),
   knowledge: () => import('./knowledge.js'),
+  qr: () => import('./qr.js'),
 };
 
 const TITLES = {
@@ -21,6 +22,7 @@ const TITLES = {
   analytics: '數據分析',
   field: '實地考察',
   knowledge: '保育科普',
+  qr: 'QR 碼',
 };
 
 let current = null;
