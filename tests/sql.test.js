@@ -292,3 +292,27 @@ test('anon 角色僅能讀取，不能寫入', async () => {
     where grantee = 'anon' and table_schema = 'public' and table_name = 'trees'`);
   assert.deepEqual(privs.map((p) => p.privilege_type), ['SELECT']);
 });
+
+test('單檔 init.sql（schema + seed 合併）可一次貼進 SQL Editor 執行', async () => {
+  const INIT = fs.readFileSync(path.join(ROOT, 'supabase', 'init.sql'), 'utf8');
+  // 合併檔必須真的等於 schema.sql + seed.sql 的內容
+  assert.ok(INIT.includes(SCHEMA.trim().slice(0, 200)), 'init.sql 未包含 schema.sql');
+  assert.ok(INIT.includes(SEED.trim().slice(0, 200)), 'init.sql 未包含 seed.sql');
+
+  const fresh = new PGlite();
+  try {
+    await fresh.exec(INIT);       // 一次執行整份檔案
+    const t = await fresh.query('select count(*)::int n from public.trees');
+    assert.equal(t.rows[0].n, csv.length);
+    const v = await fresh.query('select count(*)::int n from public.v_trees');
+    assert.equal(v.rows[0].n, csv.length);
+    const r = await fresh.query('select count(*)::int n from public.rpc_parishes()');
+    assert.equal(r.rows[0].n, 8);
+    // 可重複執行（模擬使用者按兩次 Run）
+    await fresh.exec(INIT);
+    const t2 = await fresh.query('select count(*)::int n from public.trees');
+    assert.equal(t2.rows[0].n, csv.length);
+  } finally {
+    await fresh.close();
+  }
+});

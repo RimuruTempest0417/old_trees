@@ -244,7 +244,9 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 ## 八、連接 Supabase
 
 1. 在 [Supabase](https://supabase.com) 建立專案。
-2. 打開 **SQL Editor**，貼上並執行 `supabase/schema.sql`，再執行 `supabase/seed.sql`（658 筆古樹一次匯入）。
+2. 打開 **SQL Editor → New query**，貼上 **`supabase/init.sql`**（`schema.sql` ＋ `seed.sql` 的合併檔，1580 行）並按 **Run**——
+   一次就會建立 7 張表、3 個檢視表、6 個 RPC、RLS 政策，並匯入 658 筆古樹。
+   （若偏好分開執行，也可先跑 `supabase/schema.sql` 再跑 `supabase/seed.sql`。）
 3. 到 **Project Settings → API** 取得 `Project URL` 與 `service_role` 金鑰。
 4. 在 Vercel 專案設定環境變數：
 
@@ -254,13 +256,22 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role 金鑰（**只在伺服器端使用，切勿放進前端**） |
 | `DATA_SOURCE` | 選填，`supabase` 或 `snapshot`；預設自動判斷 |
 
-設定後 `/api/health` 的 `data_source` 會變成 `supabase`。
+設定後 `/api/health` 的 `data_source` 會變成 `supabase`，網站上的「示範模式」提示會消失。
 
 > **金鑰安全**：`.env`、`.env.local` 已列入 `.gitignore`；前端程式碼不含任何 Supabase 端點或金鑰（由 `tests/api-security.test.js` 自動驗證）。
 
 ---
 
 ## 九、部署到 Vercel
+
+**方式 A：從 GitHub 匯入（推薦，之後每次 push 自動部署）**
+
+1. 到 [vercel.com/new](https://vercel.com/new)，選擇 GitHub 倉庫 `RimuruTempest0417/old_trees`。
+2. Framework Preset 選 **Other**，Root Directory 保持預設（`./`），Build Command 與 Output Directory **全部留空**——`vercel.json` 已設定 `framework: null` 與 `outputDirectory: public`，會自動套用。
+3. 在 **Environment Variables** 加入 `SUPABASE_URL` 與 `SUPABASE_SERVICE_ROLE_KEY`。
+4. 按 **Deploy**。之後每次 push 到 `main` 都會自動重新部署。
+
+**方式 B：使用 CLI**
 
 ```bash
 npm i -g vercel
@@ -283,14 +294,14 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 4 組測試，共 63 項
+npm test               # 4 組測試，共 64 項
 npm run verify         # check ＋ test
 ```
 
 | 測試檔 | 內容 | 項數 |
 | --- | --- | --- |
 | `tests/analysis.test.js` | 統計函式單元測試（相關係數、迴歸、F 分佈、卡方分佈） | 18 |
-| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql`**，驗證檢視表、RPC、RLS 政策 | 21 |
+| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策與一鍵初始化檔 | 22 |
 | `tests/api.test.js` | 啟動真實伺服器打 12 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 
