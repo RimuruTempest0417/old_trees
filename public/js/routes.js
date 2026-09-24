@@ -21,6 +21,24 @@ function routeSummaryText(r) {
   return lines.join('\n');
 }
 
+/**
+ * 檢查路綫回應是否可用（純函式，方便測試）。
+ *
+ * 背景：後端在「沒有符合條件的古樹」時會回 {route: null, stops: [], message}。
+ * 前端若直接讀 r.route.name 就會出現「Cannot read properties of null (reading 'name')」，
+ * 使用者只看到一句看不懂的錯誤。這裡統一把它變成可讀訊息。
+ *
+ * @returns {string|null} 有問題時回傳要顯示的訊息，正常時回傳 null
+ */
+export function routeProblem(data) {
+  if (!data || typeof data !== 'object') return '路綫資料讀取失敗，請稍後再試。';
+  if (!data.route) return data.message || '這條路綫目前沒有可用的古樹資料，請改選其他路綫或調整篩選條件。';
+  if (!Array.isArray(data.stops) || data.stops.length === 0) {
+    return data.message || '這條路綫沒有產生任何停靠站，請調整停靠站數或篩選條件。';
+  }
+  return null;
+}
+
 export async function render(section, params) {
   section.innerHTML = `
     <div class="page-head">
@@ -128,6 +146,8 @@ export async function render(section, params) {
     try {
       const r = await api.route(q);
       currentRoute = r;
+      const problem = routeProblem(r);
+      if (problem) toast(problem, 4200);
       drawRoute(r);
       renderDetail(r);
     } catch (err) {
@@ -139,7 +159,7 @@ export async function render(section, params) {
   function drawRoute(r) {
     lineLayer.clearLayers();
     markerLayer.clearLayers();
-    const coords = r.stops.map((s) => [s.lat, s.lon]);
+    const coords = (r.stops || []).filter((s) => s && s.lat != null && s.lon != null).map((s) => [s.lat, s.lon]);
     if (!coords.length) return;
     window.L.polyline(coords, { color: '#166534', weight: 4, opacity: .78, dashArray: '1 0' }).addTo(lineLayer);
     coords.forEach((c, i) => {
@@ -158,6 +178,12 @@ export async function render(section, params) {
   }
 
   function renderDetail(r) {
+    const problem = routeProblem(r);
+    if (problem) {
+      section.querySelector('#route-detail').innerHTML = `<p class="muted">${esc(problem)}</p>`;
+      lineLayer.clearLayers(); markerLayer.clearLayers();
+      return;
+    }
     const gmaps = coords => `https://www.google.com/maps/dir/?api=1&origin=${coords[0][0]},${coords[0][1]}&destination=${coords[coords.length - 1][0]},${coords[coords.length - 1][1]}`;
     const pts = r.stops.map((s) => [s.lat.toFixed(6), s.lon.toFixed(6)]);
     // Google Maps URL 的 waypoints 上限約 9 個，取樣呈現

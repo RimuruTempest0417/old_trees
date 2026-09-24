@@ -97,6 +97,55 @@ test('官方欄位已併入快照（冠幅、胸徑、周邊範圍、市政署�
   assert.ok(withCrown >= 60, `冠幅覆蓋過少：${withCrown}`);
 });
 
+test('胸徑／胸圍全部使用市政署官方值（658/658），不由我們換算', () => {
+  const vals = Object.values(iam);
+  assert.equal(vals.length, 658);
+  const d = vals.filter((t) => typeof t.diameter_cm === 'number' && t.diameter_cm > 0);
+  const g = vals.filter((t) => typeof t.girth_cm === 'number' && t.girth_cm > 0);
+  assert.equal(d.length, 658, `胸徑官方值只有 ${d.length}/658 筆`);
+  assert.equal(g.length, 658, `胸圍官方值只有 ${g.length}/658 筆`);
+  // 使用者提供的市政署彈窗：古樹編號 491 鳳凰木 胸徑 86.00、胸圍 270.2
+  assert.equal(iam['491'].diameter_cm, 86);
+  assert.equal(iam['491'].girth_cm, 270.2);
+  assert.equal(iam['491'].stem_count, 1);
+  // 官方胸圍 = 官方胸徑 × π（用來確認抓對欄位；我們仍然是直接採用官方值）
+  for (const t of vals) {
+    assert.ok(Math.abs(t.girth_cm - t.diameter_cm * Math.PI) <= Math.max(1.0, t.diameter_cm * 0.05),
+      `#${t.official_no} 官方胸徑/胸圍不一致：${t.diameter_cm} / ${t.girth_cm}`);
+  }
+});
+
+test('多主幹古樹：取官方最大胸徑那一支，其餘完整保留（不平均、不推算）', () => {
+  // 官方欄位是多支主幹以逗號並列，309 株如此
+  const multi = Object.values(iam).filter((t) => (t.stem_count || 1) > 1);
+  assert.equal(multi.length, 290, `多主幹應為 290 株，實際 ${multi.length}`);
+  // #86：胸徑 279/260/282、胸圍 876.5/816.8/885.9（三個清單一一對應）
+  const t86 = iam['86'];
+  assert.equal(t86.stem_count, 3);
+  assert.equal(t86.diameter_cm, 282);
+  assert.equal(t86.girth_cm, 885.9, '胸圍必須取同一支主幹（最大胸徑那支）');
+  assert.match(t86.stem_measures, /279\.00／260\.00／282\.00/);
+  assert.match(t86.stem_measures, /876\.5／816\.8／885\.9/);
+  // 每株多主幹都必須有完整量測說明，且說明中的最大值等於代表值
+  for (const t of multi) {
+    assert.ok(t.stem_measures && t.stem_measures.includes('公分'), `#${t.official_no} 缺各主幹量測說明`);
+    const ds = (t.stem_measures.match(/胸徑 ([\d.／]+)/) || [])[1].split('／').map(Number);
+    assert.equal(Math.max(...ds), t.diameter_cm, `#${t.official_no} 代表值不是最大胸徑`);
+  }
+});
+
+test('官方胸徑／胸圍已寫進快照與 seed.sql（Supabase 模式同享官方值）', () => {
+  const sample = snap.trees ? snap.trees.find((t) => String(t.tree_no) === '491') : null;
+  if (sample) {
+    assert.equal(Number(sample.diameter_cm), 86);
+    assert.equal(Number(sample.girth_cm), 270.2);
+  }
+  const seed = readFileSync(ROOT + 'supabase/seed.sql', 'utf8');
+  assert.ok(seed.includes('girth_cm'), 'seed.sql 沒有 girth_cm 欄位');
+  assert.match(seed, /86\.00/, 'seed.sql 缺少官方胸徑值 86.00');
+  assert.match(seed, /270\.2/, 'seed.sql 缺少官方胸圍值 270.2');
+});
+
 test('學名版本差異已保留（現行接受名＋市政署名）', () => {
   const both = snap.species.filter((s) => s.name_sci && s.name_sci_official);
   assert.ok(both.length >= 10, `應並列多個學名版本，實際 ${both.length}`);

@@ -144,7 +144,7 @@ macau-heritage-trees/
 ├── data/                   建置產物（snapshot.json、iam_trees.json、conservation.json、species.json…）
 ├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed）＋ 開發伺服器＋驗證腳本（Node）
 ├── source-data/            原始 CSV 與 docx
-└── tests/                  9 組測試（統計／SQL／API／路由／安全／機密／官方資料／前端／實地考察）
+└── tests/                  13 組測試（統計／SQL／API／路由／安全／機密／官方資料／前端／實地考察／二維碼／列印／Supabase 查詢形狀）
 ```
 
 ---
@@ -199,7 +199,7 @@ macau-heritage-trees/
 | `GET /api/overview` | 總覽統計（KPI、健康分佈、分級、亮點） |
 | `GET /api/parishes` | 各堂區統計（分區表） |
 | `GET /api/trees` | 古樹清單；參數 `parish, species, grade, health, min_age, max_age, q, sort, limit, offset` |
-| `GET /api/tree/:tree_no` | 單株詳情＋同地點鄰居（編號須符合 `[0-9A-Za-z_-]{1,24}`） |
+| `GET /api/tree/:tree_no` | 單株詳情＋同地點鄰居（編號須符合 `[0-9A-Za-z_-]{1,24}`）；含市政署官方 `diameter_cm`（胸徑）、`girth_cm`（胸圍）、`stem_count`（主幹數）、`stem_measures`（多主幹逐支量測） |
 | `GET /api/species` | 品種清單與統計 |
 | `GET /api/stats` | 完整統計分析（模型、ANOVA、卡方、預測） |
 | `GET /api/routes` | 精選路綫清單 |
@@ -358,24 +358,25 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 12 組測試，共 171 項
+npm test               # 13 組測試，共 186 項
 npm run verify         # check ＋ test
 ```
 
 | 測試檔 | 內容 | 項數 |
 | --- | --- | --- |
 | `tests/analysis.test.js` | 統計函式單元測試（相關係數、迴歸、F 分佈、卡方分佈） | 18 |
-| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄），以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 30 |
-| `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性（含 `/api/tree?no=` 與路徑形式一致） | 13 |
+| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄）、**官方胸徑／胸圍入庫與多主幹株數**，以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 33 |
+| `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性（含 `/api/tree?no=` 與路徑形式一致、**官方胸徑／胸圍**、**主題路綫一定要產生停靠站**） | 16 |
+| `tests/supabase-path.test.js` | **Supabase 模式的查詢形狀**：以假的 `fetch` 攔截 PostgREST 請求，驗證 `allTrees()` 送出的欄位含座標（線上事故：曾誤用只回散佈圖欄位的 `rpc_scatter`，候選古樹全被濾掉，路綫推薦回 `route: null`） | 3 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為、單段落＋查詢參數形式、**前端不得出現多段落呼叫**、`vercel.json` 的 rewrite | 7 |
 | `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 17 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
-| `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
-| `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級 | 17 |
+| `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql、**胸徑／胸圍 658/658 官方值**、**多主幹取最大胸徑那支且逐支保留** | 11 |
+| `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級、**胸徑胸圍不得自行換算**、**空路綫必須顯示訊息而不是拋錯** | 20 |
 | `tests/field.test.js` | 實地考察：API 清單與新增、輸入驗證（必填、健康值、數值範圍、長度截斷）、`schema.sql`／`init.sql` 含 `field_records`、前端分頁與地圖入口串接 | 10 |
 | `tests/qr.test.js` | 二維碼：標準尺寸公式、三個定位圖案、時序圖案、靜區、決定性、資料過大時明確報錯、URL 產生器（絕對網址／特殊字元編碼）、SVG 與下載檔格式、**658 株全部試算一次** | 11 |
-| `tests/card.test.js` | 列印模組：官方缺值一律標「官方未提供」（不補造）、查核清單規則、A4 頁面結構（每張卡就是一個 `.card-page`）、**路綫資料冊頁數＝站數＋1**、站點示意圖落在紙內且比例尺合理、二維碼指向正確網址、**所有欄位都經過跳脫（紙本也是注入點）**、極端輸入（空物件／超長描述／缺照片）不拋錯、右半邊站名不得畫出框外 | 23 |
+| `tests/card.test.js` | 列印模組：官方缺值一律標「官方未提供」（不補造）、查核清單規則、A4 頁面結構（每張卡就是一個 `.card-page`）、**路綫資料冊頁數＝站數＋1**、站點示意圖落在紙內且比例尺合理、二維碼指向正確網址、**所有欄位都經過跳脫（紙本也是注入點）**、極端輸入（空物件／超長描述／缺照片）不拋錯、右半邊站名不得畫出框外、**胸徑胸圍採官方值（多主幹加註）**、座標精度以中文呈現 | 25 |
 
 ### API 安全測試涵蓋範圍
 
@@ -538,7 +539,7 @@ Vercel 專案的 **Deployment Protection** 開啟了（`Vercel Authentication`�
 | 項目 | 來源 |
 | --- | --- |
 | 古樹清單（658 筆，名錄值） | `source-data/古樹.csv`，整理自澳門市政署《古樹名木保護名錄》 |
-| **古樹逐株官方資料** | **澳門市政署「澳門自然網」古樹名木專頁 `https://www.iam.gov.mo/nature/c/tree`**，資料端點 `https://www.iam.gov.mo/nature/BigJson/oldtrees_c.json`（658 筆，含逐株座標、樹齡、樹高、冠幅、胸徑、周邊範圍、健康狀況、分級、堂區、地點、形態描述、市政署樹木編號與唯一識別碼） |
+| **古樹逐株官方資料** | **澳門市政署「澳門自然網」古樹名木專頁 `https://www.iam.gov.mo/nature/c/tree`**，資料端點 `https://www.iam.gov.mo/nature/BigJson/oldtrees_c.json`（658 筆，含逐株座標、樹齡、樹高、冠幅、**胸徑（厘米）**、**胸圍（厘米）**、健康狀況、分級、堂區、地點、形態描述、市政署樹木編號與唯一識別碼） |
 | **古樹官方照片（658 張）** | 同前專頁，`https://www.iam.gov.mo/nature/Content/OldTreesOnline/<影像檔>` |
 | 法規與制度 | 第 11/2013 號法律《文化遺產保護法》、澳門特別行政區公報 |
 | 品種學名 | Wikidata / Wikipedia（現行接受名）；市政署網站學名以 `name_sci_official` 並列 |
@@ -553,7 +554,11 @@ Vercel 專案的 **Deployment Protection** 開啟了（`Vercel Authentication`�
 - **樹齡 1 株不同**（#619：名錄 155 年／市政署 115 年）、**健康狀況 4 株不同**（#548、#627、#638 等由「一般」改列「健康」）、**分級 1 株不同**（#1132 由三級改列不分級）。
 - 本站統計一律以 `古樹.csv` 為準，單株詳情頁在兩者不一致時以「資料核對」區塊並列市政署現行值，不隱藏差異。
 - **學名 14 個物種**出現版本差異（例：`Triadica sebifera` ←→ 市政署 `Sapium sebiferum`）：本站採現行接受名，市政署名以 `name_sci_official` 並列保存。
-- 官方欄位覆蓋率不一：形態描述與座標 658/658、官方照片 657/658、冠幅僅 67 株有值 —— 缺少處不補造數據，前端改顯示樹種相片或直接省略該列。
+- **胸徑／胸圍一律採用市政署官方值**（658/658 皆有值），平台不自行由胸徑換算胸圍。
+  官方這兩個欄位在**多主幹**古樹是「逗號並列的每支主幹量測值」（658 株中有 290 株如此），平台的做法是：
+  取**胸徑最大那支**作為代表值、胸圍取同一支主幹的值（官方兩個清單逐支對應），並在 `stem_measures` 完整保留逐支數值，
+  介面與列印卡片都會標示「N 支主幹，取最大胸徑那支」與逐支清單 —— 不平均、不估算、不換算。
+- 官方欄位覆蓋率不一：形態描述與座標 658/658、胸徑與胸圍 658/658、官方照片 657/658、冠幅僅 67 株有值 —— 缺少處不補造數據，前端改顯示樹種相片或直接省略該列。
 
 科普文章的每一篇都附有 `sources` 欄位列出參考來源。**古樹照片與資料著作權屬澳門市政署**，本站為非商業教學研究用途並逐一標示出處；相片版權歸原作者所有，使用時請保留標示的作者與授權資訊。
 

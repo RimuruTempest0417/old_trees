@@ -144,7 +144,9 @@ def main():
             "ref_id": official.get("ref_id"),
             "crown_m": official.get("crown_m"),
             "diameter_cm": official.get("diameter_cm"),
-            "surround_m": official.get("surround_m"),
+            "girth_cm": official.get("girth_cm"),
+            "stem_count": official.get("stem_count"),
+            "stem_measures": official.get("stem_measures"),
             "official_description": official.get("description"),
             "official_loc": official.get("loc"),
             # 市政署現行值：與《名錄》不一致時，前端會並列說明
@@ -279,7 +281,8 @@ def main():
 
     L.append("-- 古樹")
     TREE_COLS = ("tree_no,species_id,site_id,parish_code,grade,age_years,height_m,health,lat,lon,"
-                 "geo_precision,official_no,iam_tree_no,ref_id,crown_m,diameter_cm,surround_m,"
+                 "geo_precision,official_no,iam_tree_no,ref_id,crown_m,diameter_cm,girth_cm,"
+                 "stem_count,stem_measures,surround_m,"
                  "official_description,official_loc,photo_url,photo_source,photo_count,"
                  "official_age_years,official_height_m,official_health,official_grade")
     chunk = []
@@ -294,6 +297,9 @@ def main():
             q(t.get("ref_id")),
             str(t["crown_m"]) if t.get("crown_m") is not None else "NULL",
             str(t["diameter_cm"]) if t.get("diameter_cm") is not None else "NULL",
+            str(t["girth_cm"]) if t.get("girth_cm") is not None else "NULL",
+            str(int(t["stem_count"])) if t.get("stem_count") is not None else "NULL",
+            q(t.get("stem_measures")),
             str(t["surround_m"]) if t.get("surround_m") is not None else "NULL",
             q(t.get("official_description")), q(t.get("official_loc")),
             q(t.get("photo_url")), q(t.get("photo_source")),
@@ -418,7 +424,10 @@ def main():
     print(f"官方資料覆蓋  : 座標 {sum(1 for t in trees if t.get('official_no'))}/{len(trees)}、"
           f"照片 {sum(1 for t in trees if t.get('photo_url'))}、"
           f"描述 {sum(1 for t in trees if t.get('official_description'))}、"
-          f"冠幅 {sum(1 for t in trees if t.get('crown_m') is not None)}")
+          f"冠幅 {sum(1 for t in trees if t.get('crown_m') is not None)}、"
+          f"胸徑 {sum(1 for t in trees if t.get('diameter_cm') is not None)}、"
+          f"胸圍 {sum(1 for t in trees if t.get('girth_cm') is not None)}、"
+          f"多主幹 {sum(1 for t in trees if (t.get('stem_count') or 1) > 1)}")
     print("品種 Top5     :", Counter(t["species"] for t in trees).most_common(5))
     print("堂區分佈      :", dict(Counter(t["parish"] for t in trees).most_common()))
     print("sql 位元組    :", os.path.getsize(os.path.join(ROOT, "supabase", "seed.sql")))

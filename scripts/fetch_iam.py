@@ -14,7 +14,7 @@
 
 可重複執行：清單每次都重新抓（確認官方有無更新），圖片只補缺的。
 """
-import json, os, ssl, subprocess, sys, time, urllib.error, urllib.request
+import json, os, re, ssl, subprocess, sys, time, urllib.error, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -25,6 +25,34 @@ LIST_URL = "https://www.iam.gov.mo/nature/BigJson/oldtrees_c.json"
 IMG_BASE = "https://www.iam.gov.mo/nature/Content"
 PHOTO_MAX = 320      # 縮圖長邊像素（400×600 原圖 → 213×320，每張約 33 KB，658 張約 22 MB）
 PHOTO_QUALITY = 65   # JPEG 品質
+
+
+def measures(diam, girth):
+    """解析市政署的「胸徑(厘米)」「胸圍(厘米)」欄位。
+
+    官方欄位在**多主幹**樹木會以逗號列出每一支主幹的量測值，例如
+    胸徑 '279.00,260.00,282.00'、胸圍 '876.5,816.8,885.9'（658 株中有 290 株如此）。
+
+    回傳 (代表胸徑, 對應胸圍, 主幹數, 完整量測說明)：
+      * 單一主幹：直接採用官方數值。
+      * 多主幹：取「胸徑最大」的那一支作為代表值，並取同一位置的胸圍
+        （官方兩個清單逐支對應，長度一致；不做平均、不做換算）。
+      * 缺值或格式無法解析：全部回 None，由介面顯示「官方未提供」，不自行推算。
+    """
+    def nums(v):
+        return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", str(v or "")) if float(x) > 0]
+
+    ds, gs = nums(diam), nums(girth)
+    if not ds or not gs:
+        return None, None, None, None
+    n = min(len(ds), len(gs))
+    ds, gs = ds[:n], gs[:n]
+    if n == 1:
+        return ds[0], gs[0], 1, None
+    i = max(range(n), key=lambda k: ds[k])
+    note = ("胸徑 " + "／".join(f"{d:.2f}" for d in ds) + " 公分；"
+            "胸圍 " + "／".join(f"{g:.1f}" for g in gs) + f" 公分（共 {n} 支主幹，代表值取最大胸徑那支）")
+    return ds[i], gs[i], n, note
 
 
 def get(url, tries=4, binary=False):
@@ -116,6 +144,7 @@ def main():
                 return None
         images = [r.get(f"image{i:02d}") for i in range(1, 10)]
         images = [i for i in images if i]
+        dia, gir, stem_n, stem_note = measures(r.get("treeDiameter"), r.get("treeSurround"))
         trees[no] = {
             "official_no": no,
             "official_no2": (r.get("oldTreeNo2") or "").strip() or None,
@@ -130,8 +159,12 @@ def main():
             "age_years": fnum(r.get("treeAge")),
             "height_m": fnum(r.get("treeHeight")),
             "crown_m": fnum(r.get("treeCrown")),
-            "diameter_cm": fnum(r.get("treeDiameter")),
-            "surround_m": fnum(r.get("treeSurround")),
+            # 胸徑／胸圍：市政署官方逐株資料（厘米）。多主幹時取最大胸徑那一支，
+            # 完整清單放在 stem_measures。樹 491 例：胸徑 86.00、胸圍 270.2。
+            "diameter_cm": dia,
+            "girth_cm": gir,
+            "stem_count": stem_n,
+            "stem_measures": stem_note,
             "grade": (r.get("classification") or "").strip() or None,
             "health": (r.get("health") or "").strip() or None,
             "parish": (r.get("region") or "").strip() or None,

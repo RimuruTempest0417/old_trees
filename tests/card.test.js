@@ -17,7 +17,7 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const vendorSrc = fs.readFileSync(path.join(ROOT, 'public', 'vendor', 'qrcode.js'), 'utf8');
 globalThis.qrcode = new Function(`${vendorSrc}; return qrcode;`)();
 
-const { cardModel, cardHtml, fieldFormHtml, routeBookHtml, schematicMapSvg, projectXY, checkItems } =
+const { cardModel, cardHtml, fieldFormHtml, routeBookHtml, schematicMapSvg, projectXY, checkItems, geoLabel } =
   await import('../public/js/card.js');
 // 二維碼只是模組方塊，網址不會以文字出現在 HTML；因此改為比對「該網址編出來的 SVG 是否原樣內嵌」。
 const { qrSvg } = await import('../public/js/qr.js');
@@ -59,7 +59,7 @@ test('查核清單：瀕危＋分級＋舊座標＋無照片都會各產生一�
   assert.ok(whys.includes('官方現況'));
   assert.ok(whys.includes('官方分級'));
   assert.ok(whys.includes('樹齡 515 年'));
-  assert.ok(whys.includes('目前座標為approx'));
+  assert.ok(whys.includes('目前座標為近似值'), '座標精度要以中文顯示');
   assert.ok(whys.includes('官方未提供照片'));
   assert.ok(!whys.includes('官方未提供胸徑'), '已有胸徑就不提醒');
 });
@@ -77,10 +77,11 @@ test('cardModel：官方欄位一一對應，座標標示精度', () => {
   assert.equal(map['樹種'], '華潤楠');
   assert.equal(map['學名'], 'Machilus chinensis');
   assert.equal(map['堂區'], '嘉模堂區');
-  assert.equal(map['座標'], '22.159052, 113.545271（official）');
+  assert.equal(map['座標'], '22.159052, 113.545271（市政署逐株實測座標）');
   assert.equal(map['樹齡'], '25 年');
   assert.equal(map['樹高'], '9.01 m');
-  assert.equal(map['胸徑'], '官方未提供');
+  assert.equal(map['胸徑（市政署）'], '官方未提供');
+  assert.equal(map['胸圍（市政署）'], '官方未提供');
   assert.equal(map['冠幅'], '官方未提供');
   assert.equal(map['健康狀況'], '健康');
   // 注意網址結構：模式是路徑段落（#/map、#/field），古樹編號才是查詢參數（?tree=66）
@@ -88,6 +89,38 @@ test('cardModel：官方欄位一一對應，座標標示精度', () => {
   assert.match(m.fieldUrl, /#\/field\?tree=66$/);
   assert.equal(m.generatedAt, DATE);
   assert.ok(m.sources.length >= 2);
+});
+
+test('座標精度以中文呈現（紙上不會出現 official 這種內部代碼）', () => {
+  assert.equal(geoLabel('official'), '市政署逐株實測座標');
+  assert.equal(geoLabel('parish'), '堂區中心');
+  assert.equal(geoLabel(''), '未標示');
+  assert.equal(geoLabel('something_new'), 'something_new');   // 未知代碼照樣顯示，不吞掉資訊
+  const m = cardModel({ ...TREE, geo_precision: 'official' }, { base: SITE });
+  const coord = m.metrics.find((r) => r[0] === '座標')[1];
+  assert.match(coord, /市政署逐株實測座標/);
+  assert.ok(!coord.includes('official'), `座標列仍出現英文代碼：${coord}`);
+});
+
+test('cardModel：胸徑／胸圍一律用市政署官方值（不做 π 換算），多主幹會標示', () => {
+  const single = cardModel({ ...TREE, diameter_cm: 86.0, girth_cm: 270.2, stem_count: 1 }, { base: SITE });
+  const singleMap = Object.fromEntries(single.metrics);
+  assert.equal(singleMap['胸徑（市政署）'], '86.00 cm');
+  assert.equal(singleMap['胸圍（市政署）'], '270.2 cm');
+  assert.ok(!singleMap['胸徑（市政署）'].includes('主幹'));
+
+  const multi = cardModel({
+    ...TREE, diameter_cm: 282.0, girth_cm: 885.9, stem_count: 3,
+    stem_measures: '胸徑 279.00／260.00／282.00 公分；胸圍 876.5／816.8／885.9 公分（共 3 支主幹，代表值取最大胸徑那支）',
+  }, { base: SITE, date: DATE });
+  const multiMap = Object.fromEntries(multi.metrics);
+  assert.equal(multiMap['胸徑（市政署）'], '282.00 cm（3 支主幹，取最大胸徑那支）');
+  assert.equal(multiMap['胸圍（市政署）'], '885.9 cm');
+  const html = cardHtml(multi);
+  assert.match(html, /各主幹量測（官方）/);
+  assert.match(html, /279\.00／260\.00／282\.00/);
+  // 官方胸圍不得等於「胸徑 × π」以外的推算說明（卡片上不該出現換算字樣）
+  assert.ok(!html.includes('由胸徑換算'));
 });
 
 test('cardModel：缺官方照片時改用樹種相片並說明原因', () => {
@@ -307,7 +340,7 @@ test('正式資料規模：658 種情況都能產生完整卡片（無欄位遺�
           tree_photo: n % 5 === 0 ? null : '/photos/trees/1.jpg',
         };
         const m = cardModel(tree, { base: SITE, date: DATE });
-        assert.equal(m.metrics.length, 13, '13 個欄位都要有');
+        assert.equal(m.metrics.length, 14, '14 個欄位都要有（含官方胸徑與胸圍）');
         assert.ok(m.metrics.every(([, v]) => v !== undefined && v !== ''), '每個欄位都要有值或「官方未提供」');
         assert.ok(m.qrUrl.includes(`tree=${tree.tree_no}`));
         const html = cardHtml(m);

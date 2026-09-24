@@ -235,6 +235,8 @@ export async function render(section, params) {
       if (differs(t.height_m, t.official_height_m)) diffNotes.push(`樹高：市政署現行 ${num(t.official_height_m, 2)} 公尺（本站《名錄》值 ${num(t.height_m, 2)} 公尺）`);
       if (differs(t.health, t.official_health)) diffNotes.push(`健康狀況：市政署現行「${t.official_health}」（本站《名錄》值「${t.health}」）`);
       if (differs(t.grade, t.official_grade)) diffNotes.push(`分級：市政署現行「${t.official_grade}」（本站《名錄》值「${t.grade}」）`);
+      // 多主幹：胸徑／胸圍直接取市政署官方值（不換算），並標示代表值取哪一支
+      const stemLabel = (t.stem_count || 1) > 1 ? `（${t.stem_count} 支主幹，取最大胸徑那支）` : '';
       openModal(`
         <h2>${esc(t.species)} <span class="muted small">古樹編號 ${esc(t.tree_no)}</span></h2>
         <p class="small muted" style="margin-top:-.4rem">${esc(t.name_sci || '')}${t.geo_precision ? `・座標精度：${esc({ official: '市政署實測座標', exact: '精確匹配', approx: '近似', parish: '堂區中心' }[t.geo_precision] || t.geo_precision)}` : ''}</p>
@@ -249,6 +251,8 @@ export async function render(section, params) {
           <div><div class="kpi-label">樹高</div><div class="kpi-value">${num(t.height_m, t.height_m % 1 ? 2 : 0)}<span class="small"> m</span></div></div>
           <div><div class="kpi-label">分級</div><div style="margin-top:.4rem">${gradeBadge(t.grade)}</div></div>
           <div><div class="kpi-label">健康狀況</div><div style="margin-top:.4rem">${healthBadge(t.health)}</div></div>
+          <div><div class="kpi-label">胸徑（市政署）</div><div class="kpi-value">${t.diameter_cm != null ? num(t.diameter_cm, 2) : '—'}<span class="small"> cm</span></div></div>
+          <div><div class="kpi-label">胸圍（市政署）</div><div class="kpi-value">${t.girth_cm != null ? num(t.girth_cm, 1) : '—'}<span class="small"> cm</span></div></div>
         </div>
         <table class="data">
           <tbody>
@@ -259,9 +263,9 @@ export async function render(section, params) {
                  href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(t.lat)}&mlon=${encodeURIComponent(t.lon)}#map=19/${encodeURIComponent(t.lat)}/${encodeURIComponent(t.lon)}">在 OSM 開啟</a></td></tr>
             <tr><th>樹種學名</th><td>${esc(t.name_sci || '—')}</td></tr>
             ${t.crown_m != null ? `<tr><th>冠幅</th><td>${num(t.crown_m, 1)} 公尺</td></tr>` : ''}
-            ${t.diameter_cm != null ? `<tr><th>胸徑</th><td>${num(t.diameter_cm, 1)} 公分</td></tr>` : ''}
-            ${t.diameter_cm != null ? `<tr><th>胸圍</th><td>${num(t.diameter_cm * Math.PI, 1)} 公分（由胸徑換算：π × 胸徑）</td></tr>` : ''}
-            ${t.surround_m != null ? `<tr><th>周邊範圍</th><td>${num(t.surround_m, 1)} 公尺</td></tr>` : ''}
+            ${t.diameter_cm != null ? `<tr><th>胸徑</th><td>${num(t.diameter_cm, 2)} 公分${stemLabel}</td></tr>` : ''}
+            ${t.girth_cm != null ? `<tr><th>胸圍</th><td>${num(t.girth_cm, 1)} 公分${stemLabel}</td></tr>` : ''}
+            ${t.stem_measures ? `<tr><th>各主幹量測</th><td class="tiny">${esc(t.stem_measures)}</td></tr>` : ''}
             ${t.iam_tree_no ? `<tr><th>市政署編號</th><td class="mono tiny">${esc(t.iam_tree_no)}</td></tr>` : ''}
           </tbody>
         </table>

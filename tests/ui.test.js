@@ -139,6 +139,44 @@ test('堂區名稱完整顯示，不再截去「堂區」二字', () => {
   assert.ok(!/replace\('堂區', ''\)/.test(analytics), '分析頁仍會截短堂區名稱');
 });
 
+test('胸徑／胸圍一律顯示市政署官方值，前端不得再自己換算', () => {
+  const map = readFileSync(`${ROOT}public/js/map.js`, 'utf8');
+  const card = readFileSync(`${ROOT}public/js/card.js`, 'utf8');
+  for (const [name, src] of [['map.js', map], ['card.js', card]]) {
+    assert.ok(!/diameter_cm\s*\*\s*Math\.PI|Math\.PI\s*\*\s*t\.diameter_cm/.test(src),
+      `${name} 仍在用胸徑 × π 換算胸圍`);
+    assert.ok(!src.includes('由胸徑換算'), `${name} 仍有「由胸徑換算」字樣`);
+    assert.ok(src.includes('girth_cm'), `${name} 沒有使用官方胸圍欄位 girth_cm`);
+  }
+  // 市政署兩個欄位都要標明來源
+  assert.match(map, /胸徑（市政署）/);
+  assert.match(map, /胸圍（市政署）/);
+});
+
+test('routeProblem 實際行為：空路綫給可讀訊息，正常路綫回 null', async () => {
+  const { routeProblem } = await import('../public/js/routes.js');
+  // 後端在沒有候選古樹時回這個形狀
+  assert.equal(routeProblem({ route: null, stops: [], message: '沒有符合條件的古樹，請調整篩選條件。' }),
+    '沒有符合條件的古樹，請調整篩選條件。');
+  assert.equal(routeProblem(null), '路綫資料讀取失敗，請稍後再試。');
+  assert.equal(routeProblem({ route: { name: '路綫五' }, stops: [], message: '' }),
+    '這條路綫沒有產生任何停靠站，請調整停靠站數或篩選條件。');
+  assert.equal(routeProblem({ route: { name: '路綫五' }, stops: [{ lat: 22.2, lon: 113.5 }] }), null);
+});
+
+test('路綫推薦：後端回傳空路綫時前端必須顯示訊息，而不是拋錯', () => {
+  // 回歸：後端可能回 {route: null, stops: [], message}，前端讀 r.route.name 會出現
+  // 「Cannot read properties of null (reading 'name')」，使用者只看到一句看不懂的英文。
+  const routes = readFileSync(`${ROOT}public/js/routes.js`, 'utf8');
+  assert.match(routes, /export function routeProblem/, 'routes.js 缺少 routeProblem 守門函式');
+  assert.match(routes, /if \(!data\.route\)/, 'routeProblem 沒有處理 route 為 null 的情況');
+  assert.match(routes, /return data\.message \|\|/, 'routeProblem 沒有帶出後端訊息');
+  const detail = routes.slice(routes.indexOf('function renderDetail(r)'));
+  assert.ok(/routeProblem\(r\)/.test(detail.slice(0, 400)), 'renderDetail 沒有先檢查路綫資料');
+  // 不得再有無保護的 r.route.name
+  assert.ok(!/const\s+g\s*=\s*r\.route\.name/.test(routes), '仍有未受保護的 r.route.name');
+});
+
 test('模態框必須高於 Leaflet 控制項（縮放鈕不得蓋住彈窗）', () => {
   const modalZ = /\.modal \{ position: fixed; inset: 0; z-index: (\d+);/.exec(css);
   assert.ok(modalZ, '找不到 .modal 的 z-index');

@@ -75,6 +75,9 @@ alter table if exists public.trees                add column if not exists iam_t
 alter table if exists public.trees                add column if not exists ref_id               uuid;
 alter table if exists public.trees                add column if not exists crown_m              numeric(6,2);
 alter table if exists public.trees                add column if not exists diameter_cm          numeric(7,2);
+alter table if exists public.trees                add column if not exists girth_cm             numeric(7,2);
+alter table if exists public.trees                add column if not exists stem_count           smallint;
+alter table if exists public.trees                add column if not exists stem_measures        text;
 alter table if exists public.trees                add column if not exists surround_m           numeric(8,2);
 alter table if exists public.trees                add column if not exists official_description text;
 alter table if exists public.trees                add column if not exists official_loc         text;
@@ -232,7 +235,10 @@ create table if not exists public.trees (
     iam_tree_no        text,                       -- 市政署系統樹木編號（如 T0000471）
     ref_id             uuid,                       -- 市政署系統唯一識別碼
     crown_m            numeric(6,2),               -- 冠幅（公尺）
-    diameter_cm        numeric(7,2),               -- 胸徑（公分）
+    diameter_cm        numeric(7,2),               -- 胸徑（公分；市政署官方值，多主幹取最大胸徑那支）
+    girth_cm           numeric(7,2),               -- 胸圍（公分；市政署官方值，與 diameter_cm 同一支主幹）
+    stem_count         smallint,                   -- 官方量測的主幹數（1＝單一主幹）
+    stem_measures      text,                        -- 多主幹時的官方完整量測（胸徑／胸圍逐支列出）
     surround_m         numeric(8,2),               -- 樹木周邊範圍（公尺）
     official_description text,                     -- 官方形態描述
     official_loc       text,                       -- 官方地點描述
@@ -338,7 +344,8 @@ create or replace view public.v_trees as
 select t.id, t.tree_no, t.grade, t.age_years, t.height_m, t.health,
        t.lat, t.lon, t.in_namelist,
        t.geo_precision as tree_geo_precision,
-       t.official_no, t.iam_tree_no, t.ref_id, t.crown_m, t.diameter_cm, t.surround_m,
+       t.official_no, t.iam_tree_no, t.ref_id, t.crown_m, t.diameter_cm, t.girth_cm,
+       t.stem_count, t.stem_measures, t.surround_m,
        t.official_description, t.official_loc, t.photo_url as tree_photo,
        t.photo_source as tree_photo_source, t.photo_count,
        t.official_age_years, t.official_height_m, t.official_health, t.official_grade,

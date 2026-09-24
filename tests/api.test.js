@@ -237,6 +237,47 @@ test('未知的 API 路徑回傳 404 且為 JSON（不洩漏堆疊）', async ()
   assert.ok(!/at \w+ \(/.test(text), '回應不應包含堆疊追蹤');
 });
 
+test('GET /api/tree 回傳市政署官方胸徑與胸圍（不做換算）', async () => {
+  const { json } = await get(base, '/api/tree?no=491');
+  const t = json.tree;
+  assert.equal(Number(t.diameter_cm), 86);
+  assert.equal(Number(t.girth_cm), 270.2, '胸圍必須是官方值 270.2（不是 86×π 的概略值）');
+  assert.equal(Number(t.stem_count), 1);
+  const multi = (await get(base, '/api/tree?no=86')).json.tree;
+  assert.equal(Number(multi.stem_count), 3);
+  assert.equal(Number(multi.diameter_cm), 282);
+  assert.equal(Number(multi.girth_cm), 885.9);
+  assert.match(multi.stem_measures, /279\.00／260\.00／282\.00/);
+});
+
+test('路綫推薦：主題路綫（oldest-trees）在正式資料庫下也要產生停靠站', async () => {
+  // 回歸：後端曾經用 rpc_scatter（沒有座標）當候選來源，
+  // 座標全被濾掉 → 回 {route: null, stops: []}，前端再讀 route.name 就崩潰。
+  for (const code of ['oldest-trees', 'macau-heritage-core']) {
+    const { status, json } = await get(base, `/api/route?code=${code}`);
+    assert.equal(status, 200, `${code} 回應 ${status}`);
+    assert.ok(json.route, `${code} 沒有回傳路綫資料（route 為 ${JSON.stringify(json.route)}）`);
+    assert.ok(json.route.name, `${code} 路綫沒有名稱`);
+    assert.ok(Array.isArray(json.stops) && json.stops.length > 0, `${code} 沒有任何停靠站`);
+    for (const s of json.stops) {
+      assert.ok(Number.isFinite(Number(s.lat)) && Number.isFinite(Number(s.lon)),
+        `${code} 的停靠站 ${s.name || s.seq} 缺座標`);
+    }
+  }
+});
+
+test('路綫候選來源必須含座標（不得退回 rpc_scatter）', async () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'repo.js'), 'utf8');
+  const fn = src.slice(src.indexOf('export async function allTrees'));
+  const body = fn.slice(0, fn.indexOf('export async function', 10));
+  assert.ok(body.includes("from('v_trees')"), 'allTrees 應從 v_trees 取資料');
+  for (const col of ['lat', 'lon']) {
+    assert.ok(body.includes(col), `allTrees 的查詢沒有帶 ${col}`);
+  }
+  assert.ok(!/rpc\(\s*['"]rpc_scatter['"]\s*\)\s*;/.test(fn.split('export async function')[1].split('export async function')[0]),
+    'allTrees 不得再用 rpc_scatter（它沒有回傳座標）');
+});
+
 test('API 回應具備快取標頭，且不包含任何環境變數或金鑰', async () => {
   const { headers, text } = await get(base, '/api/health');
   assert.ok(headers.get('cache-control').includes('no-store'));

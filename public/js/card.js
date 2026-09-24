@@ -20,6 +20,15 @@ export const A4 = { width_mm: 210, height_mm: 297, margin_mm: 12 };
 const dash = (v) => (v === null || v === undefined || v === '' ? '官方未提供' : v);
 
 /** 依官方逐株資料產生「現場查核清單」；每一項都說明為什麼要查。 */
+/**
+ * 座標精度代碼 → 中文說法。資料庫存的是英文代碼（official／exact／approx／parish），
+ * 直接印在紙上會出現「（official）」這種外人看不懂的字，因此統一轉中文。
+ */
+export function geoLabel(code) {
+  return { official: '市政署逐株實測座標', exact: '精確匹配', approx: '近似值', parish: '堂區中心' }[code]
+    || (code ? String(code) : '未標示');
+}
+
 export function checkItems(tree = {}) {
   const items = [];
   const health = tree.health;
@@ -39,7 +48,7 @@ export function checkItems(tree = {}) {
     items.push({ label: '檢查樹穴土壤壓實與排水、根系裸露情形', why: `樹齡 ${tree.age_years} 年` });
   }
   if (tree.geo_precision && tree.geo_precision !== 'official') {
-    items.push({ label: '以手機 GPS 校正座標', why: `目前座標為${tree.geo_precision}` });
+    items.push({ label: '以手機 GPS 校正座標', why: `目前座標為${geoLabel(tree.geo_precision)}` });
   }
   if (!tree.photo_count) {
     items.push({ label: '補拍全景與樹幹特寫', why: '官方未提供照片' });
@@ -60,11 +69,14 @@ export function cardModel(tree = {}, opts = {}) {
     ['堂區', dash(tree.parish)],
     ['地點', dash(tree.site)],
     ['座標', tree.lat != null && tree.lon != null
-      ? `${Number(tree.lat).toFixed(6)}, ${Number(tree.lon).toFixed(6)}（${tree.geo_precision || '未標示'}）`
+      ? `${Number(tree.lat).toFixed(6)}, ${Number(tree.lon).toFixed(6)}（${geoLabel(tree.geo_precision)}）`
       : '官方未提供'],
     ['樹齡', tree.age_years != null ? `${num(tree.age_years)} 年` : '官方未提供'],
     ['樹高', tree.height_m != null ? `${num(tree.height_m, 2)} m` : '官方未提供'],
-    ['胸徑', tree.diameter_cm != null ? `${num(tree.diameter_cm, 1)} cm` : '官方未提供'],
+    ['胸徑（市政署）', tree.diameter_cm != null
+      ? `${num(tree.diameter_cm, 2)} cm${(tree.stem_count || 1) > 1 ? `（${tree.stem_count} 支主幹，取最大胸徑那支）` : ''}`
+      : '官方未提供'],
+    ['胸圍（市政署）', tree.girth_cm != null ? `${num(tree.girth_cm, 1)} cm` : '官方未提供'],
     ['冠幅', tree.crown_m != null ? `${num(tree.crown_m, 2)} m` : '官方未提供'],
     ['健康狀況', dash(tree.health)],
     ['樹齡分級', dash(tree.grade)],
@@ -82,6 +94,7 @@ export function cardModel(tree = {}, opts = {}) {
       ? `照片來源：市政署澳門自然網（${tree.tree_photo_source || '官方逐株照片'}）`
       : (tree.species_photo ? `官方逐株照片已下架，改用樹種相片（${tree.species_photo_credit || 'Wikimedia Commons'}）` : '官方未提供照片'),
     description: String(tree.official_description || '').trim(),
+    stemMeasures: String(tree.stem_measures || '').trim(),
     checks: checkItems(tree),
     qrUrl: treeUrl(tree.tree_no, { base, mode: 'map' }),
     fieldUrl: treeUrl(tree.tree_no, { base, mode: 'field' }),
@@ -132,6 +145,7 @@ export function cardHtml(model, opts = {}) {
       </div>
       <div class="card-col-right">
         <table class="card-table">${metrics}</table>
+        ${model.stemMeasures ? `<h3>各主幹量測（官方）</h3><p class="card-desc">${esc(model.stemMeasures)}</p>` : ''}
         <h3>形態描述（官方）</h3>
         ${desc}
         <h3>現場查核清單</h3>

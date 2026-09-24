@@ -39,6 +39,31 @@ function parseCsv() {
 const csv = parseCsv();
 const csvCount = (fn) => csv.filter(fn).length;
 
+test('官方胸徑／胸圍入庫：658 株皆有值，且 v_trees 帶得出來', async () => {
+  const t = await one(`select count(*)::int as n,
+                              count(diameter_cm)::int as d,
+                              count(girth_cm)::int as g,
+                              count(*) filter (where stem_count > 1)::int as multi
+                       from public.trees`);
+  assert.equal(t.n, 658);
+  assert.equal(t.d, 658, `trees.diameter_cm 只有 ${t.d}/658 筆有值`);
+  assert.equal(t.g, 658, `trees.girth_cm 只有 ${t.g}/658 筆有值`);
+  assert.equal(t.multi, 290, '多主幹株數應為 290');
+  // 官方值抽查（古樹編號 491、86）
+  const a = await one(`select diameter_cm::float8 as d, girth_cm::float8 as g, stem_count,
+                              stem_measures from public.v_trees where official_no = '491'`);
+  assert.equal(a.d, 86); assert.equal(a.g, 270.2); assert.equal(a.stem_count, 1);
+  const b = await one(`select diameter_cm::float8 as d, girth_cm::float8 as g, stem_count,
+                              stem_measures from public.v_trees where official_no = '86'`);
+  assert.equal(b.d, 282); assert.equal(b.g, 885.9); assert.equal(b.stem_count, 3);
+  assert.match(b.stem_measures, /三個|3 支主幹|共 3/);
+  // 不得出現「由胸徑換算」的推算值：胸圍必須等於官方欄位，而非我們算出來的
+  const mismatch = await all(`select t.tree_no from public.trees t
+                              where t.girth_cm is not null and t.diameter_cm is not null
+                                and abs(t.girth_cm - (t.diameter_cm * pi())) > greatest(1.0, t.diameter_cm * 0.05)`);
+  assert.equal(mismatch.length, 0, `${mismatch.length} 株胸圍與官方胸徑不一致`);
+});
+
 test('綱要與種子資料可完整執行，且重複執行不會出錯（idempotent）', async () => {
   await db.exec(SCHEMA);   // 第二次執行 create if not exists / or replace
   await db.exec(SEED);     // 第二次執行 truncate + insert
