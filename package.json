@@ -16,6 +16,7 @@
     "test:sql": "node --test tests/sql.test.js",
     "test:api": "node --test tests/api.test.js",
     "test:security": "node --test tests/api-security.test.js",
+    "test:secrets": "node --test tests/secrets.test.js",
     "verify": "npm run check && npm test",
     "vendor": "node scripts/vendor.mjs",
     "build:data": "python3 scripts/content.py && python3 scripts/build_seed.py"

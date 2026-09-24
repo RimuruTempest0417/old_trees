@@ -44,20 +44,20 @@ export async function render(section, params) {
   const data = await cached('overview', () => api.overview());
   const body = section.querySelector('#ov-body');
   const o = data.overview;
-  const site = data.site;
+  const site = data.site || {};
+  const counts = site.counts || {};
 
   const oldest = data.oldest[0] || {};
+  const topParish = data.parishes[0] || {};
 
   body.innerHTML = `
     <div class="grid grid-4">
-      ${kpi(num(o.tree_count), '古樹總株數', `遍布 ${o.site_count} 個地點、${o.parish_count} 個堂區`)}
+      ${kpi(num(o.tree_count), '古樹總株數', `遍布 ${num(o.site_count)} 個地點、${num(o.parish_count)} 個堂區；最多為 ${topParish.parish || '—'} ${num(topParish.tree_count)} 株`)}
       ${kpi(num(o.species_count), '樹種數', '含榕屬、樟科、桃金孃科等')}
       ${kpi(num(o.max_age), '最老樹齡（年）', `${oldest.species || ''}｜${oldest.site || ''}`)}
       ${kpi(num(o.avg_age, 1), '平均樹齡（年）', `平均樹高 ${num(o.avg_height, 2)} 公尺`)}
       ${kpi(num(o.attention_pct, 1) + '%', '需關注比例', `健康狀況非「健康」者 ${num(o.good === o.tree_count ? 0 : o.tree_count - o.good)} 株`)}
       ${kpi(num(o.endangered), '瀕危古樹', '需優先巡查與風險評估')}
-      ${kpi(num(data.parishes[0] ? data.parishes[0].tree_count : 0), `最多古樹堂區`, data.parishes[0] ? data.parishes[0].parish : '')}
-      ${kpi(site.data_source === 'supabase' ? 'Supabase' : '示範模式', '資料來源', site.data_source === 'supabase' ? 'PostgreSQL 即時查詢' : '內建資料快照')}
     </div>
 
     <div class="grid grid-2" style="margin-top:1rem">
@@ -142,10 +142,10 @@ export async function render(section, params) {
     <div class="card" style="margin-top:1rem">
       <h2>資料方法說明</h2>
       <ul class="small">
-        <li><strong>資料筆數</strong>：${num(site.counts.trees)} 筆古樹紀錄、${num(site.counts.sites)} 個地點、${num(site.counts.species)} 個樹種、${num(site.counts.parishes)} 個堂區。</li>
-        <li><strong>資料來源</strong>：${esc(site.dataset)}。</li>
+        <li><strong>資料筆數</strong>：${num(counts.trees)} 筆古樹紀錄、${num(counts.sites)} 個地點、${num(counts.species)} 個樹種、${num(counts.parishes)} 個堂區。</li>
+        <li><strong>資料來源</strong>：${esc(site.dataset || '市政署《古樹名木保護名錄》')}。</li>
         <li><strong>座標</strong>：以 OpenStreetMap Nominatim 就每個「地點」文字做地理編碼，再以人工校核補齊無匹配者；同一地點的多株古樹以確定性的小半徑（15–95 公尺）展開，避免地圖上完全重疊。座標為**研究用近似值**，非官方測量成果。</li>
-        <li><strong>與官方數字的差異</strong>：市政署 2025 年公布為 654 棵古樹名木；本資料集為 ${num(site.counts.trees)} 筆，差異來自名錄版本與統計時點不同，屬正常現象。</li>
+        <li><strong>與官方數字的差異</strong>：市政署 2025 年公布為 654 棵古樹名木；本資料集為 ${num(counts.trees)} 筆，差異來自名錄版本與統計時點不同，屬正常現象。</li>
       </ul>
     </div>`;
 

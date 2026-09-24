@@ -259,6 +259,8 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 設定後 `/api/health` 的 `data_source` 會變成 `supabase`，網站上的「示範模式」提示會消失。
 
 > **金鑰安全**：`.env`、`.env.local` 已列入 `.gitignore`；前端程式碼不含任何 Supabase 端點或金鑰（由 `tests/api-security.test.js` 自動驗證）。
+>
+> **若金鑰曾出現在版本庫**：`.env.example` 只放佔位符，切勿填入真實值——這個檔案會提交到 GitHub，一旦推送就收不回來（歷史紀錄仍留有該 blob）。處理順序：(1) 把檔案改回佔位符並推送；(2) 立刻到 Supabase Dashboard → Project Settings → API 輪換 `anon` 與 `service_role` 金鑰；(3) 更新 Vercel 環境變數並重新部署。**輪換才是真正的補救，改檔案只是止血。** `tests/secrets.test.js` 會在下次不小心再犯時擋下來。
 
 ---
 
@@ -294,7 +296,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 4 組測試，共 64 項
+npm test               # 5 組測試，共 67 項
 npm run verify         # check ＋ test
 ```
 
@@ -304,6 +306,7 @@ npm run verify         # check ＋ test
 | `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策與一鍵初始化檔 | 22 |
 | `tests/api.test.js` | 啟動真實伺服器打 12 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
+| `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 
 ### API 安全測試涵蓋範圍
 
