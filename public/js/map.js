@@ -19,7 +19,7 @@ function markerIcon(tree) {
 }
 
 function popupHtml(t) {
-  const photo = safeUrl(t.species_photo);
+  const photo = safeUrl(t.tree_photo) || safeUrl(t.species_photo);
   return `
     <div style="min-width:210px">
       ${photo ? `<img class="popup-photo" src="${esc(photo)}" alt="${esc(t.species)}">` : ''}
@@ -27,7 +27,7 @@ function popupHtml(t) {
       <div class="tiny muted" style="margin-bottom:.3rem">${esc(t.name_sci || '')}</div>
       <div class="tiny"><strong>${num(t.age_years)}</strong> 年 ・ <strong>${num(t.height_m, t.height_m % 1 ? 2 : 0)}</strong> 公尺</div>
       <div class="tiny">${gradeBadge(t.grade)} ${healthBadge(t.health)}</div>
-      <div class="tiny" style="margin-top:.35rem">${esc(t.site || '')}<br>${esc(t.parish || '')}</div>
+      <div class="tiny" style="margin-top:.35rem">${esc(t.official_loc || t.site || '')}<br>${esc(t.parish || '')}</div>
       <button class="btn btn-sm btn-primary" style="margin-top:.5rem" data-detail="${esc(t.tree_no)}">查看詳情</button>
     </div>`;
 }
@@ -53,7 +53,7 @@ export async function render(section, params) {
       <div>
         <div id="map"></div>
         <div class="row" style="margin-top:.5rem">
-          <span class="tiny muted">底圖 © OpenStreetMap 貢獻者。座標為地理編碼近似值，實地請以現場標牌為準。</span>
+          <span class="tiny muted">底圖 © OpenStreetMap 貢獻者。古樹座標、冠幅、胸徑、描述與照片為市政署「澳門自然網」公開資料；實地請以現場標牌為準。</span>
           <span class="spacer"></span>
           <button class="btn btn-sm" id="btn-csv">匯出目前結果 CSV</button>
         </div>
@@ -185,8 +185,8 @@ export async function render(section, params) {
 
     list.innerHTML = data.trees.length ? data.trees.map((t) => `
       <div class="tree-item" data-tree="${esc(t.tree_no)}" data-lat="${t.lat}" data-lon="${t.lon}">
-        ${safeUrl(t.species_photo)
-    ? `<img src="${esc(safeUrl(t.species_photo))}" alt="${esc(t.species)}" loading="lazy">`
+        ${safeUrl(t.tree_photo) || safeUrl(t.species_photo)
+    ? `<img src="${esc(safeUrl(t.tree_photo) || safeUrl(t.species_photo))}" alt="${esc(t.species)}" loading="lazy">`
     : '<div class="tree-thumb"></div>'}
         <div class="tree-meta">
           <div class="tree-name">${esc(t.species)} <span class="tiny muted">#${esc(t.tree_no)}</span></div>
@@ -221,9 +221,28 @@ export async function render(section, params) {
       const t = data.tree;
       const sp = t.species_photo;
       const sitePhoto = t.site_photo;
+      const official = t.tree_photo;
+      // 與市政署現行值的出入：兩份官方資料更新時間不同，並列以示負責
+      const differs = (mine, theirs) => {
+        if (theirs == null || mine == null) return false;
+        const x = Number(mine), y = Number(theirs);
+        if (!Number.isNaN(x) && !Number.isNaN(y)) return Math.abs(x - y) >= 0.05;
+        return String(mine) !== String(theirs);
+      };
+      const diffNotes = [];
+      if (differs(t.age_years, t.official_age_years)) diffNotes.push(`樹齡：市政署現行 ${num(t.official_age_years)} 年（本站《名錄》值 ${num(t.age_years)} 年）`);
+      if (differs(t.height_m, t.official_height_m)) diffNotes.push(`樹高：市政署現行 ${num(t.official_height_m, 2)} 公尺（本站《名錄》值 ${num(t.height_m, 2)} 公尺）`);
+      if (differs(t.health, t.official_health)) diffNotes.push(`健康狀況：市政署現行「${t.official_health}」（本站《名錄》值「${t.health}」）`);
+      if (differs(t.grade, t.official_grade)) diffNotes.push(`分級：市政署現行「${t.official_grade}」（本站《名錄》值「${t.grade}」）`);
       openModal(`
         <h2>${esc(t.species)} <span class="muted small">古樹編號 ${esc(t.tree_no)}</span></h2>
-        <p class="small muted" style="margin-top:-.4rem">${esc(t.name_sci || '')}${t.geo_precision ? `・座標精度：${esc({ exact: '精確匹配', approx: '近似', parish: '堂區中心' }[t.geo_precision] || t.geo_precision)}` : ''}</p>
+        <p class="small muted" style="margin-top:-.4rem">${esc(t.name_sci || '')}${t.geo_precision ? `・座標精度：${esc({ official: '市政署實測座標', exact: '精確匹配', approx: '近似', parish: '堂區中心' }[t.geo_precision] || t.geo_precision)}` : ''}</p>
+        ${official ? `<figure style="margin:.5rem 0 .8rem">
+          <img src="${esc(safeUrl(official))}" alt="${esc(t.species)}（古樹編號 ${esc(t.tree_no)}）"
+               style="width:100%;max-height:300px;object-fit:cover;border-radius:10px">
+          <figcaption class="tiny muted">市政署古樹名木官方照片${t.iam_tree_no ? `・樹木編號 ${esc(t.iam_tree_no)}` : ''}
+            ${t.tree_photo_source ? `・<a href="${esc(safeUrl(t.tree_photo_source))}" target="_blank" rel="noopener">原始出處</a>` : ''}</figcaption>
+        </figure>` : ''}
         <div class="grid grid-4" style="margin:.6rem 0">
           <div><div class="kpi-label">樹齡</div><div class="kpi-value">${num(t.age_years)}<span class="small"> 年</span></div></div>
           <div><div class="kpi-label">樹高</div><div class="kpi-value">${num(t.height_m, t.height_m % 1 ? 2 : 0)}<span class="small"> m</span></div></div>
@@ -232,14 +251,26 @@ export async function render(section, params) {
         </div>
         <table class="data">
           <tbody>
-            <tr><th style="width:6.5rem">地點</th><td>${esc(t.site || '')}</td></tr>
+            <tr><th style="width:6.5rem">地點</th><td>${esc(t.official_loc || t.site || '')}</td></tr>
             <tr><th>堂區</th><td>${esc(t.parish || '')}</td></tr>
             <tr><th>座標</th><td class="mono tiny">${num(t.lat, 5)}, ${num(t.lon, 5)}
               <a class="btn btn-sm" style="margin-left:.4rem" target="_blank" rel="noopener"
                  href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(t.lat)}&mlon=${encodeURIComponent(t.lon)}#map=19/${encodeURIComponent(t.lat)}/${encodeURIComponent(t.lon)}">在 OSM 開啟</a></td></tr>
             <tr><th>樹種學名</th><td>${esc(t.name_sci || '—')}</td></tr>
+            ${t.crown_m != null ? `<tr><th>冠幅</th><td>${num(t.crown_m, 1)} 公尺</td></tr>` : ''}
+            ${t.diameter_cm != null ? `<tr><th>胸徑</th><td>${num(t.diameter_cm, 1)} 公分</td></tr>` : ''}
+            ${t.surround_m != null ? `<tr><th>周邊範圍</th><td>${num(t.surround_m, 1)} 公尺</td></tr>` : ''}
+            ${t.iam_tree_no ? `<tr><th>市政署編號</th><td class="mono tiny">${esc(t.iam_tree_no)}</td></tr>` : ''}
           </tbody>
         </table>
+        ${t.official_description ? `<h3 style="margin-top:1rem">形態描述</h3>
+          <p class="small">${esc(t.official_description)}</p>
+          <p class="tiny muted">資料來源：澳門市政署「澳門自然網」古樹名木專頁</p>` : ''}
+        ${diffNotes.length ? `<div class="card" style="margin-top:.8rem;padding:.6rem .8rem">
+          <strong class="small">資料核對</strong>
+          <ul class="small" style="margin:.3rem 0 0 1.1rem">${diffNotes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+          <p class="tiny muted" style="margin:.4rem 0 0">本站統計以《古樹名木保護名錄》整理之古樹.csv 為準，市政署網站為現行公布值，兩者更新時間不同。</p>
+        </div>` : ''}
         <div class="grid grid-2" style="margin-top:.8rem">
           ${sp ? `<figure style="margin:0"><img src="${esc(safeUrl(sp))}" alt="${esc(t.species)}" style="width:100%;border-radius:8px;height:170px;object-fit:cover">
             <figcaption class="tiny muted">樹種相片 © ${esc(t.species_photo_credit || 'Wikimedia Commons')}</figcaption></figure>` : ''}

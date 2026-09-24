@@ -50,7 +50,7 @@ create table if not exists public.sites (
     parish_code    text references public.parishes(code),
     lat            numeric(9,6),
     lon            numeric(9,6),
-    geo_precision  text check (geo_precision in ('exact','approx','parish')),
+    geo_precision  text check (geo_precision in ('official','exact','approx','parish')),
     geo_source     text,
     photo_url      text,
     photo_credit   text,
@@ -58,8 +58,8 @@ create table if not exists public.sites (
     photo_page     text
 );
 
-comment on table public.sites is '古樹所在地點；座標由 OSM Nominatim 地理編碼＋人工校核補齊';
-comment on column public.sites.geo_precision is '座標精度：exact 精確匹配／approx 上級地物近似／parish 堂區中心回退';
+comment on table public.sites is '古樹所在地點；座標優先採市政署逐株座標，其餘以 OSM Nominatim 地理編碼＋人工校核補齊';
+comment on column public.sites.geo_precision is '座標精度：official 市政署逐株座標（取該地點任一株官方座標）／exact 精確匹配／approx 上級地物近似／parish 堂區中心回退';
 
 -- ---------------------------------------------------------------------------
 -- 4. 古樹 trees
@@ -76,12 +76,31 @@ create table if not exists public.trees (
     health       text not null check (health in ('健康','一般','瀕危')),
     lat          numeric(9,6),                     -- 冗餘自 sites，方便地圖查詢
     lon          numeric(9,6),
+    geo_precision text,                            -- 座標來源精度：official／exact／approx／parish
+    -- ── 市政署澳門自然網公開資料（逐株）─────────────────────────
+    official_no        text,                       -- 官方古樹編號（與 tree_no 相同，保留以便對照）
+    iam_tree_no        text,                       -- 市政署系統樹木編號（如 T0000471）
+    ref_id             uuid,                       -- 市政署系統唯一識別碼
+    crown_m            numeric(6,2),               -- 冠幅（公尺）
+    diameter_cm        numeric(7,2),               -- 胸徑（公分）
+    surround_m         numeric(8,2),               -- 樹木周邊範圍（公尺）
+    official_description text,                     -- 官方形態描述
+    official_loc       text,                       -- 官方地點描述
+    photo_url          text,                       -- 官方照片（本地路徑）
+    photo_source       text,                       -- 官方照片原始網址
+    photo_count        integer,                    -- 官方照片張數
+    official_age_years integer,                    -- 市政署現行樹齡（與《名錄》不一致時並列說明）
+    official_height_m  numeric(5,2),               -- 市政署現行樹高
+    official_health    text,                       -- 市政署現行健康狀況
+    official_grade     text,                       -- 市政署現行分級
     in_namelist  boolean not null default true,    -- 是否載於《古樹名木保護名錄》
     updated_at   timestamptz not null default now()
 );
 
-comment on table public.trees is '古樹名木個體清單（資料來源：澳門市政署《古樹名木保護名錄》整理之古樹.csv）';
+comment on table public.trees is '古樹名木個體清單（名稱、分級、樹齡、樹高、健康：澳門市政署《古樹名木保護名錄》整理之古樹.csv；座標、冠幅、胸徑、描述、照片：市政署澳門自然網古樹名木公開資料 https://www.iam.gov.mo/nature/c/tree）';
 comment on column public.trees.grade is '古樹分級：一級 ≥500 年／二級 300–499 年／三級 100–299 年／不分級（名木）';
+comment on column public.trees.geo_precision is '座標精度：official＝市政署逐株座標；exact／approx＝Nominatim 地理編碼；parish＝回退堂區中心';
+comment on column public.trees.photo_url is '官方照片本地路徑；原始檔位於市政署網站（見 photo_source），非商業教學用途並標示出處';
 
 create index if not exists idx_trees_parish  on public.trees (parish_code);
 create index if not exists idx_trees_species on public.trees (species_id);
@@ -141,6 +160,11 @@ comment on table public.timeline_events is '澳門古樹保護立法與名錄時
 create or replace view public.v_trees as
 select t.id, t.tree_no, t.grade, t.age_years, t.height_m, t.health,
        t.lat, t.lon, t.in_namelist,
+       t.geo_precision as tree_geo_precision,
+       t.official_no, t.iam_tree_no, t.ref_id, t.crown_m, t.diameter_cm, t.surround_m,
+       t.official_description, t.official_loc, t.photo_url as tree_photo,
+       t.photo_source as tree_photo_source, t.photo_count,
+       t.official_age_years, t.official_height_m, t.official_health, t.official_grade,
        s.name_zh as species, s.name_sci, s.photo_url as species_photo,
        s.photo_credit as species_photo_credit,
        st.name_zh as site, st.short_name as site_short, st.geo_precision,
@@ -272,11 +296,17 @@ create or replace function public.rpc_find_trees(
 returns table (
     id int, tree_no text, grade text, age_years int, height_m numeric, health text,
     lat numeric, lon numeric, species text, name_sci text, species_photo text,
-    species_photo_credit text, site text, site_short text, parish text, geo_precision text
+    species_photo_credit text, site text, site_short text, parish text, geo_precision text,
+    crown_m numeric, diameter_cm numeric, surround_m numeric, official_description text,
+    official_loc text, tree_photo text, tree_photo_source text, iam_tree_no text,
+    official_age_years int, official_height_m numeric, official_health text, official_grade text
 ) language sql stable as $$
     select t.id, t.tree_no, t.grade, t.age_years, t.height_m, t.health,
            t.lat, t.lon, s.name_zh, s.name_sci, s.photo_url, s.photo_credit,
-           st.name_zh, st.short_name, p.code, st.geo_precision
+           st.name_zh, st.short_name, p.code, t.geo_precision,
+           t.crown_m, t.diameter_cm, t.surround_m, t.official_description,
+           t.official_loc, t.photo_url, t.photo_source, t.iam_tree_no,
+           t.official_age_years, t.official_height_m, t.official_health, t.official_grade
     from public.trees t
              left join public.species s on s.id = t.species_id
              left join public.sites   st on st.id = t.site_id

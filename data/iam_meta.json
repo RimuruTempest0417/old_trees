@@ -1,0 +1,12 @@
+{
+ "source_name": "澳門特別行政區政府市政署 澳門自然網 — 古樹名木",
+ "source_page": "https://www.iam.gov.mo/nature/c/tree",
+ "list_endpoint": "https://www.iam.gov.mo/nature/BigJson/oldtrees_c.json",
+ "photo_base": "https://www.iam.gov.mo/nature/Content",
+ "fetched_at": "2026-09-24T18:35:16+0800",
+ "record_count": 658,
+ "photo_count": 658,
+ "photo_bytes": 20222986,
+ "photo_max_px": 320,
+ "license_note": "資料與照片著作權屬澳門市政署；本平台為非商業教學研究用途並標示出處。"
+}

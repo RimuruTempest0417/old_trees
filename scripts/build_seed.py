@@ -4,7 +4,7 @@
   * data/snapshot.json  —— 扁平化資料快照（本地示範模式與測試使用）
 並印出資料品質檢查報告。
 """
-import csv, json, os, re, statistics
+import csv, json, math, os, re, statistics
 from collections import Counter, defaultdict
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,6 +58,8 @@ def main():
     routes = load("routes.json")
     topics = load("conservation.json")
     timeline = load("timeline.json")
+    iam = load("iam_trees.json", {}) or {}
+    iam_meta = load("iam_meta.json", {}) or {}
 
     rows = list(csv.reader(open(SRC, encoding="utf-8-sig")))
     raw = [r for r in rows[2:] if len(r) >= 8]
@@ -65,6 +67,8 @@ def main():
     # ---- 正規化 -------------------------------------------------------------
     sites, species, trees = {}, {}, []
     warnings = []
+    value_diffs = defaultdict(list)   # 《名錄》值 vs 市政署官方值 的差異（資料品質報告用）
+    sci_versions = {}                 # 學名版本差異：現行接受名 vs 市政署名（舊組合／亞種）
 
     for i, r in enumerate(raw):
         grade, age, no, sp, height, health, place, parish = (x.strip() for x in r[:8])
@@ -72,6 +76,8 @@ def main():
         height = float(height)
         bare = re.sub(r"^(澳門|氹仔|路環|路氹填海)區", "", place).strip()
         bare = re.sub(r"[（(].*?[）)]", "", bare).strip()
+
+        official = iam.get(no) or {}
 
         geo = geocache.get(place) or {}
         manual = manual_coords.get(place) or {}
@@ -85,21 +91,74 @@ def main():
         elif manual.get("lat") is not None:
             lat, lon = manual["lat"], manual["lon"]
             prec, src = manual.get("geo_precision", "approx"), "manual-checked"
+
+        # 官方座標優先：市政署逐株座標屬實測成果，取代本研究的地理編碼近似值
+        if official.get("lat") and official.get("lon"):
+            lat, lon = official["lat"], official["lon"]
+            prec, src = "official", "iam"
+
         sites.setdefault(place, {
             "name_zh": place, "short_name": bare, "parish_code": parish,
             "lat": lat, "lon": lon, "geo_precision": prec, "geo_source": src,
         })
         s = sites[place]
-        if s["lat"] is None and lat is not None:
+        # 地點座標取第一株有座標者；官方座標一律優先覆蓋較粗略的來源
+        if lat is not None and (s["lat"] is None or (src == "iam" and s["geo_source"] != "iam")):
             s.update(lat=lat, lon=lon, geo_precision=prec, geo_source=src)
 
-        if sp not in species_meta or not species_meta[sp].get("scientific"):
+        # 學名：以本研究查證之現行接受名為主；市政署名若為舊組合／亞種，並列不覆蓋
+        meta = dict(species_meta.get(sp) or {"name": sp})
+        if official.get("species_sci"):
+            if not meta.get("scientific"):
+                meta["scientific"] = official["species_sci"]
+                meta["scientific_source"] = "iam"
+            elif meta["scientific"].lower() != official["species_sci"].lower():
+                meta["name_sci_official"] = official["species_sci"]
+                sci_versions.setdefault(sp, (meta["scientific"], official["species_sci"]))
+        if not meta.get("scientific"):
             warnings.append(f"物種未對應學名: {sp}")
-        species.setdefault(sp, species_meta.get(sp, {"name": sp}))
-        trees.append({"tree_no": no, "grade": grade, "age_years": age, "height_m": height,
-                      "health": health, "species": sp, "site": place, "parish": parish})
+        if official.get("description") and not meta.get("wikidata_desc"):
+            meta["wikidata_desc"] = official["description"]
+            meta["description_source"] = "iam"
+        species[sp] = meta
 
-    # 座位標記：同地點多株樹，座標加上確定性微小偏移，令地圖可辨識（避免完全重疊）
+        # CSV 與官方數值若不一致，記錄下來（仍以官方為主，CSV 為輔）
+        for field, label, mine in (("age_years", "樹齡", age), ("height_m", "樹高", height),
+                                   ("grade", "分級", grade), ("health", "健康", health)):
+            theirs = official.get(field)
+            if theirs is None:
+                continue
+            try:                      # 數值欄位以數值比較，避免 515 與 515.0 被當成不一致
+                same = abs(float(theirs) - float(mine)) < 0.05
+            except (TypeError, ValueError):
+                same = str(theirs) == str(mine)
+            if not same:
+                value_diffs[label].append((no, mine, theirs))
+
+        trees.append({
+            "tree_no": no, "grade": grade, "age_years": age, "height_m": height,
+            "health": health, "species": sp, "site": place, "parish": parish,
+            # ── 市政署官方欄位 ──
+            "official_no": official.get("official_no"),
+            "iam_tree_no": official.get("iam_tree_no"),
+            "ref_id": official.get("ref_id"),
+            "crown_m": official.get("crown_m"),
+            "diameter_cm": official.get("diameter_cm"),
+            "surround_m": official.get("surround_m"),
+            "official_description": official.get("description"),
+            "official_loc": official.get("loc"),
+            # 市政署現行值：與《名錄》不一致時，前端會並列說明
+            "official_age_years": official.get("age_years"),
+            "official_height_m": official.get("height_m"),
+            "official_health": official.get("health"),
+            "official_grade": official.get("grade"),
+            "photo_url": f"/photos/trees/{no}.jpg" if official.get("image_path") else None,
+            "photo_source": ("https://www.iam.gov.mo/nature/Content" + official["image_path"]
+                             if official.get("image_path") else None),
+            "photo_count": official.get("image_count"),
+        })
+
+    # 座標：以官方逐株座標為主，只把「落在同一點」的樹做確定性微小偏移，避免地圖標記完全重疊
     by_site = defaultdict(list)
     for t in trees:
         by_site[t["site"]].append(t)
@@ -113,23 +172,27 @@ def main():
                          geo_precision="parish", geo_source="parish-centroid")
                 warnings.append(f"地點無法定位，回退堂區中心: {site_name}")
         group.sort(key=lambda t: (-t["age_years"], t["tree_no"]))
-        n = len(group)
-        for j, t in enumerate(group):
-            if s["lat"] is None:
-                t["lat"] = t["lon"] = None
-                continue
-            if n == 1:
+        seen = {}
+        for t in group:
+            if t.get("lat") is None or t.get("lon") is None:
+                if s["lat"] is None:
+                    t["lat"] = t["lon"] = None
+                    t["geo_precision"] = None
+                    continue
                 t["lat"], t["lon"] = s["lat"], s["lon"]
-            else:
-                # 黃金角螺旋散佈，半徑 15–95 米
-                ang = j * 2.399963
-                rad = 15 + 80 * (j / max(n - 1, 1))
-                dlat = (rad * __import__("math").cos(ang)) / 111320
-                dlon = (rad * __import__("math").sin(ang)) / (111320 * __import__("math").cos(
-                    __import__("math").radians(s["lat"])))
-                t["lat"] = round(s["lat"] + dlat, 6)
-                t["lon"] = round(s["lon"] + dlon, 6)
-            t["geo_precision"] = s["geo_precision"]
+            if t.get("geo_precision") is None:
+                t["geo_precision"] = s["geo_precision"]
+            key = (round(t["lat"], 6), round(t["lon"], 6))
+            k = seen.get(key, 0)
+            seen[key] = k + 1
+            if k:
+                # 同一座標的第 2 株起，以黃金角小半徑散開（約 8–40 公尺）
+                ang = k * 2.399963
+                rad = 8 + 8 * k
+                dlat = (rad * math.cos(ang)) / 111320
+                dlon = (rad * math.sin(ang)) / (111320 * math.cos(math.radians(t["lat"])))
+                t["lat"] = round(t["lat"] + dlat, 6)
+                t["lon"] = round(t["lon"] + dlon, 6)
 
     # ---- 組 SQL ------------------------------------------------------------
     L = []
@@ -175,21 +238,38 @@ def main():
     L.append("")
 
     L.append("-- 古樹")
+    TREE_COLS = ("tree_no,species_id,site_id,parish_code,grade,age_years,height_m,health,lat,lon,"
+                 "geo_precision,official_no,iam_tree_no,ref_id,crown_m,diameter_cm,surround_m,"
+                 "official_description,official_loc,photo_url,photo_source,photo_count,"
+                 "official_age_years,official_height_m,official_health,official_grade")
     chunk = []
-    for t in trees:
-        chunk.append("(" + ",".join([
+
+    def tree_row(t):
+        return "(" + ",".join([
             q(t["tree_no"]), str(sp_ids[t["species"]]), str(site_ids[t["site"]]), q(t["parish"]),
             q(t["grade"]), str(t["age_years"]), str(t["height_m"]), q(t["health"]),
             str(t["lat"]) if t.get("lat") is not None else "NULL",
             str(t["lon"]) if t.get("lon") is not None else "NULL",
-        ]) + ")")
+            q(t.get("geo_precision")), q(t.get("official_no")), q(t.get("iam_tree_no")),
+            q(t.get("ref_id")),
+            str(t["crown_m"]) if t.get("crown_m") is not None else "NULL",
+            str(t["diameter_cm"]) if t.get("diameter_cm") is not None else "NULL",
+            str(t["surround_m"]) if t.get("surround_m") is not None else "NULL",
+            q(t.get("official_description")), q(t.get("official_loc")),
+            q(t.get("photo_url")), q(t.get("photo_source")),
+            str(t["photo_count"]) if t.get("photo_count") is not None else "NULL",
+            str(int(t["official_age_years"])) if t.get("official_age_years") is not None else "NULL",
+            str(t["official_height_m"]) if t.get("official_height_m") is not None else "NULL",
+            q(t.get("official_health")), q(t.get("official_grade")),
+        ]) + ")"
+
+    for t in trees:
+        chunk.append(tree_row(t))
         if len(chunk) == 100:
-            L.append("insert into public.trees (tree_no,species_id,site_id,parish_code,grade,age_years,"
-                     "height_m,health,lat,lon) values\n" + ",\n".join(chunk) + ";")
+            L.append(f"insert into public.trees ({TREE_COLS}) values\n" + ",\n".join(chunk) + ";")
             chunk = []
     if chunk:
-        L.append("insert into public.trees (tree_no,species_id,site_id,parish_code,grade,age_years,"
-                 "height_m,health,lat,lon) values\n" + ",\n".join(chunk) + ";")
+        L.append(f"insert into public.trees ({TREE_COLS}) values\n" + ",\n".join(chunk) + ";")
     L.append("")
 
     L.append("-- 路綫")
@@ -239,8 +319,10 @@ def main():
         snapshot_species.append({
             "name_zh": name,
             "name_sci": m.get("scientific"),
+            "name_sci_official": m.get("name_sci_official"),
             "wikidata_id": m.get("wikidata"),
             "description": m.get("wikidata_desc"),
+            "description_source": m.get("description_source"),
             **media(m),
         })
 
@@ -261,7 +343,16 @@ def main():
         "routes": routes,
         "conservation": topics,
         "timeline": timeline,
-        "generated_from": "古樹.csv（澳門市政署《古樹名木保護名錄》整理）",
+        "official": {
+            "source_name": iam_meta.get("source_name", "澳門市政署 澳門自然網"),
+            "source_page": iam_meta.get("source_page", "https://www.iam.gov.mo/nature/c/tree"),
+            "list_endpoint": iam_meta.get("list_endpoint"),
+            "fetched_at": iam_meta.get("fetched_at"),
+            "record_count": len(iam),
+            "photo_count": iam_meta.get("photo_count"),
+            "license_note": iam_meta.get("license_note"),
+        },
+        "generated_from": "古樹.csv（澳門市政署《古樹名木保護名錄》整理）＋ 市政署澳門自然網古樹名木公開資料",
     }
     with open(os.path.join(DATA, "snapshot.json"), "w", encoding="utf-8") as fh:
         json.dump(snapshot, fh, ensure_ascii=False)
@@ -284,10 +375,23 @@ def main():
     print(f"樹高  min/med/max : {min(heights)}/{statistics.median(heights)}/{max(heights)}")
     print(f"座標缺失      : {sum(1 for t in trees if t.get('lat') is None)}")
     print("精度分佈      :", dict(Counter(t.get("geo_precision") for t in trees)))
+    print(f"官方資料覆蓋  : 座標 {sum(1 for t in trees if t.get('official_no'))}/{len(trees)}、"
+          f"照片 {sum(1 for t in trees if t.get('photo_url'))}、"
+          f"描述 {sum(1 for t in trees if t.get('official_description'))}、"
+          f"冠幅 {sum(1 for t in trees if t.get('crown_m') is not None)}")
     print("品種 Top5     :", Counter(t["species"] for t in trees).most_common(5))
     print("堂區分佈      :", dict(Counter(t["parish"] for t in trees).most_common()))
     print("sql 位元組    :", os.path.getsize(os.path.join(ROOT, "supabase", "seed.sql")))
     print("snapshot 位元組:", os.path.getsize(os.path.join(DATA, "snapshot.json")))
+    if sci_versions:
+        print(f"學名版本差異  : {len(sci_versions)} 種（本研究採現行接受名，市政署用舊組合或亞種名）")
+        for sp, (mine, theirs) in list(sci_versions.items())[:5]:
+            print(f"  {sp}：{mine} ←→ 市政署 {theirs}")
+    if value_diffs:
+        print("名錄 vs 官方差異:", {k: len(v) for k, v in sorted(value_diffs.items())})
+        for label, rows_ in sorted(value_diffs.items()):
+            ex = "、".join(f"#{n} {a}→{b}" for n, a, b in rows_[:3])
+            print(f"  {label} 例：{ex}（共 {len(rows_)} 株）")
     if warnings:
         print(f"警告 {len(set(warnings))} 類：")
         for w in sorted(set(warnings))[:20]:

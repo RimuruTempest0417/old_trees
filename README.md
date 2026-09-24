@@ -5,7 +5,7 @@
 - **資料庫**：Supabase（PostgreSQL 15+）
 - **部署**：Vercel Serverless Functions（`/api/*`）＋ 靜態前端（`public/`）
 - **前端**：原生 ES Modules、Leaflet（地圖）、Chart.js（圖表）、KaTeX ＋ marked（科普文章）
-- **原始資料**：`source-data/古樹.csv`（658 筆）、《古樹保育研究(1).docx》（需求文件）
+- **原始資料**：`source-data/古樹.csv`（658 筆）、**澳門市政署「澳門自然網」古樹名木專頁（658 筆逐株資料與官方照片）**、《古樹保育研究(1).docx》（需求文件）
 
 ---
 
@@ -39,6 +39,9 @@
 
 ### 相片
 
+- **古樹官方照片 658 張**：每株古樹各一張，取自澳門市政署「澳門自然網」古樹名木專頁
+  （`https://www.iam.gov.mo/nature/Content/OldTreesOnline/<影像檔>`），下載後統一縮為長邊 320 px 存放於
+  `public/photos/trees/`，每株標示市政署樹木編號與原始出處連結。
 - **品種相片 56 張**：來自 Wikimedia Commons，附作者與授權標示（CC BY-SA / CC0 / 公有領域）。
 - **地點實景照 116 張**：以地點座標向 Wikimedia Commons 做半徑 400 公尺地理搜尋所得，附作者與授權。（已搜尋 119 個地點，其中 3 個半徑內沒有 Commons 授權照片——徐日昇寅公圓形地、聖公會聖馬可堂、聖地牙哥酒店；這 3 處的單株詳情只顯示樹種相片，不會出現破圖。）
 
@@ -108,13 +111,15 @@ macau-heritage-trees/
 │   └── tree/[tree_no].js   動態路由
 ├── lib/                    analysis.js｜geo.js｜repo.js｜http.js
 ├── public/                 前端（index.html、css/、js/、photos/、vendor/）
+│   └── photos/trees/       658 張古樹官方照片（市政署，縮圖）
 ├── supabase/
 │   ├── schema.sql          資料表、檢視表、RPC、RLS（可直接貼進 Supabase SQL Editor）
-│   └── seed.sql            658 筆古樹 ＋ 品種 ＋ 地點 ＋ 文章 ＋ 時間線
-├── data/                   建置產物（snapshot.json、conservation.json、species.json…）
-├── scripts/                資料處理（Python）＋ 開發伺服器＋驗證腳本（Node）
+│   ├── seed.sql            658 筆古樹（含官方座標／照片／描述）＋ 品種 ＋ 地點 ＋ 文章 ＋ 時間線
+│   └── init.sql            schema.sql ＋ seed.sql 合併檔（一鍵初始化）
+├── data/                   建置產物（snapshot.json、iam_trees.json、conservation.json、species.json…）
+├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed）＋ 開發伺服器＋驗證腳本（Node）
 ├── source-data/            原始 CSV 與 docx
-└── tests/                  4 組測試（統計／SQL／API／安全）
+└── tests/                  6 組測試（統計／SQL／API／安全／機密／官方資料）
 ```
 
 ---
@@ -233,18 +238,26 @@ npm run dev            # http://localhost:3311（模擬 Vercel：靜態檔案 �
 ### 重建資料（需要 Python 3）
 
 ```bash
-python3 scripts/geocode.py          # OSM Nominatim 地理編碼（含快取）
+python3 scripts/fetch_iam.py        # 抓市政署官方古樹資料（658 筆）與官方照片到 data/、public/photos/trees/
+python3 scripts/geocode.py          # OSM Nominatim 地理編碼（含快取；官方座標已覆蓋大部分）
 python3 scripts/content.py          # 產生科普文章與時間線
 python3 scripts/build_seed.py       # 產生 supabase/seed.sql 與 data/snapshot.json
 node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/vendor/
 ```
+
+`scripts/fetch_iam.py` 具續傳能力（已下載的照片會跳過），常用參數：
+
+| 參數 | 作用 |
+| --- | --- |
+| `--no-images` | 只更新資料，不下載照片 |
+| `--recompress` | 依目前設定重新壓縮既有照片（換縮圖尺寸時用） |
 
 ---
 
 ## 八、連接 Supabase
 
 1. 在 [Supabase](https://supabase.com) 建立專案。
-2. 打開 **SQL Editor → New query**，貼上 **`supabase/init.sql`**（`schema.sql` ＋ `seed.sql` 的合併檔，1580 行）並按 **Run**——
+2. 打開 **SQL Editor → New query**，貼上 **`supabase/init.sql`**（`schema.sql` ＋ `seed.sql` 的合併檔，1609 行）並按 **Run**——
    一次就會建立 7 張表、3 個檢視表、6 個 RPC、RLS 政策，並匯入 658 筆古樹。
    （若偏好分開執行，也可先跑 `supabase/schema.sql` 再跑 `supabase/seed.sql`。）
 3. 到 **Project Settings → API** 取得 `Project URL` 與 `service_role` 金鑰。
@@ -296,7 +309,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 5 組測試，共 67 項
+npm test               # 6 組測試，共 75 項
 npm run verify         # check ＋ test
 ```
 
@@ -307,6 +320,7 @@ npm run verify         # check ＋ test
 | `tests/api.test.js` | 啟動真實伺服器打 12 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
+| `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
 
 ### API 安全測試涵蓋範圍
 
@@ -330,14 +344,24 @@ npm run verify         # check ＋ test
 
 | 項目 | 來源 |
 | --- | --- |
-| 古樹清單（658 筆） | `source-data/古樹.csv`，整理自澳門市政署《古樹名木保護名錄》 |
+| 古樹清單（658 筆，名錄值） | `source-data/古樹.csv`，整理自澳門市政署《古樹名木保護名錄》 |
+| **古樹逐株官方資料** | **澳門市政署「澳門自然網」古樹名木專頁 `https://www.iam.gov.mo/nature/c/tree`**，資料端點 `https://www.iam.gov.mo/nature/BigJson/oldtrees_c.json`（658 筆，含逐株座標、樹齡、樹高、冠幅、胸徑、周邊範圍、健康狀況、分級、堂區、地點、形態描述、市政署樹木編號與唯一識別碼） |
+| **古樹官方照片（658 張）** | 同前專頁，`https://www.iam.gov.mo/nature/Content/OldTreesOnline/<影像檔>` |
 | 法規與制度 | 第 11/2013 號法律《文化遺產保護法》、澳門特別行政區公報 |
-| 品種學名 | Wikidata / Wikipedia |
-| 相片 | Wikimedia Commons（各圖附作者與授權，多為 CC BY-SA 4.0 或公有領域） |
-| 座標 | OpenStreetMap Nominatim ＋ 人工校核 |
+| 品種學名 | Wikidata / Wikipedia（現行接受名）；市政署網站學名以 `name_sci_official` 並列 |
+| 相片 | 古樹照：澳門市政署；品種／地點照：Wikimedia Commons（各圖附作者與授權，多為 CC BY-SA 4.0 或公有領域） |
+| 座標 | 市政署逐株座標（`geo_precision = 'official'`）；無法取得者才回退 OpenStreetMap Nominatim ＋ 人工校核 |
 | 地圖圖磚 | © OpenStreetMap contributors |
 
-科普文章的每一篇都附有 `sources` 欄位列出參考來源。**相片版權歸原作者所有**，使用時請保留標示的作者與授權資訊。
+### 兩份官方資料的核對結果
+
+《古樹名木保護名錄》整理之 `古樹.csv` 與市政署網站現行公布值，658 株中：
+
+- **樹齡 1 株不同**（#619：名錄 155 年／市政署 115 年）、**健康狀況 4 株不同**（#548、#627、#638 等由「一般」改列「健康」）、**分級 1 株不同**（#1132 由三級改列不分級）。
+- 本站統計一律以 `古樹.csv` 為準，單株詳情頁在兩者不一致時以「資料核對」區塊並列市政署現行值，不隱藏差異。
+- **學名 69 個物種**出現版本差異（例：`Triadica sebifera` ←→ 市政署 `Sapium sebiferum`）：本站採現行接受名，市政署名以 `name_sci_official` 並列保存。
+
+科普文章的每一篇都附有 `sources` 欄位列出參考來源。**古樹照片與資料著作權屬澳門市政署**，本站為非商業教學研究用途並逐一標示出處；相片版權歸原作者所有，使用時請保留標示的作者與授權資訊。
 
 ---
 
