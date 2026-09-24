@@ -67,6 +67,28 @@ def shrink(path):
         return False
 
 
+def is_jpeg(blob):
+    """JPEG 檔頭檢查。
+
+    市政署網站對「已不存在的影像檔」會回 HTTP 200 ＋ SPA 首頁 HTML
+    （實測樹木 471 的 image01 即如此），若只檢查 HTTP 狀態就會把 HTML 存成 .jpg，
+    前端顯示破圖。因此下載後一律驗證檔頭。
+    """
+    return isinstance(blob, bytes) and len(blob) > 1024 and blob[:3] == b"\xff\xd8\xff"
+
+
+def download_photo(no, image_path):
+    """下載並縮圖一張官方照片；非 JPEG 或失敗時回傳 False（呼叫端負責清檔）。"""
+    blob = get(IMG_BASE + image_path, binary=True)
+    if not is_jpeg(blob):
+        return False
+    dest = os.path.join(PHOTOS, f"{no}.jpg")
+    with open(dest, "wb") as fh:
+        fh.write(blob)
+    shrink(dest)
+    return True
+
+
 def main():
     os.makedirs(DATA, exist_ok=True)
     os.makedirs(PHOTOS, exist_ok=True)
@@ -135,6 +157,18 @@ def main():
         print(f"--recompress：重新壓縮 {len(files)} 張，"
               f"{before / 1048576:.1f} MB → {after / 1048576:.1f} MB")
     else:
+        # 先驗證既有檔案的檔頭，清掉「HTTP 200 但其實是 HTML」的假照片
+        junk = []
+        for f in sorted(os.listdir(PHOTOS)):
+            if not f.endswith(".jpg"):
+                continue
+            with open(os.path.join(PHOTOS, f), "rb") as fh:
+                if fh.read(3) != b"\xff\xd8\xff":
+                    os.remove(os.path.join(PHOTOS, f))
+                    junk.append(os.path.splitext(f)[0])
+        if junk:
+            print(f"  清除 {len(junk)} 張非 JPEG 檔案（官方已移除該影像檔）：{sorted(junk)[:10]}")
+
         todo = [(no, t) for no, t in sorted(trees.items())
                 if t["image_path"] and not os.path.exists(os.path.join(PHOTOS, f"{no}.jpg"))]
         print(f"照片：已有 {len(trees) - len(todo)} 張，待抓 {len(todo)} 張")
@@ -142,10 +176,8 @@ def main():
         for idx, (no, t) in enumerate(todo, 1):
             dest = os.path.join(PHOTOS, f"{no}.jpg")
             try:
-                blob = get(IMG_BASE + t["image_path"], binary=True)
-                with open(dest, "wb") as fh:
-                    fh.write(blob)
-                shrink(dest)
+                if not download_photo(no, t["image_path"]):
+                    raise ValueError("回應非 JPEG（官方可能已移除該影像檔）")
                 ok += 1
             except Exception as e:                      # noqa: BLE001
                 print(f"  ! {no} 失敗：{e}")
@@ -155,6 +187,16 @@ def main():
             if idx % 50 == 0 or idx == len(todo):
                 print(f"  進度 {idx}/{len(todo)}（成功 {ok}、失敗 {fail}）")
                 time.sleep(0.4)
+
+    # 記錄哪些樹「本地確實有可用照片」，供 build_seed 決定要不要輸出 photo_url（避免破圖）
+    missing = []
+    for no, t in trees.items():
+        t["photo_ok"] = bool(t.get("image_path")) and os.path.exists(os.path.join(PHOTOS, f"{no}.jpg"))
+        if t.get("image_path") and not t["photo_ok"]:
+            missing.append(no)
+    json.dump(trees, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1, sort_keys=True)
+    if missing:
+        print(f"官方清單有影像檔但抓不到照片：{len(missing)} 株 {sorted(missing)[:10]}（前端自動改用樹種相片）")
 
     have = sorted(os.path.splitext(f)[0] for f in os.listdir(PHOTOS) if f.endswith(".jpg"))
     total_bytes = sum(os.path.getsize(os.path.join(PHOTOS, f)) for f in os.listdir(PHOTOS)
@@ -169,6 +211,7 @@ def main():
         "photo_count": len(have),
         "photo_bytes": total_bytes,
         "photo_max_px": PHOTO_MAX,
+        "photos_missing": sorted(missing),
         "license_note": "資料與照片著作權屬澳門市政署；本平台為非商業教學研究用途並標示出處。",
     }
     json.dump(meta, open(os.path.join(DATA, "iam_meta.json"), "w", encoding="utf-8"),

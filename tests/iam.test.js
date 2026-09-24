@@ -11,7 +11,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = (p) => JSON.parse(readFileSync(ROOT + p, 'utf8'));
@@ -46,10 +46,22 @@ test('座標全部來自市政署逐株座標，無地理編碼近似值', () =>
   assert.equal(bad.length, 0, `座標超出澳門範圍：${bad.slice(0, 5).map((t) => t.tree_no)}`);
 });
 
-test('每株古樹都有官方照片、描述與出處連結', () => {
-  const noPhoto = snap.trees.filter((t) => !t.photo_url || !t.photo_source);
-  assert.equal(noPhoto.length, 0, `缺照片：${noPhoto.slice(0, 5).map((t) => t.tree_no)}`);
-  const badSrc = snap.trees.filter((t) => !/^https:\/\/www\.iam\.gov\.mo\/nature\/Content\//.test(t.photo_source));
+test('官方照片：657 張可取得，官方已移除影像檔者明確標示', () => {
+  const withPhoto = snap.trees.filter((t) => t.photo_url);
+  const without = snap.trees.filter((t) => !t.photo_url);
+  assert.equal(withPhoto.length + without.length, 658);
+  assert.equal(withPhoto.length, meta.photo_count, '快照照片數應與 meta.photo_count 一致');
+  assert.ok(Array.isArray(meta.photos_missing) && meta.photos_missing.length >= 1,
+    '官方清單中存在已移除影像檔者，應被記錄');
+  for (const no of meta.photos_missing) {
+    assert.equal(iam[no] && iam[no].photo_ok, false, `${no} 應標記 photo_ok=false`);
+    assert.ok(iam[no] && iam[no].image_path, `${no} 官方清單仍指向某影像檔`);
+  }
+  assert.deepEqual(without.map((t) => t.tree_no), meta.photos_missing,
+    '沒有照片的樹應與 photos_missing 完全一致');
+  // 沒有照片的樹不得留下 photo_source，否則詳情頁會出現無照片卻有出處的矛盾
+  for (const t of without) assert.equal(t.photo_source, null, `${t.tree_no} 不應有 photo_source`);
+  const badSrc = withPhoto.filter((t) => !/^https:\/\/www\.iam\.gov\.mo\/nature\/Content\//.test(t.photo_source));
   assert.equal(badSrc.length, 0, '照片原始網址應指向市政署網站');
   const noDesc = snap.trees.filter((t) => !t.official_description);
   assert.equal(noDesc.length, 0, '官方描述不應為空');
@@ -57,9 +69,24 @@ test('每株古樹都有官方照片、描述與出處連結', () => {
   assert.equal(noLoc.length, 0, '官方地點不應為空');
 });
 
-test('官方照片檔案都存在（不會出現破圖）', () => {
-  const missing = snap.trees.filter((t) => !existsSync(ROOT + 'public' + t.photo_url));
-  assert.equal(missing.length, 0, `缺少照片檔：${missing.slice(0, 5).map((t) => t.photo_url)}`);
+test('每張官方照片都是真的 JPEG，檔案也都在（不會出現破圖）', () => {
+  const missing = [];
+  const notJpeg = [];
+  for (const t of snap.trees) {
+    if (!t.photo_url) continue;
+    const p = `${ROOT}public${t.photo_url}`;
+    if (!existsSync(p)) { missing.push(t.photo_url); continue; }
+    // 市政署網站對已移除的影像檔會回 HTTP 200 ＋ SPA 首頁 HTML，
+    // 只檢查 HTTP 狀態會把 HTML 存成 .jpg（樹木 471 就是這樣壞的），故驗證檔頭。
+    const head = readFileSync(p).subarray(0, 3);
+    if (head[0] !== 0xFF || head[1] !== 0xD8 || head[2] !== 0xFF) notJpeg.push(t.photo_url);
+  }
+  assert.equal(missing.length, 0, `缺少照片檔：${missing.slice(0, 5)}`);
+  assert.equal(notJpeg.length, 0, `不是 JPEG 的照片檔：${notJpeg.slice(0, 5)}`);
+  // 目錄裡不應有孤兒檔或假 JPEG
+  const files = readdirSync(`${ROOT}public/photos/trees`).filter((f) => f.endsWith('.jpg'));
+  assert.equal(files.length, snap.trees.filter((t) => t.photo_url).length,
+    '目錄檔案數應等於有照片的樹數（不應有孤兒檔）');
 });
 
 test('官方欄位已併入快照（冠幅、胸徑、周邊範圍、市政署編號）', () => {

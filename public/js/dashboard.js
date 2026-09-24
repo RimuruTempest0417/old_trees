@@ -143,8 +143,8 @@ export async function render(section, params) {
       <h2>資料方法說明</h2>
       <ul class="small">
         <li><strong>資料筆數</strong>：${num(counts.trees)} 筆古樹紀錄、${num(counts.sites)} 個地點、${num(counts.species)} 個樹種、${num(counts.parishes)} 個堂區。</li>
-        <li><strong>資料來源</strong>：${esc(site.dataset || '市政署《古樹名木保護名錄》')}。</li>
-        <li><strong>座標</strong>：以 OpenStreetMap Nominatim 就每個「地點」文字做地理編碼，再以人工校核補齊無匹配者；同一地點的多株古樹以確定性的小半徑（15–95 公尺）展開，避免地圖上完全重疊。座標為**研究用近似值**，非官方測量成果。</li>
+        <li><strong>資料來源</strong>：${esc(site.dataset || '市政署《古樹名木保護名錄》')}，並逐株併入<a href="https://www.iam.gov.mo/nature/c/tree" target="_blank" rel="noopener">市政署「澳門自然網」古樹名木專頁</a>的官方資料（座標、冠幅、胸徑、周邊範圍、健康與分級、形態描述、照片）。</li>
+        <li><strong>座標</strong>：採市政署公布之逐株座標（座標來源標示為「市政署實測座標」）；若某株官方無座標，才回退以 OpenStreetMap Nominatim 就「地點」文字做地理編碼並人工校核。同一座標的多株古樹會以確定性的小半徑（8–40 公尺）展開，避免地圖上完全重疊。</li>
         <li><strong>與官方數字的差異</strong>：市政署 2025 年公布為 654 棵古樹名木；本資料集為 ${num(counts.trees)} 筆，差異來自名錄版本與統計時點不同，屬正常現象。</li>
       </ul>
     </div>`;

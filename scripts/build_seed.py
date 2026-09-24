@@ -152,9 +152,12 @@ def main():
             "official_height_m": official.get("height_m"),
             "official_health": official.get("health"),
             "official_grade": official.get("grade"),
-            "photo_url": f"/photos/trees/{no}.jpg" if official.get("image_path") else None,
+            "photo_url": (f"/photos/trees/{no}.jpg"
+                          if official.get("image_path") and official.get("photo_ok") is not False
+                          else None),
             "photo_source": ("https://www.iam.gov.mo/nature/Content" + official["image_path"]
-                             if official.get("image_path") else None),
+                             if official.get("image_path") and official.get("photo_ok") is not False
+                             else None),
             "photo_count": official.get("image_count"),
         })
 
