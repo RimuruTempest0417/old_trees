@@ -262,6 +262,10 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
 
 /* ── 地圖 ─────────────────────────────────────────────────── */
 #map { height: 68vh; min-height: 420px; border-radius: var(--radius); border: 1px solid var(--line); }
+/* Leaflet 的縮放鈕等控制項在 leaflet.css 內建 z-index: 1000，會穿出地圖容器、
+   蓋住頁首（500）與模態框（900→1200）。用 isolation 讓地圖自成一格堆疊脈絡，
+   控制項就只在地圖內比大小，不會再遮住其他元素。 */
+.leaflet-container { isolation: isolate; z-index: 0; }
 .map-layout { display: grid; grid-template-columns: 330px 1fr; gap: 1rem; align-items: start; }
 @media (max-width: 940px) { .map-layout { grid-template-columns: minmax(0, 1fr); } #map { height: 56vh; } }
 
@@ -346,7 +350,7 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
 
 /* ── 模態框／提示 ─────────────────────────────────────────── */
 .modal[hidden] { display: none; }
-.modal { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.modal { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 1rem; }
 .modal-backdrop { position: absolute; inset: 0; background: rgba(10, 20, 14, .55); backdrop-filter: blur(2px); }
 .modal-panel {
   position: relative; background: var(--card); border-radius: var(--radius);
@@ -361,7 +365,7 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
 .toast {
   position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
   background: var(--green-900); color: #fff; padding: .55rem 1.05rem; border-radius: 999px;
-  font-size: .88rem; z-index: 950; box-shadow: var(--shadow);
+  font-size: .88rem; z-index: 1300; box-shadow: var(--shadow);
 }
 
 /* ── 載入狀態 ─────────────────────────────────────────────── */
@@ -382,6 +386,18 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
   padding: .6rem .9rem; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: .88rem;
 }
 .notice-info { border-left-color: var(--blue-600); background: color-mix(in srgb, var(--blue-100) 60%, transparent); }
+
+/* ── 圖表小結 ───────────────────────────────────────────────
+   每一張分析圖下方都附一段「小結」，以左側色條＋淺底呈現，
+   讓「圖 → 說明文字」的對應關係一眼可辨（深淺色共用同一組變數）。 */
+.summary {
+  margin: .7rem 0 0; padding: .6rem .9rem; font-size: .88rem; line-height: 1.7;
+  border-left: 4px solid var(--green-600);
+  background: color-mix(in srgb, var(--green-100) 60%, transparent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.summary > strong:first-child { display: block; margin-bottom: .15rem; color: var(--link); }
+.summary.note { border-left-color: var(--blue-600); background: color-mix(in srgb, var(--blue-100) 55%, transparent); }
 
 /* ── 頁尾 ─────────────────────────────────────────────────── */
 .site-footer {

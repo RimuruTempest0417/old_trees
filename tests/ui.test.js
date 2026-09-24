@@ -108,3 +108,40 @@ test('CSS 大括號成對（改版時常見的手誤）', () => {
   assert.equal(open, close, `大括號不成對：{ ${open} 個 / } ${close} 個`);
   assert.ok(css.length > 15000, 'CSS 檔案異常小，可能被截斷');
 });
+
+/* ── 表格內插與圖表小結（v0.6.0 新增的守門測試）───────────────────────────
+   1. <tbody>${rows}</tbody> 這種「直接內插陣列」會產生逗號；HTML 解析器會把
+      表格內的非空白文字（逗號）foster-parent 搬出 <table>，在表格前面留下一整排「、」。
+      這是實際發生過的顯示錯誤，因此以測試固定住寫法。
+   2. 每一張分析圖都必須有 .summary 小結段落，避免改版時被刪掉。 */
+const dashboard = readFileSync(`${ROOT}public/js/dashboard.js`, 'utf8');
+const analytics = readFileSync(`${ROOT}public/js/analytics.js`, 'utf8');
+
+test('表格內容若為陣列必須 join，不可直接內插', () => {
+  assert.ok(!/<tbody>\$\{rows\}<\/tbody>/.test(dashboard), '<tbody> 不可直接內插陣列');
+  assert.match(dashboard, /<tbody>\$\{Array\.isArray\(rows\) \? rows\.join\(''\) : rows\}<\/tbody>/);
+  const unjoined = [...dashboard.matchAll(/\$\{(data\.[a-z_]+\.map\([^{}]*\))\}/g)].map((m) => m[1]);
+  assert.deepEqual(unjoined, [], `下列內插未 join：${unjoined.join(' / ')}`);
+});
+
+test('總覽與分析頁的每張圖都有小結說明文字', () => {
+  const summaryCss = /\.summary\s*\{/.test(css);
+  assert.ok(summaryCss, 'style.css 缺少 .summary 樣式');
+  // 總覽頁：堂區分佈、密度、品種排行、健康與分級 —— 皆須有小結
+  assert.equal((dashboard.match(/<div class="summary">/g) || []).length, 4);
+  // 分析頁：直方圖、散點圖、品種樹高、卡方、預測 —— 小結以模板或動態填入
+  const analyticsSummaries = (analytics.match(/class="summary"/g) || []).length;
+  assert.ok(analyticsSummaries >= 5, `分析頁小結數量不足：${analyticsSummaries}`);
+});
+
+test('堂區名稱完整顯示，不再截去「堂區」二字', () => {
+  assert.ok(!/replace\('堂區', ''\)/.test(dashboard), '總覽頁仍會截短堂區名稱');
+  assert.ok(!/replace\('堂區', ''\)/.test(analytics), '分析頁仍會截短堂區名稱');
+});
+
+test('模態框必須高於 Leaflet 控制項（縮放鈕不得蓋住彈窗）', () => {
+  const modalZ = /\.modal \{ position: fixed; inset: 0; z-index: (\d+);/.exec(css);
+  assert.ok(modalZ, '找不到 .modal 的 z-index');
+  assert.ok(Number(modalZ[1]) > 1000, `模態框 z-index ${modalZ[1]} 低於 Leaflet 控制項的 1000`);
+  assert.match(css, /\.leaflet-container \{ isolation: isolate; z-index: 0; \}/);
+});

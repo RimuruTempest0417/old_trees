@@ -1,7 +1,7 @@
 /** 地圖查詢：多條件篩選、叢集標記、半徑搜尋、單株詳情與相片。 */
 import { api, cached } from './api.js';
 import {
-  esc, num, healthBadge, gradeBadge, safeUrl, loading, openModal, toast, downloadCsv, healthColor,
+  esc, num, healthBadge, gradeBadge, safeUrl, loading, openModal, closeModal, toast, downloadCsv, healthColor,
 } from './ui.js';
 
 const MACAU_CENTER = [22.1630, 113.5540];
@@ -259,6 +259,7 @@ export async function render(section, params) {
             <tr><th>樹種學名</th><td>${esc(t.name_sci || '—')}</td></tr>
             ${t.crown_m != null ? `<tr><th>冠幅</th><td>${num(t.crown_m, 1)} 公尺</td></tr>` : ''}
             ${t.diameter_cm != null ? `<tr><th>胸徑</th><td>${num(t.diameter_cm, 1)} 公分</td></tr>` : ''}
+            ${t.diameter_cm != null ? `<tr><th>胸圍</th><td>${num(t.diameter_cm * Math.PI, 1)} 公分（由胸徑換算：π × 胸徑）</td></tr>` : ''}
             ${t.surround_m != null ? `<tr><th>周邊範圍</th><td>${num(t.surround_m, 1)} 公尺</td></tr>` : ''}
             ${t.iam_tree_no ? `<tr><th>市政署編號</th><td class="mono tiny">${esc(t.iam_tree_no)}</td></tr>` : ''}
           </tbody>
@@ -283,10 +284,15 @@ export async function render(section, params) {
             ${data.neighbours.map((n) => `<button class="btn btn-sm" data-detail="${esc(n.tree_no)}" style="justify-content:space-between">
               <span>${esc(n.species)} #${esc(n.tree_no)}</span><span class="muted tiny">${num(n.age_years)} 年・${esc(n.health)}</span></button>`).join('')}
           </div>` : ''}
+        <div class="row" style="margin-top:.8rem">
+          <a class="btn btn-primary btn-sm" id="go-field" href="#/field?tree=${esc(t.tree_no)}">＋ 為這株樹新增實地考察紀錄</a>
+        </div>
         <div class="notice notice-info small" style="margin-top:1rem">
           保育提醒：觀賞時請勿攀爬、刻字、採果或踩踏樹根區；如發現枯枝、樹皮剝落或周邊施工，可向市政署反映。
         </div>`);
       bindDetailButtons(document.getElementById('modal-body'));
+      const goField = document.getElementById('go-field');
+      if (goField) goField.addEventListener('click', () => closeModal());
     } catch (err) {
       openModal(`<h3>讀取失敗</h3><p class="muted">${esc(err.message || err)}</p>`);
     }

@@ -27,15 +27,19 @@
 
 ## 一、線上功能
 
-網站分為五個分頁：
+網站分為六個分頁：
 
 | 分頁 | 內容 |
 | --- | --- |
 | **總覽** | 關鍵指標、**各堂區古樹數目分佈圖**、品種排行、健康狀況與分級結構、最老 10 株、瀕危關注名單、**古樹名目分區表**、原始資料 CSV 下載 |
-| **地圖查詢** | 658 株古樹地圖（叢集標記、顏色代表健康狀況）；以堂區／品種／分級／健康／樹齡區間／關鍵字篩選；地圖任意點擊設定中心做**半徑搜尋**；點擊標記看單株詳情（含相片、同地點鄰居） |
+| **地圖查詢** | 658 株古樹地圖（叢集標記、顏色代表健康狀況）；以堂區／品種／分級／健康／樹齡區間／關鍵字篩選；地圖任意點擊設定中心做**半徑搜尋**；點擊標記看單株詳情（含相片、同地點鄰居），並可直接為該株新增實地考察紀錄 |
 | **路綫推薦** | 5 條精選路綫（列表顯示站數、距離、步行時間），或以堂區／品種／主題即時生成自訂路綫；地圖繪製路徑與編號站點，並提供 Google Maps 導航連結 |
-| **數據分析** | 描述統計、5 個數學模型擬合比較（線性／對數／冪律／飽和指數／含品種啞變數迴歸）、ANOVA、卡方檢定、存續預測曲線、可下載的分析資料 CSV |
+| **數據分析** | 描述統計、5 個數學模型擬合比較（線性／對數／冪律／飽和指數／含品種啞變數迴歸）、ANOVA、卡方檢定、存續預測曲線、可下載的分析資料 CSV；**每張分析圖皆附一段「小結」說明** |
+| **實地考察** | 現場記錄表單（古樹編號、觀察日期、記錄者、天氣、健康狀況、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、照片、座標一鍵定位）、紀錄清單與 CSV 匯出、現場檢查清單與安全提醒；紀錄存於 `field_records` 表，官方名錄不會被覆寫 |
 | **保育科普** | 11 篇繁體中文專題文章（含 KaTeX 數學式）、立法時間線、每篇附參考來源 |
+
+> **實地考察紀錄的儲存方式**：連接 Supabase 時寫入 `field_records` 資料表（所有人可見）；
+> 未連接資料庫（示範模式）時，畫面會明確標示「只暫存在這台裝置的瀏覽器」，不假裝已寫入資料庫。
 
 ### 相片
 
@@ -141,7 +145,7 @@ macau-heritage-trees/
 
 ## 四、資料庫設計（Supabase / PostgreSQL）
 
-`supabase/schema.sql` 內含 7 張表、3 個檢視表、6 個函式，可整體重複執行（idempotent）。
+`supabase/schema.sql` 內含 8 張表、3 個檢視表、6 個函式，可整體重複執行（idempotent）。
 
 ### 資料表
 
@@ -154,8 +158,9 @@ macau-heritage-trees/
 | `routes` | 精選路綫（5 條） |
 | `conservation_topics` | 保育科普文章（11 篇） |
 | `timeline_events` | 立法與名錄時間線（9 個事件） |
+| `field_records` | **實地考察紀錄**（預留給現場記錄）：古樹編號、觀察日期、記錄者、天氣、健康狀況、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、照片、座標、建立時間 |
 
-索引：`parish_code / species_id / site_id / health / grade / age_years / (lat, lon)`。
+索引：`parish_code / species_id / site_id / health / grade / age_years / (lat, lon)`、`field_records(observed_on)`。
 
 ### 檢視表
 
@@ -169,9 +174,10 @@ macau-heritage-trees/
 
 ### 安全（RLS）
 
-- 7 張表**全部啟用 Row Level Security**。
+- 8 張表**全部啟用 Row Level Security**。
 - 只授予 `select` 政策給 `anon` / `authenticated`；**沒有任何 INSERT／UPDATE／DELETE 政策**。
-- 寫入一律經 `service_role`（僅存在於 Vercel 伺服器端環境變數），前端與匿名使用者無法修改資料。
+- 寫入一律經 `service_role`（僅存在於 Vercel 伺服器端環境變數），前端與匿名使用者無法修改資料；
+  實地考察紀錄也是先送到自家 `POST /api/field-records` 驗證後才由伺服器端寫入。
 
 ---
 
@@ -193,6 +199,14 @@ macau-heritage-trees/
 | `GET /api/route` | 路綫計算；`code=<精選路綫>` 或 `parish/species/theme/max_stops` 自訂 |
 | `GET /api/conservation` | 科普文章清單；`slug=<文章>` 取全文 |
 | `GET /api/timeline` | 立法與名錄時間線 |
+| `GET /api/field-records` | 實地考察紀錄清單；`limit` 可選（上限 500）；回傳 `writable` 旗標說明是否已連接資料庫 |
+| `POST /api/field-records` | 新增一筆實地考察紀錄（JSON body）；欄位驗證不過回 `400`，示範模式回 `stored: false` 並附說明 |
+
+### 實地考察紀錄欄位
+
+`tree_no`（古樹編號，可空）、`observed_on`（`YYYY-MM-DD`）、`observer`（必填，≤60 字）、`weather`（≤20 字）、
+`health`（僅接受「健康」「一般」「瀕危」）、`height_m`（0–100）、`diameter_cm`（0–1000）、`crown_m`（0–100）、
+`site_note`／`damage_note`（≤600 字）、`photo_url`、`lat`／`lon`。超出長度一律截斷、非數值一律視為未填。
 
 ---
 
@@ -324,7 +338,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 7 組測試，共 88 項
+npm test               # 8 組測試，共 102 項
 npm run verify         # check ＋ test
 ```
 
@@ -336,7 +350,8 @@ npm run verify         # check ＋ test
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
-| `tests/ui.test.js` | 裝置適配：viewport／theme-color／`color-scheme`、深色模式變數與 Leaflet 覆蓋、手機斷點、觸控目標、輸入框 16 px、動態視窗高度與安全區域、禁止 `overflow-x: hidden`、格線項目可壓縮、列印樣式、CSS 大括號成對 | 13 |
+| `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級 | 17 |
+| `tests/field.test.js` | 實地考察：API 清單與新增、輸入驗證（必填、健康值、數值範圍、長度截斷）、`schema.sql`／`init.sql` 含 `field_records`、前端分頁與地圖入口串接 | 10 |
 
 ### API 安全測試涵蓋範圍
 

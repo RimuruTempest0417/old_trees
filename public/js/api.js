@@ -33,6 +33,12 @@ export const api = {
   route: (params) => request('/route', params),
   conservation: (params) => request('/conservation', params),
   timeline: () => request('/timeline'),
+  fieldRecords: (params) => request('/field-records', params),
+  saveFieldRecord: (body) => request('/field-records', {}, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  }),
   health: () => request('/health'),
 };
 

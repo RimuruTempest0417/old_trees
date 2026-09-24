@@ -332,7 +332,39 @@ returns table (
 $$;
 
 -- ---------------------------------------------------------------------------
--- 9. Row Level Security：匿名（anon）只讀，寫入交由 service_role
+-- 9. 實地考察紀錄 field_records
+--    這是刻意預留給「實地考察」的空間：學生走訪現場後逐株記錄，
+--    與官方名錄的資料分開存放，不混入 trees 表（官方資料不被覆寫）。
+-- ---------------------------------------------------------------------------
+create table if not exists public.field_records (
+    id             uuid primary key default gen_random_uuid(),
+    tree_no        text references public.trees(tree_no) on delete set null,
+    observed_on    date not null default current_date,   -- 觀察日期
+    observer       text not null,                        -- 記錄者（班級／座號／姓名）
+    weather        text,                                 -- 天氣
+    health         text check (health in ('健康', '一般', '瀕危')),
+    height_m       numeric(5,2),                          -- 目測／實測樹高（公尺）
+    diameter_cm    numeric(7,2),                          -- 胸徑（公分）
+    crown_m        numeric(5,2),                          -- 冠幅（公尺）
+    site_note      text,                                  -- 立地環境（樹穴、鋪面、積水…）
+    damage_note    text,                                  -- 病蟲害、枯枝、人為損傷
+    photo_url      text,                                  -- 現場照片網址
+    lat            numeric(9,6),
+    lon            numeric(9,6),
+    created_at     timestamptz not null default now(),
+    constraint field_records_observer_len check (char_length(observer) between 1 and 60),
+    constraint field_records_note_len     check (coalesce(char_length(site_note), 0) <= 600
+                                              and coalesce(char_length(damage_note), 0) <= 600)
+);
+
+comment on table public.field_records is '實地考察紀錄（學生／公眾現場觀察，與官方名錄分開存放）';
+comment on column public.field_records.tree_no is '對應古樹編號；允許留空以記錄「疑似古樹」或名錄外個體';
+
+create index if not exists idx_field_records_observed on public.field_records (observed_on desc, created_at desc);
+create index if not exists idx_field_records_tree on public.field_records (tree_no);
+
+-- ---------------------------------------------------------------------------
+-- 10. Row Level Security：匿名（anon）只讀，寫入交由 service_role
 -- ---------------------------------------------------------------------------
 -- Supabase 已內建 anon / authenticated 角色；此處的守衛讓本檔亦可在
 -- 一般 PostgreSQL（含測試用 PGlite）上直接執行。
@@ -353,11 +385,12 @@ alter table public.trees               enable row level security;
 alter table public.routes              enable row level security;
 alter table public.conservation_topics enable row level security;
 alter table public.timeline_events     enable row level security;
+alter table public.field_records       enable row level security;
 
 do $$
 declare tbl text;
 begin
-    foreach tbl in array array['parishes','species','sites','trees','routes','conservation_topics','timeline_events']
+    foreach tbl in array array['parishes','species','sites','trees','routes','conservation_topics','timeline_events','field_records']
     loop
         execute format('drop policy if exists %I on public.%I', tbl || '_anon_read', tbl);
         execute format('create policy %I on public.%I for select to anon, authenticated using (true)',
@@ -368,3 +401,7 @@ end $$;
 grant usage on schema public to anon, authenticated;
 grant select on all tables in schema public to anon, authenticated;
 grant execute on all functions in schema public to anon, authenticated;
+
+-- 實地考察紀錄的寫入一律經由 Serverless Function（使用 service_role），
+-- 因此不開放 anon 直接 insert／update／delete；日後若改為前端直寫，
+-- 應改以 Supabase Auth 登入 + 具 auth.uid() 的政策取代，而非放寬 anon。

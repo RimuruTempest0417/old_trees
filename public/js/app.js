@@ -10,6 +10,7 @@ const VIEWS = {
   map: () => import('./map.js'),
   routes: () => import('./routes.js'),
   analytics: () => import('./analytics.js'),
+  field: () => import('./field.js'),
   knowledge: () => import('./knowledge.js'),
 };
 
@@ -18,6 +19,7 @@ const TITLES = {
   map: '地圖查詢',
   routes: '路綫推薦',
   analytics: '數據分析',
+  field: '實地考察',
   knowledge: '保育科普',
 };
 

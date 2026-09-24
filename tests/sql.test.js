@@ -269,12 +269,12 @@ test('Row Level Security 已啟用，並為匿名讀取建立政策', async () =
   const enabled = await all(`select relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public' and c.relrowsecurity = true order by relname`);
   const names = enabled.map((r) => r.relname);
-  for (const t of ['parishes', 'species', 'sites', 'trees', 'routes', 'conservation_topics', 'timeline_events']) {
+  for (const t of ['parishes', 'species', 'sites', 'trees', 'routes', 'conservation_topics', 'timeline_events', 'field_records']) {
     assert.ok(names.includes(t), `${t} 未啟用 RLS`);
   }
   const policies = await all(`select tablename, policyname, cmd, roles::text as roles
     from pg_policies where schemaname = 'public' order by tablename`);
-  assert.equal(policies.length, 7);
+  assert.equal(policies.length, 8);
   assert.ok(policies.every((p) => p.cmd === 'SELECT'), '政策應僅允許 SELECT');
   assert.ok(policies.every((p) => /anon/.test(p.roles) && /authenticated/.test(p.roles)));
   // 不得存在任何 INSERT/UPDATE/DELETE 政策

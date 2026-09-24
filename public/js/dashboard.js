@@ -31,7 +31,7 @@ function table(headers, rows, caption = '') {
       <table class="data">
         ${caption ? `<caption>${esc(caption)}</caption>` : ''}
         <thead><tr>${headers.map((h) => `<th${typeof h === 'object' && h.num ? ' class="num"' : ''}>${esc(typeof h === 'object' ? h.label : h)}</th>`).join('')}</tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${Array.isArray(rows) ? rows.join('') : rows}</tbody>
       </table>
     </div>`;
 }
@@ -49,6 +49,18 @@ export async function render(section, params) {
 
   const oldest = data.oldest[0] || {};
   const topParish = data.parishes[0] || {};
+  // 圖表小結用：先算好需要引用的極值與前段名次，避免在模板裡重複運算
+  const byDensity = [...data.parishes].sort((a, b) => (b.density_per_km2 || 0) - (a.density_per_km2 || 0));
+  const densest = byDensity[0] || {};
+  const sparsest = byDensity[byDensity.length - 1] || {};
+  const top3Parish = data.parishes.slice(0, 3);
+  const top3Species = data.species.slice(0, 3);
+  const healthDist = data.health_distribution || [];
+  const healthCount = (name) => (healthDist.find((d) => d.name === name) || {}).value || 0;
+  const gradeDist = data.grade_distribution || [];
+  // 分級名稱帶年期（如「一級（≥500年）」），以字首比對才不會漏算
+  const gradeCount = (name) => (gradeDist.find((d) => String(d.name).startsWith(name)) || {}).value || 0;
+  const share = (n) => (counts.trees ? (n / counts.trees) * 100 : null);
 
   body.innerHTML = `
     <div class="grid grid-4">
@@ -65,11 +77,23 @@ export async function render(section, params) {
         <h2>各堂區古樹數目分佈圖 <span class="tiny muted">（資訊任務 1）</span></h2>
         <p class="tiny muted">按株數排序；滑鼠移到柱上可看健康結構。點擊柱可查看該堂區明細。</p>
         <div class="chart-box"><canvas id="chart-parish"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          ${num(counts.trees)} 株古樹分佈於 ${num(counts.parishes)} 個堂區，前三位為
+          ${top3Parish.map((p) => `${esc(p.parish)}（${num(p.tree_count)} 株、${pct(share(p.tree_count))}）`).join('、')}，
+          三區合計已佔全澳 ${pct(share(top3Parish.reduce((a, b) => a + b.tree_count, 0)))}。
+          族群高度集中於少數堂區，巡查與風險評估的人力應優先對齊這幾個熱區。
+        </div>
       </div>
       <div class="card">
         <h2>每平方公里古樹密度</h2>
         <p class="tiny muted">以堂區面積（平方公里）換算，觀察「高密度但面積小」的舊城區與「大面積低密度」的離島差異。</p>
         <div class="chart-box"><canvas id="chart-density"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          密度最高為 ${esc(densest.parish || '—')}（${num(densest.density_per_km2, 1)} 株／km²），
+          最低為 ${esc(sparsest.parish || '—')}（${num(sparsest.density_per_km2, 1)} 株／km²），
+          兩者相差 ${num(sparsest.density_per_km2 ? (densest.density_per_km2 || 0) / sparsest.density_per_km2 : 0, 1)} 倍。
+          密度反映的是「人與樹的接觸機會」：密度高的堂區，古樹承受的觀光與都市活動壓力也較大。
+        </div>
       </div>
     </div>
 
@@ -78,11 +102,23 @@ export async function render(section, params) {
         <h2>品種排行（前 12）</h2>
         <p class="tiny muted">心葉榕（假菩提樹）在全澳佔比極高，是澳門古樹群最鮮明的特徵。</p>
         <div class="chart-box"><canvas id="chart-species"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          前三位樹種為 ${top3Species.map((s) => `${esc(s.species)}（${num(s.tree_count)} 株）`).join('、')}；
+          其中 ${esc(top3Species[0] ? top3Species[0].species : '—')} 一族就佔 ${pct(share(top3Species[0] ? top3Species[0].tree_count : 0))}。
+          少數樹種主導整體結構，意味著一旦有針對性病蟲害（例如褐根病）或極端天氣，衝擊會高度集中。
+        </div>
       </div>
       <div class="card">
         <h2>健康狀況與分級結構</h2>
         <div class="chart-box short"><canvas id="chart-health"></canvas></div>
         <div class="chart-box short" style="margin-top:.6rem"><canvas id="chart-grade"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          健康者 ${num(healthCount('健康'))} 株（${pct(counts.trees ? (healthCount('健康') / counts.trees) * 100 : null)}）、
+          一般 ${num(healthCount('一般'))} 株、瀕危 ${num(healthCount('瀕危'))} 株；
+          分級方面，一級 ${num(gradeCount('一級'))}、二級 ${num(gradeCount('二級'))}、三級 ${num(gradeCount('三級'))}、
+          不分級 ${num(gradeCount('不分級'))}。健康者佔壓倒性多數是正面訊號，
+          但「瀕危 ＋ 不分級」兩群合計 ${num(healthCount('瀕危') + gradeCount('不分級'))} 株需要最密集的追蹤。
+        </div>
       </div>
     </div>
 
@@ -150,7 +186,8 @@ export async function render(section, params) {
     </div>`;
 
   // ── 圖表 ──────────────────────────────────────────────
-  const parishLabels = data.parishes.map((p) => p.parish.replace('堂區', ''));
+  // 堂區名稱一律顯示完整（含「堂區」二字），不再截短，避免使用者無法對照官方名稱
+  const parishLabels = data.parishes.map((p) => p.parish);
   const chart = barChart(
     body.querySelector('#chart-parish'),
     parishLabels,

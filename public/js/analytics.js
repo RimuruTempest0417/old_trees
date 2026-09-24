@@ -72,6 +72,13 @@ export async function render(section, params) {
   const numeric = m.filter((x) => x.type !== 'species-dummy');
   const bestNumeric = stats.best_numeric_model;
   const projection = stats.projection;
+  // 小結文字需要的衍生值（先算好，避免在模板裡重複掃描）
+  const histPeak = stats.histogram.bins.reduce((a, b) => (b.count > a.count ? b : a), stats.histogram.bins[0] || { count: 0 });
+  const ageBetween = (lo, hi) => stats.histogram.bins.filter((b) => b.start >= lo && b.end <= hi).reduce((a, b) => a + b.count, 0);
+  const spGroups = stats.anova.height_by_species.groups || [];
+  const tallestGroup = spGroups.reduce((a, b) => (b.mean > a.mean ? b : a), spGroups[0] || {});
+  const lastProj = projection.series[projection.series.length - 1] || {};
+  const projShare = stats.sample.n ? ((lastProj.survivedOnly || 0) / stats.sample.n) * 100 : null;
 
   body.innerHTML = `
     <div class="grid grid-4">
@@ -88,8 +95,15 @@ export async function render(section, params) {
     <div class="grid grid-2" style="margin-top:1rem">
       <div class="card">
         <h2>① 樹齡分佈直方圖</h2>
-        <p class="tiny muted">以 ${num(stats.histogram.bucket)} 年為一組。分佈呈明顯右偏，多數古樹集中在 100–150 年，樹齡愈高個體愈少。</p>
         <div class="chart-box"><canvas id="c-hist"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          以 ${num(stats.histogram.bucket)} 年為一組，分佈明顯右偏：最高峰落在
+          ${num(histPeak.start)}–${num(histPeak.end)} 年（${num(histPeak.count)} 株），
+          100–200 年之間合計 ${num(ageBetween(100, 200))} 株、佔全部樣本
+          ${pct(stats.sample.n ? (ageBetween(100, 200) / stats.sample.n) * 100 : null)}；
+          300 年以上僅 ${num(ageBetween(300, 100000))} 株。樹齡愈高、個體愈少，符合「通過時間篩選才能成為古樹」的預期，
+          也說明高齡個體才是保育上最不可替代的少數。
+        </div>
       </div>
       <div class="card">
         <h2>② 樹齡—樹高散點圖與擬合</h2>
@@ -97,7 +111,7 @@ export async function render(section, params) {
           ${numeric.map((x, i) => `<button class="chip${i === 0 ? ' active' : ''}" data-fit="${esc(x.type)}">${esc(x.type === 'linear' ? '線性' : x.type === 'log' ? '對數' : x.type === 'power' ? '冪律' : '飽和指數')} R²=${num(x.r2, 3)}</button>`).join('')}
         </div>
         <div class="chart-box tall"><canvas id="c-scatter"></canvas></div>
-        <p class="tiny muted" id="fit-note" style="margin-top:.4rem"></p>
+        <div class="summary" id="fit-note"></div>
       </div>
     </div>
 
@@ -124,7 +138,13 @@ export async function render(section, params) {
       <div class="card card-scroll">
         <h2>⑤ 各品種平均樹高</h2>
         <div class="chart-box short"><canvas id="c-spheight"></canvas></div>
-        <p class="tiny muted">誤差由標準差反映；可見榕屬（心葉榕、榕樹、高山榕）與木棉、鳳凰木等明顯高於灌木型樹種。</p>
+        <div class="summary"><strong>小結</strong>
+          前 ${num(spGroups.slice(0, 10).length)} 大品種中平均樹高最高者為 ${esc(tallestGroup.name || '—')}
+          （${num(tallestGroup.mean, 2)} 公尺、n=${num(tallestGroup.n)}），最低者為
+          ${esc((spGroups.slice(0, 10).reduce((a, b) => (b.mean < a.mean ? b : a), spGroups[0] || {}) || {}).name || '—')}。
+          榕屬（心葉榕、榕樹、高山榕）與木棉、鳳凰木明顯高於灌木型樹種，
+          差距反映的是樹種天生的形態（基因）而非樹齡，這與 ③ 模型比較表的結論一致。
+        </div>
       </div>
     </div>
 
@@ -154,6 +174,14 @@ export async function render(section, params) {
           ${stats.chi_square.p < 0.05 ? '結果顯示堂區與健康狀況並非獨立。' : '未能拒絕獨立的虛無假設。'}
         </p>
         <div class="chart-box short"><canvas id="c-chi"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          堂區與健康狀況的關聯為${stats.chi_square.p < 0.05 ? '統計顯著' : '未達統計顯著'}
+          （χ²(${stats.chi_square.df}) = ${num(stats.chi_square.chi2, 3)}、p = ${fmtP(stats.chi_square.p)}），
+          但 Cramér's V 僅 ${num(stats.chi_square.cramersV, 3)}，屬弱關聯——也就是說
+          「不同堂區的樹健康狀況確實有差異，卻不足以用堂區來預測單株健康」。
+          實務上的解讀是：健康與否更取決於個別立地條件（土壤、積水、施工擾動、人為踐踏），
+          因此巡查仍須逐株判斷，不能只看堂區平均。
+        </div>
       </div>
     </div>
 
@@ -162,6 +190,14 @@ export async function render(section, params) {
         <h2>⑧ 未來 50 年古樹數量預測（模型）</h2>
         <p class="tiny muted">模型：N(t) = N₀·S(t) + G(t)。S(t) 由各健康等級年度風險率推算，G(t) 為每年新晉級（跨越 100 年門檻）株數 ${num(projection.assumptions.recruitmentPerYear)} 株。</p>
         <div class="chart-box"><canvas id="c-proj"></canvas></div>
+        <div class="summary"><strong>小結</strong>
+          若維持目前的健康結構與照護強度，50 年後（${num(lastProj.year)} 年）現有族群估計仍有
+          ${num(lastProj.survivedOnly)} 株存活，約為 ${pct(projShare)}；加上每年新晉級個體後總數為
+          ${num(lastProj.total)} 株。關鍵訊息是曲線的形狀：前期幾乎持平、後期才明顯下滑，
+          代表「現在看似穩定的族群」其實是把風險延後到 20–30 年後才顯現——
+          瀕危株數則由 ${num(projection.series[0] ? projection.series[0]['瀕危'] : null)} 株變化到
+          ${num(lastProj['瀕危'])} 株，是最需要提前部署的一群。
+        </div>
         <p class="small muted">${esc(projection.assumptions.note)}</p>
       </div>
       <div class="card card-scroll">
@@ -209,9 +245,10 @@ export async function render(section, params) {
       fit.curve || [],
       { xTitle: '樹齡（年）', yTitle: '樹高（公尺）', fitLabel: `${fit.label}（R²=${num(fit.r2, 4)}）` },
     );
-    body.querySelector('#fit-note').textContent =
-      `目前顯示：${fit.label}；R² = ${num(fit.r2, 4)}、RMSE = ${num(fit.rmse, 3)}、n = ${num(fit.n)}。`
-      + `散佈圖顯示同一樹齡對應的樹高差距極大，這正是單一自變數模型無法解釋樹高的視覺證據。`;
+    body.querySelector('#fit-note').innerHTML =
+      `<strong>小結</strong>目前顯示 ${esc(fit.label)}：R² = ${num(fit.r2, 4)}、RMSE = ${num(fit.rmse, 3)}、n = ${num(fit.n)}。`
+      + `散佈圖上同一樹齡對應的樹高差距極大（同一條垂直線上各點可相差十餘公尺），`
+      + `這正是單一自變數（樹齡）無法解釋樹高的視覺證據——決定樹高的另有品種與立地條件。`;
   }
   drawFit();
   body.querySelectorAll('#fit-picker .chip').forEach((chip) => chip.addEventListener('click', () => {
@@ -228,7 +265,7 @@ export async function render(section, params) {
 
   const chiRows = stats.anova.age_by_parish ? stats.chi_square.rows : [];
   stackedBar(body.querySelector('#c-chi'),
-    chiRows.map((p) => p.replace('堂區', '')),
+    chiRows,
     ['健康', '一般', '瀕危'].map((h, hi) => ({
       label: h,
       data: stats.chi_square.matrix.map((row) => row[hi]),
