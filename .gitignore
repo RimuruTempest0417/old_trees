@@ -1,0 +1,10 @@
+node_modules/
+.vercel/
+.env
+.env.local
+.DS_Store
+*.log
+data/geocode.log
+data/species.log
+__pycache__/
+*.pyc

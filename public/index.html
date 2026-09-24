@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>澳門古樹保育研究平台｜Macau Heritage Tree Conservation</title>
+<meta name="description" content="以澳門市政署《古樹名木保護名錄》658 筆資料建立的古樹保育研究平台：地圖查詢、路綫推薦、數據分析與保育科普。資料庫 Supabase，部署於 Vercel。">
+<meta name="theme-color" content="#14532d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%8C%B3%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="/vendor/MarkerCluster.css">
+<link rel="stylesheet" href="/vendor/MarkerCluster.Default.css">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">跳至主要內容</a>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="#/overview">
+      <span class="brand-mark" aria-hidden="true">🌳</span>
+      <span class="brand-text">
+        <strong>澳門古樹保育研究平台</strong>
+        <small>Macau Heritage Tree Conservation Platform</small>
+      </span>
+    </a>
+
+    <nav class="tabs" aria-label="主要功能">
+      <a class="tab" href="#/overview" data-view="overview">總覽</a>
+      <a class="tab" href="#/map" data-view="map">地圖查詢</a>
+      <a class="tab" href="#/routes" data-view="routes">路綫推薦</a>
+      <a class="tab" href="#/analytics" data-view="analytics">數據分析</a>
+      <a class="tab" href="#/knowledge" data-view="knowledge">保育科普</a>
+    </nav>
+
+    <div class="header-status">
+      <span id="source-badge" class="badge badge-muted" title="資料來源">載入中…</span>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="view" id="view-overview" hidden></section>
+  <section class="view" id="view-map" hidden></section>
+  <section class="view" id="view-routes" hidden></section>
+  <section class="view" id="view-analytics" hidden></section>
+  <section class="view" id="view-knowledge" hidden></section>
+  <section class="view" id="view-error" hidden>
+    <div class="card">
+      <h2>載入失敗</h2>
+      <p id="error-detail" class="muted"></p>
+      <button class="btn" onclick="location.reload()">重新載入</button>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div>
+      <h4>資料來源</h4>
+      <ul>
+        <li>樹木資料：澳門市政署《古樹名木保護名錄》（整理檔 <code>古樹.csv</code>，658 筆）</li>
+        <li>座標：OpenStreetMap Nominatim 地理編碼 ＋ 人工校核</li>
+        <li>物種相片：Wikimedia Commons（自由授權，各筆標示作者與授權）</li>
+        <li>地圖底圖：© OpenStreetMap 貢獻者</li>
+        <li>法規：第 11/2013 號法律《文化遺產保護法》及歷次《古樹名木保護名錄》行政長官批示</li>
+      </ul>
+    </div>
+    <div>
+      <h4>技術架構</h4>
+      <ul>
+        <li>資料庫：Supabase（PostgreSQL），Row Level Security 僅開放匿名讀取</li>
+        <li>後端：Vercel Serverless Functions（<code>/api/*</code>）</li>
+        <li>前端：原生 JavaScript ＋ Leaflet ＋ Chart.js（第三方函式庫已內附，不依賴 CDN）</li>
+        <li>分析：最小平方法／非線性擬合、ANOVA、卡方檢定、存續預測模型</li>
+      </ul>
+    </div>
+    <div>
+      <h4>使用提醒</h4>
+      <ul>
+        <li>座標為地理編碼結果，非官方測量值，實地尋樹請以現場標牌為準。</li>
+        <li>路綫為演算法建議，請依現場路況、開放時間與天氣調整。</li>
+        <li>觀賞古樹請勿攀爬、刻字、採果或踩踏樹根區。</li>
+      </ul>
+    </div>
+  </div>
+  <p class="footer-note">綜合研究—澳門古樹｜資訊任務：古樹保育網頁（相片、地圖查詢、路綫推薦、保育科普）</p>
+</footer>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close="1"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close="1" aria-label="關閉">×</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/vendor/leaflet/leaflet.js"></script>
+<script src="/vendor/leaflet.markercluster.js"></script>
+<script src="/vendor/chart.umd.js"></script>
+<script src="/vendor/marked.umd.js"></script>
+<script src="/vendor/katex/katex.min.js"></script>
+<script src="/vendor/katex/auto-render.min.js"></script>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

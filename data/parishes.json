@@ -1,0 +1,74 @@
+[
+ {
+  "code": "花地瑪堂區",
+  "name_zh": "花地瑪堂區",
+  "name_pt": "Nossa Senhora de Fátima",
+  "area_km2": 3.2,
+  "centroid_lat": 22.21,
+  "centroid_lon": 113.548,
+  "note": "澳門半島北部，含青洲、台山、黑沙環、望廈"
+ },
+ {
+  "code": "花王堂區",
+  "name_zh": "花王堂區",
+  "name_pt": "Santo António",
+  "area_km2": 1.1,
+  "centroid_lat": 22.199,
+  "centroid_lon": 113.5395,
+  "note": "含白鴿巢公園、沙梨頭、新橋"
+ },
+ {
+  "code": "望德堂區",
+  "name_zh": "望德堂區",
+  "name_pt": "São Lázaro",
+  "area_km2": 0.6,
+  "centroid_lat": 22.198,
+  "centroid_lon": 113.55,
+  "note": "面積最小、人口密度最高的堂區之一，含盧廉若公園、塔石"
+ },
+ {
+  "code": "大堂區",
+  "name_zh": "大堂區",
+  "name_pt": "Sé",
+  "area_km2": 1.4,
+  "centroid_lat": 22.191,
+  "centroid_lon": 113.545,
+  "note": "含南灣、新馬路一帶，澳門歷史城區核心"
+ },
+ {
+  "code": "風順堂區",
+  "name_zh": "風順堂區",
+  "name_pt": "São Lourenço",
+  "area_km2": 0.9,
+  "centroid_lat": 22.188,
+  "centroid_lon": 113.533,
+  "note": "含媽閣、亞婆井、西灣，歷史城區西南部"
+ },
+ {
+  "code": "嘉模堂區",
+  "name_zh": "嘉模堂區",
+  "name_pt": "Nossa Senhora do Carmo",
+  "area_km2": 7.9,
+  "centroid_lat": 22.157,
+  "centroid_lon": 113.557,
+  "note": "氹仔，含嘉模、龍環葡韻、小潭山"
+ },
+ {
+  "code": "聖方濟各堂區",
+  "name_zh": "聖方濟各堂區",
+  "name_pt": "São Francisco Xavier",
+  "area_km2": 7.6,
+  "centroid_lat": 22.118,
+  "centroid_lon": 113.557,
+  "note": "路環，全澳古樹數量最多的堂區"
+ },
+ {
+  "code": "路氹填海區",
+  "name_zh": "路氹填海區",
+  "name_pt": "Zona do Aterro Cotai",
+  "area_km2": 5.8,
+  "centroid_lat": 22.14,
+  "centroid_lon": 113.57,
+  "note": "路氹城填海區，成陸時間短，古樹極少"
+ }
+]

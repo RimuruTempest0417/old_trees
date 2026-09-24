@@ -1,0 +1,30 @@
+MIT License
+
+Copyright (c) 2026 澳門古樹保育研究平台 (Macau Heritage Tree Conservation Platform)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+資料與相片（data/、public/photos/、source-data/）不在上述授權範圍內：
+
+- 古樹清單整理自澳門市政署《古樹名木保護名錄》公開資料。
+- 品種與地點相片來自 Wikimedia Commons，權利歸原作者，各圖授權見
+  data/species.json 與 data/site_photos.json 的 photo_license / photo_credit 欄位。
+- 地圖圖磚 © OpenStreetMap contributors（ODbL）。

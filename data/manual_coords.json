@@ -1,0 +1,752 @@
+{
+ "澳門區民國大馬路": {
+  "lat": 22.1858,
+  "lon": 113.5395,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區民國馬路": {
+  "lat": 22.116,
+  "lon": 113.5552,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區松山市政公園": {
+  "lat": 22.1989,
+  "lon": 113.5494,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區白鴿巢公園": {
+  "lat": 22.1985,
+  "lon": 113.5428,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區青洲山": {
+  "lat": 22.2045,
+  "lon": 113.5358,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區盧廉若公園": {
+  "lat": 22.1999,
+  "lon": 113.5476,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區二龍喉公園": {
+  "lat": 22.2004,
+  "lon": 113.5497,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區加思欄花園": {
+  "lat": 22.1907,
+  "lon": 113.5469,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區大炮台公園": {
+  "lat": 22.1975,
+  "lon": 113.5447,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區望廈山市政公園": {
+  "lat": 22.205,
+  "lon": 113.5537,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區螺絲山公園": {
+  "lat": 22.209,
+  "lon": 113.5545,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "路環區石排灣郊野公園": {
+  "lat": 22.129,
+  "lon": 113.5558,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "路環區黑沙海灘公園": {
+  "lat": 22.1155,
+  "lon": 113.5601,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "路環區黑沙水庫健康徑": {
+  "lat": 22.12,
+  "lon": 113.5655,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區竹灣馬路": {
+  "lat": 22.1069,
+  "lon": 113.5578,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區小潭山2000環山徑": {
+  "lat": 22.1605,
+  "lon": 113.5545,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區嘉模斜巷": {
+  "lat": 22.1555,
+  "lon": 113.5574,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區媽閣廟前地": {
+  "lat": 22.1867,
+  "lon": 113.5315,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區媽祖閣（媽祖廟）": {
+  "lat": 22.1867,
+  "lon": 113.5315,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區媽閣上街": {
+  "lat": 22.1867,
+  "lon": 113.5315,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區主教山小堂": {
+  "lat": 22.1864,
+  "lon": 113.533,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區主教山眺望台": {
+  "lat": 22.1871,
+  "lon": 113.5335,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區何東圖書館": {
+  "lat": 22.1919,
+  "lon": 113.5407,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區普濟禪院（觀音堂）": {
+  "lat": 22.2015,
+  "lon": 113.5482,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區觀音古廟": {
+  "lat": 22.2043,
+  "lon": 113.545,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區鄭家大屋": {
+  "lat": 22.1906,
+  "lon": 113.5405,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區亞婆井前地": {
+  "lat": 22.1879,
+  "lon": 113.5378,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "澳門區亞婆井圍": {
+  "lat": 22.1881,
+  "lon": 113.538,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區聖若瑟修院": {
+  "lat": 22.1872,
+  "lon": 113.5412,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區聖地牙哥酒店": {
+  "lat": 22.1849,
+  "lon": 113.534,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區澳門博物館": {
+  "lat": 22.1976,
+  "lon": 113.5447,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區澳門伊斯蘭清真寺及墳場": {
+  "lat": 22.1953,
+  "lon": 113.538,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區澳門基督教聖堂及墳場": {
+  "lat": 22.1968,
+  "lon": 113.548,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區白頭墳場": {
+  "lat": 22.199,
+  "lon": 113.5447,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區蓮峯廟": {
+  "lat": 22.2048,
+  "lon": 113.5367,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區蓮峰街": {
+  "lat": 22.2048,
+  "lon": 113.5367,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區啟智學校": {
+  "lat": 22.2005,
+  "lon": 113.5502,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區高美士中葡中學": {
+  "lat": 22.2005,
+  "lon": 113.5507,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區俾利喇街153號": {
+  "lat": 22.201,
+  "lon": 113.547,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區新勝街": {
+  "lat": 22.1995,
+  "lon": 113.5425,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區茨林圍": {
+  "lat": 22.188,
+  "lon": 113.538,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區風順堂街": {
+  "lat": 22.189,
+  "lon": 113.5444,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區蓮花巷": {
+  "lat": 22.187,
+  "lon": 113.546,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區望廈聖方濟各聖堂": {
+  "lat": 22.205,
+  "lon": 113.552,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區崗頂劇院": {
+  "lat": 22.1915,
+  "lon": 113.541,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區岡頂前地": {
+  "lat": 22.1915,
+  "lon": 113.541,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區西墳馬路": {
+  "lat": 22.197,
+  "lon": 113.543,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區海邊馬路": {
+  "lat": 22.201,
+  "lon": 113.535,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區鏡湖醫院": {
+  "lat": 22.2008,
+  "lon": 113.5424,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區澳門保安部隊事務局": {
+  "lat": 22.203,
+  "lon": 113.548,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區澳門市政狗房": {
+  "lat": 22.203,
+  "lon": 113.548,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區庇道學校": {
+  "lat": 22.2,
+  "lon": 113.545,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區高園街": {
+  "lat": 22.205,
+  "lon": 113.549,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區加思欄後新馬路": {
+  "lat": 22.19,
+  "lon": 113.547,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區東望洋街": {
+  "lat": 22.2,
+  "lon": 113.549,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區新花園泳池": {
+  "lat": 22.1965,
+  "lon": 113.5462,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區美珊枝街": {
+  "lat": 22.196,
+  "lon": 113.544,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區聖公會聖馬可堂": {
+  "lat": 22.198,
+  "lon": 113.549,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區土地廟": {
+  "lat": 22.199,
+  "lon": 113.545,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區粵華中學": {
+  "lat": 22.197,
+  "lon": 113.548,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區士多鳥拜斯大馬路": {
+  "lat": 22.198,
+  "lon": 113.55,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區海景花園休憩區": {
+  "lat": 22.204,
+  "lon": 113.547,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區亞婆井街1號/亞婆井前地27號": {
+  "lat": 22.1879,
+  "lon": 113.5378,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區兵營斜巷": {
+  "lat": 22.192,
+  "lon": 113.544,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區竹室正街休憩區": {
+  "lat": 22.197,
+  "lon": 113.546,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區治安警察局交通廳": {
+  "lat": 22.201,
+  "lon": 113.548,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區何賢公園": {
+  "lat": 22.196,
+  "lon": 113.55,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區家辣堂街": {
+  "lat": 22.19,
+  "lon": 113.545,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區肥利喇亞美打大馬路": {
+  "lat": 22.198,
+  "lon": 113.548,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區罅些喇提督大馬路": {
+  "lat": 22.204,
+  "lon": 113.543,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區馬交石炮台馬路": {
+  "lat": 22.211,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區何賢紳士大馬路": {
+  "lat": 22.21,
+  "lon": 113.552,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區聖若瑟教區中學": {
+  "lat": 22.191,
+  "lon": 113.541,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區仁慈堂婆仔屋": {
+  "lat": 22.191,
+  "lon": 113.5452,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "澳門區天后古廟": {
+  "lat": 22.206,
+  "lon": 113.54,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區九澳聖母馬路": {
+  "lat": 22.1345,
+  "lon": 113.566,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區九澳村路": {
+  "lat": 22.133,
+  "lon": 113.568,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區鮑思高青年村": {
+  "lat": 22.133,
+  "lon": 113.5565,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區聖方濟各街": {
+  "lat": 22.1178,
+  "lon": 113.5566,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區恩尼斯總統前地": {
+  "lat": 22.117,
+  "lon": 113.5566,
+  "geo_precision": "exact",
+  "source": "manual-checked"
+ },
+ "路環區十月初五馬路": {
+  "lat": 22.117,
+  "lon": 113.5555,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區船人街": {
+  "lat": 22.1178,
+  "lon": 113.5547,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區船鋪街": {
+  "lat": 22.1168,
+  "lon": 113.5562,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區船鋪前地": {
+  "lat": 22.1168,
+  "lon": 113.5562,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區石街": {
+  "lat": 22.1172,
+  "lon": 113.5569,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區打纜街": {
+  "lat": 22.1175,
+  "lon": 113.5578,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區馬忌士前地": {
+  "lat": 22.118,
+  "lon": 113.5568,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區海關": {
+  "lat": 22.1195,
+  "lon": 113.5555,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區飛鷹培訓基地": {
+  "lat": 22.119,
+  "lon": 113.5605,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區金像農場": {
+  "lat": 22.1245,
+  "lon": 113.5615,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區登峰路": {
+  "lat": 22.1265,
+  "lon": 113.562,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區石排灣馬路": {
+  "lat": 22.1275,
+  "lon": 113.554,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區路環步行": {
+  "lat": 22.115,
+  "lon": 113.558,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區路環市政狗房": {
+  "lat": 22.115,
+  "lon": 113.557,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區鄉村馬路": {
+  "lat": 22.123,
+  "lon": 113.559,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區黑沙村": {
+  "lat": 22.112,
+  "lon": 113.5615,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區荔枝碗馬路": {
+  "lat": 22.1188,
+  "lon": 113.5558,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區譚公廟前地": {
+  "lat": 22.1185,
+  "lon": 113.5557,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區田畔街": {
+  "lat": 22.116,
+  "lon": 113.557,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區戴紳禮街": {
+  "lat": 22.115,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區澳門保安部隊高等學校": {
+  "lat": 22.122,
+  "lon": 113.562,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區海事及水務局": {
+  "lat": 22.119,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路環區黑沙臨時綠化休憩空間": {
+  "lat": 22.113,
+  "lon": 113.562,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區菜園路": {
+  "lat": 22.154,
+  "lon": 113.5545,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區巴波沙總督街": {
+  "lat": 22.155,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區巴波沙總督前地": {
+  "lat": 22.155,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區飛能便度街": {
+  "lat": 22.1555,
+  "lon": 113.5547,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區益隆炮竹廠": {
+  "lat": 22.1552,
+  "lon": 113.5575,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區徐日昇寅公馬路": {
+  "lat": 22.1615,
+  "lon": 113.555,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區徐日昇寅公圓形地": {
+  "lat": 22.1615,
+  "lon": 113.555,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區關帝殿及天后宮": {
+  "lat": 22.1545,
+  "lon": 113.5565,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區嘉路士米耶馬路": {
+  "lat": 22.1545,
+  "lon": 113.5575,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區氹仔嘉模市政墳場": {
+  "lat": 22.154,
+  "lon": 113.558,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區氹仔沙崗市政墳場": {
+  "lat": 22.16,
+  "lon": 113.557,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區素啤古街": {
+  "lat": 22.1545,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區史劉蓮德博士眺望台（十字花園）": {
+  "lat": 22.158,
+  "lon": 113.558,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區高勵雅馬路": {
+  "lat": 22.158,
+  "lon": 113.56,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區天津街": {
+  "lat": 22.162,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區兵房斜巷6號": {
+  "lat": 22.157,
+  "lon": 113.5575,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區好利安製藥科學股份有限公司": {
+  "lat": 22.156,
+  "lon": 113.56,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區海灣巷": {
+  "lat": 22.161,
+  "lon": 113.558,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區氹仔東北馬路": {
+  "lat": 22.158,
+  "lon": 113.562,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "氹仔區澳門童軍總會總部": {
+  "lat": 22.16,
+  "lon": 113.556,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路氹填海區海濱圓形地": {
+  "lat": 22.142,
+  "lon": 113.557,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ },
+ "路氹填海區蓮花路": {
+  "lat": 22.14,
+  "lon": 113.558,
+  "geo_precision": "approx",
+  "source": "manual-checked"
+ }
+}
