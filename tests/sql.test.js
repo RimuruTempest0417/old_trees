@@ -172,6 +172,33 @@ test('舊資料庫若有超出新允許值的資料，升級時會先正規化�
   await old.close();
 });
 
+test('只執行 seed.sql（未執行 schema 升級段）也能自我修復舊版 CHECK 限制條件', async () => {
+  // 情境：使用者在 SQL Editor 中「選取了一部分」再按 Run，或只貼了 seed 這一段；
+  // 此時 schema 檔頭的升級段落不會被執行，必須由 seed 自己在 truncate 之後修好限制條件，
+  // 否則 insert 'official' 會撞 23514。
+  const old = new PGlite();
+  await old.exec(SCHEMA);
+  await old.exec(`
+    alter table public.sites drop constraint if exists sites_geo_precision_check;
+    alter table public.sites add constraint sites_geo_precision_check
+      check (geo_precision in ('exact','approx','parish'));
+  `);
+  await old.exec(SEED);        // 只跑 seed：必須自己修好限制條件
+  const official = (await old.query(
+    `select count(*)::int n from public.sites where geo_precision = 'official'`)).rows[0].n;
+  assert.ok(official > 0, 'seed 應能自我修復限制條件並寫入 official 資料');
+  await old.close();
+});
+
+test('seed.sql 的限制條件自我修復段落存在（防止未來被產生器覆蓋掉）', () => {
+  assert.match(SEED, /限制條件自我修復/);
+  assert.match(SEED, /alter table public\.sites add constraint sites_geo_precision_check/);
+  assert.ok(SEED.indexOf('限制條件自我修復') > SEED.indexOf('truncate table'),
+    '自我修復必須排在 truncate 之後、insert 之前');
+  assert.ok(SEED.indexOf('限制條件自我修復') < SEED.indexOf('insert into public.parishes'),
+    '自我修復必須排在 insert 之前');
+});
+
 test('升級段落以 alter table if exists ＋ add column if not exists 寫成，可安全重複執行', async () => {
   const start = SCHEMA.indexOf('-- >>> 版本升級 開始');
   const end = SCHEMA.indexOf('-- <<< 版本升級 結束');

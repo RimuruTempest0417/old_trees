@@ -205,6 +205,43 @@ def main():
     L.append("truncate table public.trees, public.sites, public.species, public.parishes,"
              " public.routes, public.conservation_topics, public.timeline_events restart identity cascade;")
     L.append("")
+    # ---- 限制條件自我修復 -------------------------------------------------
+    # 舊版資料庫的 CHECK「允許值」可能過時（例如 sites.geo_precision 早期不含 'official'），
+    # 此時下方 insert 會撞 23514。若使用者只執行 seed 這一段（在 SQL Editor 中選取後按 Run
+    # 只會執行選取範圍），上面的 schema 升級段落不會被執行，因此在這裡再做一次最保險：
+    # 此刻資料表剛被 truncate、沒有任何資料，重建限制條件最安全、也不需要正規化。
+    L.extend([
+        "-- ---------------------------------------------------------------------------",
+        "-- 限制條件自我修復：移除舊版（允許值過時）的 CHECK 後重建，避免 23514",
+        "--   23514: new row for relation \"sites\" violates check constraint \"sites_geo_precision_check\"",
+        "-- 資料表剛被 truncate，重建最安全；重複執行亦無副作用。",
+        "-- ---------------------------------------------------------------------------",
+        "do $$",
+        "declare",
+        "    r record;",
+        "begin",
+        "    for r in",
+        "        select c.conname, c.conrelid::regclass as tbl",
+        "        from pg_constraint c",
+        "        join pg_class t on t.oid = c.conrelid",
+        "        join pg_namespace n on n.oid = t.relnamespace",
+        "        join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)",
+        "        where c.contype = 'c' and n.nspname = 'public'",
+        "          and t.relname in ('sites', 'trees')",
+        "          and a.attname in ('geo_precision', 'grade', 'health')",
+        "    loop",
+        "        execute format('alter table %s drop constraint %I', r.tbl, r.conname);",
+        "    end loop;",
+        "end $$;",
+        "alter table public.sites drop constraint if exists sites_geo_precision_check;",
+        "alter table public.sites add constraint sites_geo_precision_check",
+        "  check (geo_precision in ('official','exact','approx','parish'));",
+        "alter table public.trees drop constraint if exists trees_grade_check;",
+        "alter table public.trees add constraint trees_grade_check check (grade in ('一級','二級','三級','不分級'));",
+        "alter table public.trees drop constraint if exists trees_health_check;",
+        "alter table public.trees add constraint trees_health_check check (health in ('健康','一般','瀕危'));",
+        "",
+    ])
 
     L.append("-- 堂區")
     for p in parishes:
