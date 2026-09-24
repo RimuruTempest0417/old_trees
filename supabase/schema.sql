@@ -7,6 +7,142 @@
 -- 說明：本檔可重複執行（idempotent）。
 -- =============================================================================
 
+-- >>> 版本升級 開始（由 scripts/gen_upgrade_sql.py 產生，請勿手改）
+-- ---------------------------------------------------------------------------
+-- 版本升級：把「舊版 init.sql 建立過的資料庫」補齊到目前欄位（可重複執行）
+--
+-- 為什麼需要：create table if not exists 對已存在的舊表「不會」補欄位，於是在舊資料庫上
+-- 再貼一次新版 init.sql 時，seed 會出現
+--   「column "geo_precision" of relation "public.trees" does not exist」
+-- 而整段交易回滾。以下逐欄 add column if not exists（含 default，避免升級後出現 NULL）。
+--
+-- 為什麼放在檔首：使用 alter table if exists，因此與 create table 的先後順序無關——
+-- 全新資料庫執行時表還不存在，全部以 NOTICE 跳過；舊資料庫則就地補齊；
+-- 重複執行時欄位已存在，同樣跳過。放在檔首也避免舊資料庫在後面的
+-- comment on column／檢視表／RPC 就先失敗。
+-- ---------------------------------------------------------------------------
+-- parishes
+alter table if exists public.parishes             add column if not exists code                 text;
+alter table if exists public.parishes             add column if not exists name_zh              text;
+alter table if exists public.parishes             add column if not exists name_pt              text;
+alter table if exists public.parishes             add column if not exists area_km2             numeric(8,2);
+alter table if exists public.parishes             add column if not exists centroid_lat         numeric(9,6);
+alter table if exists public.parishes             add column if not exists centroid_lon         numeric(9,6);
+alter table if exists public.parishes             add column if not exists note                 text;
+
+-- species
+alter table if exists public.species              add column if not exists name_zh              text;
+alter table if exists public.species              add column if not exists name_sci             text;
+alter table if exists public.species              add column if not exists wikidata_id          text;
+alter table if exists public.species              add column if not exists photo_url            text;
+alter table if exists public.species              add column if not exists photo_credit         text;
+alter table if exists public.species              add column if not exists photo_license        text;
+alter table if exists public.species              add column if not exists photo_page           text;
+alter table if exists public.species              add column if not exists description          text;
+
+-- sites
+alter table if exists public.sites                add column if not exists name_zh              text;
+alter table if exists public.sites                add column if not exists short_name           text;
+alter table if exists public.sites                add column if not exists parish_code          text references public.parishes(code);
+alter table if exists public.sites                add column if not exists lat                  numeric(9,6);
+alter table if exists public.sites                add column if not exists lon                  numeric(9,6);
+alter table if exists public.sites                add column if not exists geo_precision        text;
+alter table if exists public.sites                add column if not exists geo_source           text;
+alter table if exists public.sites                add column if not exists photo_url            text;
+alter table if exists public.sites                add column if not exists photo_credit         text;
+alter table if exists public.sites                add column if not exists photo_license        text;
+alter table if exists public.sites                add column if not exists photo_page           text;
+
+-- trees
+alter table if exists public.trees                add column if not exists tree_no              text;
+alter table if exists public.trees                add column if not exists species_id           integer references public.species(id);
+alter table if exists public.trees                add column if not exists site_id              integer references public.sites(id);
+alter table if exists public.trees                add column if not exists parish_code          text references public.parishes(code);
+alter table if exists public.trees                add column if not exists grade                text;
+alter table if exists public.trees                add column if not exists age_years            integer;
+alter table if exists public.trees                add column if not exists height_m             numeric(5,2);
+alter table if exists public.trees                add column if not exists health               text;
+alter table if exists public.trees                add column if not exists lat                  numeric(9,6);
+alter table if exists public.trees                add column if not exists lon                  numeric(9,6);
+alter table if exists public.trees                add column if not exists geo_precision        text;
+alter table if exists public.trees                add column if not exists official_no          text;
+alter table if exists public.trees                add column if not exists iam_tree_no          text;
+alter table if exists public.trees                add column if not exists ref_id               uuid;
+alter table if exists public.trees                add column if not exists crown_m              numeric(6,2);
+alter table if exists public.trees                add column if not exists diameter_cm          numeric(7,2);
+alter table if exists public.trees                add column if not exists surround_m           numeric(8,2);
+alter table if exists public.trees                add column if not exists official_description text;
+alter table if exists public.trees                add column if not exists official_loc         text;
+alter table if exists public.trees                add column if not exists photo_url            text;
+alter table if exists public.trees                add column if not exists photo_source         text;
+alter table if exists public.trees                add column if not exists photo_count          integer;
+alter table if exists public.trees                add column if not exists official_age_years   integer;
+alter table if exists public.trees                add column if not exists official_height_m    numeric(5,2);
+alter table if exists public.trees                add column if not exists official_health      text;
+alter table if exists public.trees                add column if not exists official_grade       text;
+alter table if exists public.trees                add column if not exists in_namelist          boolean default true;
+alter table if exists public.trees                add column if not exists updated_at           timestamptz default now();
+
+-- routes
+alter table if exists public.routes               add column if not exists code                 text;
+alter table if exists public.routes               add column if not exists name_zh              text;
+alter table if exists public.routes               add column if not exists summary              text;
+alter table if exists public.routes               add column if not exists parish_codes         text[] default '{}';
+alter table if exists public.routes               add column if not exists site_names           text[] default '{}';
+alter table if exists public.routes               add column if not exists species_focus        text;
+alter table if exists public.routes               add column if not exists max_stops            integer default 12;
+alter table if exists public.routes               add column if not exists sort_order           integer default 0;
+alter table if exists public.routes               add column if not exists tips                 text;
+
+-- conservation_topics
+alter table if exists public.conservation_topics  add column if not exists slug                 text;
+alter table if exists public.conservation_topics  add column if not exists category             text;
+alter table if exists public.conservation_topics  add column if not exists title                text;
+alter table if exists public.conservation_topics  add column if not exists summary              text;
+alter table if exists public.conservation_topics  add column if not exists body_md              text;
+alter table if exists public.conservation_topics  add column if not exists sources              text[] default '{}';
+alter table if exists public.conservation_topics  add column if not exists sort_order           integer default 0;
+
+-- timeline_events
+alter table if exists public.timeline_events      add column if not exists year                 integer;
+alter table if exists public.timeline_events      add column if not exists event_date           text;
+alter table if exists public.timeline_events      add column if not exists title                text;
+alter table if exists public.timeline_events      add column if not exists detail               text;
+alter table if exists public.timeline_events      add column if not exists source               text;
+
+-- field_records
+alter table if exists public.field_records        add column if not exists tree_no              text;
+alter table if exists public.field_records        add column if not exists observed_on          date default current_date;
+alter table if exists public.field_records        add column if not exists observer             text;
+alter table if exists public.field_records        add column if not exists weather              text;
+alter table if exists public.field_records        add column if not exists health               text;
+alter table if exists public.field_records        add column if not exists height_m             numeric(5,2);
+alter table if exists public.field_records        add column if not exists diameter_cm          numeric(7,2);
+alter table if exists public.field_records        add column if not exists crown_m              numeric(5,2);
+alter table if exists public.field_records        add column if not exists site_note            text;
+alter table if exists public.field_records        add column if not exists damage_note          text;
+alter table if exists public.field_records        add column if not exists photo_url            text;
+alter table if exists public.field_records        add column if not exists lat                  numeric(9,6);
+alter table if exists public.field_records        add column if not exists lon                  numeric(9,6);
+alter table if exists public.field_records        add column if not exists created_at           timestamptz default now();
+
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'sites_geo_precision_check') then
+    alter table if exists public.sites add constraint sites_geo_precision_check check (geo_precision in ('official','exact','approx','parish'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'trees_grade_check') then
+    alter table if exists public.trees add constraint trees_grade_check check (grade in ('一級','二級','三級','不分級'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'trees_health_check') then
+    alter table if exists public.trees add constraint trees_health_check check (health in ('健康','一般','瀕危'));
+  end if;
+end $$;
+
+-- field_records 早期版本對 trees 設了外鍵，會讓重新初始化種子資料時
+-- （truncate public.trees … cascade）連帶清空學生的實地考察紀錄，因此移除。
+alter table if exists public.field_records drop constraint if exists field_records_tree_no_fkey;
+-- <<< 版本升級 結束
+
 -- ---------------------------------------------------------------------------
 -- 1. 堂區 parishes
 -- ---------------------------------------------------------------------------
@@ -338,7 +474,10 @@ $$;
 -- ---------------------------------------------------------------------------
 create table if not exists public.field_records (
     id             uuid primary key default gen_random_uuid(),
-    tree_no        text references public.trees(tree_no) on delete set null,
+    -- 軟性參照：刻意「不」設外鍵。seed.sql 會 `truncate public.trees … cascade`，
+    -- 若這裡有外鍵，PostgreSQL 會連帶把實地考察紀錄一起清空（已實測）。
+    -- 為了讓重新初始化種子資料不會弄丟學生的考察紀錄，tree_no 只做文字比對。
+    tree_no        text,
     observed_on    date not null default current_date,   -- 觀察日期
     observer       text not null,                        -- 記錄者（班級／座號／姓名）
     weather        text,                                 -- 天氣
@@ -356,7 +495,6 @@ create table if not exists public.field_records (
     constraint field_records_note_len     check (coalesce(char_length(site_note), 0) <= 600
                                               and coalesce(char_length(damage_note), 0) <= 600)
 );
-
 comment on table public.field_records is '實地考察紀錄（學生／公眾現場觀察，與官方名錄分開存放）';
 comment on column public.field_records.tree_no is '對應古樹編號；允許留空以記錄「疑似古樹」或名錄外個體';
 
@@ -405,3 +543,4 @@ grant execute on all functions in schema public to anon, authenticated;
 -- 實地考察紀錄的寫入一律經由 Serverless Function（使用 service_role），
 -- 因此不開放 anon 直接 insert／update／delete；日後若改為前端直寫，
 -- 應改以 Supabase Auth 登入 + 具 auth.uid() 的政策取代，而非放寬 anon。
+

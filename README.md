@@ -111,13 +111,15 @@
 瀏覽器（public/：原生 ES Modules）
    │  fetch('/api/...')
    ▼
-Vercel Serverless Functions（api/*.js，Node.js 20+）
-   │  lib/repo.js  資料存取層（雙驅動）
+Vercel Serverless Function（api/[[...route]].js，唯一入口，Node.js 20+）
+   │  lib/router.js  路由分派（本機 dev-server 也用同一套）
+   │  lib/repo.js    資料存取層（雙驅動）
    ├──► Supabase PostgreSQL ── 正式模式
    │      （supabase-js ＋ service_role，僅在伺服器端）
    └──► data/snapshot.json ── 示範模式（未設環境變數時）
 ```
 
+- **為什麼只有一個 Function**：Vercel Hobby 方案限制「每個 Deployment 最多 12 個 Serverless Function」，而 `api/` 底下每個 `.js` 都算一個。原本 12 個端點 ＋ 1 個動態路由 = 13 個，部署會直接失敗（`No more than 12 Serverless Functions can be added to a Deployment`）。因此把所有 handler 移到 `lib/routes/`（`lib/` 不算 Function），`api/` 只留萬用入口 `api/[[...route]].js`，由 `lib/router.js` 分派——端點網址完全不變。
 - **無 SQLite**：資料庫只有 Supabase（PostgreSQL）一種；`data/snapshot.json` 是同源唯讀快照，讓專案在沒有資料庫連線時仍可完整展示，並非替代資料庫。
 - **前端零依賴外部 CDN**：Leaflet、Chart.js、marked、KaTeX 全部置於 `public/vendor/`。
 
@@ -125,20 +127,22 @@ Vercel Serverless Functions（api/*.js，Node.js 20+）
 
 ```
 macau-heritage-trees/
-├── api/                    Serverless Functions（12 個端點）
-│   ├── _lib/               共用中介層
-│   └── tree/[tree_no].js   動態路由
-├── lib/                    analysis.js｜geo.js｜repo.js｜http.js
+├── api/
+│   └── [[...route]].js     唯一的 Serverless Function（萬用入口）
+├── lib/
+│   ├── router.js           路由表與分派（線上與本機共用）
+│   ├── routes/             13 個端點的 handler（health／trees／tree／stats…）
+│   ├── analysis.js｜geo.js｜repo.js｜http.js
 ├── public/                 前端（index.html、css/、js/、photos/、vendor/）
 │   └── photos/trees/       658 張古樹官方照片（市政署，縮圖）
 ├── supabase/
-│   ├── schema.sql          資料表、檢視表、RPC、RLS（可直接貼進 Supabase SQL Editor）
+│   ├── schema.sql          資料表、檢視表、RPC、RLS、版本升級段落（可直接貼進 Supabase SQL Editor）
 │   ├── seed.sql            658 筆古樹（含官方座標／照片／描述）＋ 品種 ＋ 地點 ＋ 文章 ＋ 時間線
 │   └── init.sql            schema.sql ＋ seed.sql 合併檔（一鍵初始化）
 ├── data/                   建置產物（snapshot.json、iam_trees.json、conservation.json、species.json…）
 ├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed）＋ 開發伺服器＋驗證腳本（Node）
 ├── source-data/            原始 CSV 與 docx
-└── tests/                  6 組測試（統計／SQL／API／安全／機密／官方資料）
+└── tests/                  9 組測試（統計／SQL／API／路由／安全／機密／官方資料／前端／實地考察）
 ```
 
 ---
@@ -184,6 +188,7 @@ macau-heritage-trees/
 ## 五、API 端點
 
 所有端點皆為 `GET`（`POST` 亦接受 JSON body），回應格式 `{ ok, ...資料, took_ms }`，錯誤為 `{ ok: false, error }`。
+線上只有**一個** Serverless Function 處理全部端點：`api/[[...route]].js` → `lib/router.js` → `lib/routes/<端點>.js`。
 
 | 端點 | 說明 |
 | --- | --- |
@@ -300,6 +305,13 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 
 設定後 `/api/health` 的 `data_source` 會變成 `supabase`，網站上的「示範模式」提示會消失。
 
+> **資料庫已經跑過舊版 init.sql 怎麼辦？** `create table if not exists` 對已存在的舊表**不會**補欄位，
+> 因此在舊資料庫上再貼一次新版 `init.sql` 時，seed 會出現
+> `column "geo_precision" of relation "public.trees" does not exist` 而整段回滾（資料不會壞，只是沒更新）。
+> 目前版本的 `schema.sql`／`init.sql` 開頭已有一段**版本升級**（`alter table if exists … add column if not exists …`，
+> 共 8 張表、89 個欄位），會就地補齊缺少的欄位並保留預設值，可安全重複執行。
+> 直接把最新 `supabase/init.sql` 重新貼上執行即可，**不需要**刪表重建，實地考察紀錄也不會遺失。
+
 > **金鑰安全**：`.env`、`.env.local` 已列入 `.gitignore`；前端程式碼不含任何 Supabase 端點或金鑰（由 `tests/api-security.test.js` 自動驗證）。
 >
 > **若金鑰曾出現在版本庫**：`.env.example` 只放佔位符，切勿填入真實值——這個檔案會提交到 GitHub，一旦推送就收不回來（歷史紀錄仍留有該 blob）。處理順序：(1) 把檔案改回佔位符並推送；(2) 立刻到 Supabase Dashboard → Project Settings → API 輪換 `anon` 與 `service_role` 金鑰；(3) 更新 Vercel 環境變數並重新部署。**輪換才是真正的補救，改檔案只是止血。** `tests/secrets.test.js` 會在下次不小心再犯時擋下來。
@@ -327,8 +339,14 @@ vercel --prod     # 部署到正式環境
 
 - `outputDirectory: public`（靜態前端）
 - `framework: null`（純靜態 ＋ Functions，無建置步驟）
-- `functions.maxDuration: 30` 秒
+- `functions.maxDuration: 30` 秒（只有 `api/*.js` 一個 Function）
 - 相片與 vendor 資源長快取標頭
+
+> **Hobby 方案的 12 個 Function 上限**：Vercel Hobby 每個 Deployment 最多 12 個 Serverless Function，
+> 而 `api/` 底下每個 `.js` 檔都算一個。本專案把所有 handler 放在 `lib/routes/`，
+> `api/` 只有 `[[...route]].js` 一個萬用入口，因此**永遠只佔 1 個 Function**，新增端點也不會超限。
+> 若曾經看到 `Build Failed: No more than 12 Serverless Functions can be added to a Deployment
+> on the Hobby plan`，那是舊結構（13 個檔案）造成的，改用目前版本重新部署即可，不需要升級 Pro。
 
 GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
@@ -338,16 +356,17 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 8 組測試，共 102 項
+npm test               # 9 組測試，共 109 項
 npm run verify         # check ＋ test
 ```
 
 | 測試檔 | 內容 | 項數 |
 | --- | --- | --- |
 | `tests/analysis.test.js` | 統計函式單元測試（相關係數、迴歸、F 分佈、卡方分佈） | 18 |
-| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策與一鍵初始化檔 | 22 |
-| `tests/api.test.js` | 啟動真實伺服器打 12 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
+| `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔，以及**舊版資料庫就地升級**（缺欄位的舊表跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄） | 25 |
+| `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
+| `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為 | 4 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
 | `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級 | 17 |

@@ -46,6 +46,81 @@ test('綱要與種子資料可完整執行，且重複執行不會出錯（idemp
   assert.equal(t.n, csv.length);
 });
 
+test('舊版資料庫可直接升級：缺欄位的舊表跑一次 schema ＋ seed 即可補齊', async () => {
+  // 重現使用者在 Supabase 遇到的狀況：資料庫裡已有「舊版 init.sql 建立的表」，
+  // 但缺了後來才新增的欄位（geo_precision、official_* …）。
+  // create table if not exists 不會補欄位，於是 seed 會出現
+  // 「column "geo_precision" of relation "public.trees" does not exist」而整段回滾。
+  const old = new PGlite();
+  try {
+    await old.exec(`
+      create table public.parishes (code text primary key, name_zh text, name_pt text);
+      create table public.species (id serial primary key, name_zh text, name_sci text);
+      create table public.sites (id serial primary key, name_zh text, short_name text, parish_code text,
+                                 lat numeric(9,6), lon numeric(9,6));
+      create table public.trees (id serial primary key, tree_no text unique, species_id integer,
+                                 site_id integer, parish_code text, grade text, age_years integer,
+                                 height_m numeric(5,2), health text, lat numeric(9,6), lon numeric(9,6));
+      insert into public.trees (tree_no,grade,age_years,height_m,health)
+        values ('OLD-1','三級',120,10.5,'健康');
+    `);
+    await old.exec(SCHEMA);       // 升級段落應就地補齊所有缺少的欄位
+    await old.exec(SEED);         // 補齊後 seed 必須能成功
+    const cols = (await old.query(
+      `select column_name from information_schema.columns where table_schema='public' and table_name='trees'`,
+    )).rows.map((r) => r.column_name);
+    for (const c of ['geo_precision', 'official_no', 'iam_tree_no', 'crown_m', 'photo_url', 'in_namelist']) {
+      assert.ok(cols.includes(c), `升級後 trees 仍缺少欄位 ${c}`);
+    }
+    const n = (await old.query('select count(*)::int n from public.trees')).rows[0].n;
+    assert.equal(n, csv.length, '升級後 seed 應寫入完整 658 筆');
+    // 有 default 的欄位必須補上值，不能是 NULL（否則前端篩選會出現「未命名」）
+    const nulls = (await old.query('select count(*)::int n from public.trees where in_namelist is null')).rows[0].n;
+    assert.equal(nulls, 0, 'in_namelist 升級後不可為 NULL');
+    const upd = (await old.query('select count(*)::int n from public.trees where updated_at is null')).rows[0].n;
+    assert.equal(upd, 0, 'updated_at 升級後不可為 NULL');
+  } finally {
+    await old.close();
+  }
+});
+
+test('重新初始化種子資料不會清掉實地考察紀錄（field_records 刻意不設外鍵）', async () => {
+  // seed.sql 會 truncate public.trees … cascade；若 field_records 對 trees 有外鍵，
+  // PostgreSQL 會連帶把學生的考察紀錄一起清空（已用 PGlite 實測）。
+  const fk = await one(`select count(*)::int n from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    where t.relname = 'field_records' and c.contype = 'f'`);
+  assert.equal(fk.n, 0, 'field_records 不應有外鍵，否則重新 seed 會清掉考察紀錄');
+
+  await db.exec(`insert into public.field_records (tree_no, observer, health)
+                 values ('66', '高三甲 12 號', '健康')`);
+  await db.exec(SEED);          // 重新初始化種子資料
+  const kept = await one('select count(*)::int n from public.field_records');
+  assert.ok(kept.n >= 1, '重新 seed 後實地考察紀錄被清掉了');
+  await db.exec('delete from public.field_records');   // 還原，避免影響其他測試
+});
+
+test('升級段落以 alter table if exists ＋ add column if not exists 寫成，可安全重複執行', async () => {
+  const start = SCHEMA.indexOf('-- >>> 版本升級 開始');
+  const end = SCHEMA.indexOf('-- <<< 版本升級 結束');
+  assert.ok(start > 0 && end > start, '找不到升級段落標記');
+  const upgrade = SCHEMA.slice(start, end);
+  assert.ok(upgrade.length > 500, '升級段落過短');
+  assert.ok(/add column if not exists/.test(upgrade), '升級段落必須使用 add column if not exists');
+  assert.ok(/alter table if exists/.test(upgrade), '升級段落必須使用 alter table if exists（與 create table 順序無關）');
+  assert.ok(!/alter table (?!if exists)/.test(upgrade), '升級段落有未加 if exists 的 alter table');
+  assert.ok(!/add column (?!if not exists)/.test(upgrade), '升級段落有未加 if not exists 的欄位');
+  assert.ok(/pg_constraint where conname/.test(upgrade), 'CHECK 條件需以 pg_constraint 判斷後再加');
+  // 舊版資料庫若已對 trees 設外鍵，必須移除，否則重新 seed 會清掉考察紀錄
+  assert.match(upgrade, /drop constraint if exists field_records_tree_no_fkey/);
+  // 產生器必須幂等（重跑不會產生第二段）
+  assert.equal((SCHEMA.match(/-- >>> 版本升級 開始/g) || []).length, 1, '升級段落只能有一份');
+  // 升級段落之後才能跑 seed：init.sql 的順序必須是 schema（含升級）→ seed
+  const INIT = fs.readFileSync(path.join(ROOT, 'supabase', 'init.sql'), 'utf8');
+  assert.ok(INIT.indexOf('add column if not exists') < INIT.indexOf('insert into public.trees'),
+    'init.sql 的升級段落必須排在 seed 之前');
+});
+
 test('資料表列數與 CSV 一致', async () => {
   assert.equal((await one('select count(*)::int n from public.trees')).n, csv.length);
   assert.equal((await one('select count(*)::int n from public.sites')).n, new Set(csv.map((r) => r[6])).size);

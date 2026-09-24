@@ -126,7 +126,9 @@ test('schema.sql 已建立 field_records（含索引與匿名唯讀 RLS）', () 
   assert.match(sql, /idx_field_records_observed/);
   assert.match(sql, /alter table public\.field_records\s+enable row level security/);
   assert.match(sql, /'field_records'/);          // 匿名唯讀政策迴圈內
-  assert.match(sql, /references public\.trees\(tree_no\)/);
+  // 刻意「不」設外鍵：seed.sql 的 truncate … cascade 會連帶清空考察紀錄（已實測）
+  assert.ok(!/tree_no\s+text references public\.trees/.test(sql), 'field_records.tree_no 不應設外鍵');
+  assert.match(sql, /drop constraint if exists field_records_tree_no_fkey/);  // 舊版若有外鍵則移除
 });
 
 test('init.sql（Supabase SQL Editor 用）也已包含 field_records', () => {

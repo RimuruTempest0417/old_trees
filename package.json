@@ -20,6 +20,7 @@
     "test:iam": "node --test tests/iam.test.js",
     "test:ui": "node --test tests/ui.test.js",
     "test:field": "node --test tests/field.test.js",
+    "test:router": "node --test tests/router.test.js",
     "verify": "npm run check && npm test",
     "vendor": "node scripts/vendor.mjs",
     "build:data": "python3 scripts/content.py && python3 scripts/build_seed.py"

@@ -5,13 +5,14 @@
  *   node scripts/dev-server.mjs [port]
  *
  * 靜態檔案： public/  →  /
- * 函式：     api/x.js  →  /api/x
- * 動態路由： api/tree/[tree_no].js → /api/tree/:tree_no
+ * 函式：     lib/routes/x.js → /api/x（由 lib/router.js 分派，與 Vercel 上線後同一套）
+ * 動態路由： /api/tree/:tree_no
  */
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as ROUTER from '../lib/router.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PUBLIC = path.join(ROOT, 'public');
@@ -27,38 +28,28 @@ const MIME = {
   '.map': 'application/json', '.txt': 'text/plain; charset=utf-8',
 };
 
-/** 掃描 api/ 目錄，建立路由表 */
-function buildRoutes(dir = API, prefix = '/api') {
-  const routes = [];
+/**
+ * 掃描 lib/routes/ 目錄，建立熱重載用的檔案對照表。
+ * 路由「比對」交給 lib/router.js（與 Vercel 上線後同一套），這裡只負責找到檔案，
+ * 並以 mtime 做快取破壞，讓修改 handler 後不必重啟伺服器。
+ */
+function buildFiles(dir, prefix = '') {
+  const out = {};
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      routes.push(...buildRoutes(full, `${prefix}/${entry.name}`));
-    } else if (entry.name.endsWith('.js')) {
-      const base = entry.name.replace(/\.js$/, '');
-      const name = base === 'index' ? '' : base;
-      routes.push({ pattern: `${prefix}/${name}`.replace(/\/$/, ''), file: full, kind: 'exact' });
-    }
+    if (entry.isDirectory()) Object.assign(out, buildFiles(full, `${prefix}${entry.name}/`));
+    else if (entry.name.endsWith('.js')) out[`${prefix}${entry.name.replace(/\.js$/, '')}`] = full;
   }
-  // 動態路由：[param].js
-  const exact = routes.filter((r) => !/\[[^\]]+\]/.test(r.pattern));
-  const dyn = [];
-  for (const r of routes) {
-    const last = r.pattern.split('/').pop();
-    if (last && last.startsWith('[') && last.endsWith(']')) {
-      dyn.push({
-        ...r, kind: 'dynamic', param: last.slice(1, -1),
-        regex: new RegExp(`^${r.pattern.replace(/\[[^\]]+\]/, '([^/]+)')}$`),
-      });
-    }
-  }
-  return [...exact, ...dyn];
+  return out;
 }
 
-const ROUTES = buildRoutes();
+const ROUTE_FILES = buildFiles(path.join(ROOT, 'lib', 'routes'));
+const ROUTES = ROUTER.ROUTES;
 const cache = new Map();
 
-async function loadHandler(file) {
+async function loadHandler(id) {
+  const file = ROUTE_FILES[id];
+  if (!file) throw new Error(`找不到路由檔 lib/routes/${id}.js`);
   const key = file + ':' + fs.statSync(file).mtimeMs;
   if (cache.has(key)) return cache.get(key);
   const mod = await import(pathToFileURL(file).href + `?t=${Date.now()}`);
@@ -104,27 +95,18 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname === '/' ? '/index.html' : pathname);
 
-  const route = ROUTES.find((r) => (r.kind === 'dynamic' ? r.regex.test(pathname) : r.pattern === pathname));
-  if (!route) {
-    res.statusCode = 404;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    return res.end(JSON.stringify({ ok: false, error: `找不到 API 路由 ${pathname}` }));
-  }
+  const match = ROUTER.matchRoute(pathname);
+  if (!match) return ROUTER.notFound(res, pathname);
   // 收集 body
   const chunks = [];
   for await (const c of req) chunks.push(c);
   const raw = Buffer.concat(chunks).toString('utf8');
   req.body = raw && raw.trim().startsWith('{') ? raw : undefined;
 
-  if (route.kind === 'dynamic') {
-    const m = pathname.match(route.regex);
-    req.query = { ...(req.query || {}), [route.param]: decodeURIComponent(m[1]) };
-  } else {
-    req.query = req.query || {};
-  }
+  req.query = { ...(req.query || {}), ...match.params };
   try {
-    const fn = await loadHandler(route.file);
-    await fn(req, res);
+    const fn = await loadHandler(match.id);
+    await ROUTER.dispatch(req, res, pathname, { handler: fn });
   } catch (err) {
     console.error('[dev-server]', err);
     if (!res.writableEnded) {
@@ -137,6 +119,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`古樹保育平台 開發伺服器： http://localhost:${PORT}`);
-  console.log(`已掛載 ${ROUTES.length} 個 API 路由：`);
-  for (const r of ROUTES) console.log('  ', r.pattern);
+  console.log(`已掛載 ${ROUTES.length} 個 API 路由（由 lib/router.js 分派，與線上一致）：`);
+  for (const r of ROUTES) console.log('  ', r.path);
+  console.log('（Vercel 上只有一個 Serverless Function：api/[[...route]].js）');
 });
