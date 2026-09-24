@@ -8,3 +8,6 @@ data/geocode.log
 data/species.log
 __pycache__/
 *.pyc
+
+# 裝置適配稽核用的暫存頁（執行 scripts/ui-audit.sh 時產生，不應進版控）
+public/__*.html

@@ -84,6 +84,21 @@
 4. **統計誠實原則**：模型以決定係數與 RMSE 客觀比較，**負的 R² 照實顯示**（代表該模型比用平均值更差），不挑好看的回報。
 5. **金鑰不落地**：前端只呼叫自家 `/api`，Supabase 服務金鑰只存在於 Vercel 環境變數。
 
+### 裝置適配（深淺色模式與手機瀏覽器）
+
+| 面向 | 做法 |
+| --- | --- |
+| **跟隨系統深淺色** | `@media (prefers-color-scheme: dark)` 覆寫全套色票變數；`:root { color-scheme: light dark }` 讓下拉選單、捲軸、日期選擇器等原生控件同步；`<meta name="theme-color">` 淺色 `#14532d`／深色 `#101613` 兩版，手機瀏覽器介面帶跟著變 |
+| **深色下的細節** | 表頭改不透明底色（捲動時資料列不從底下透出）、模態遮罩加深、`::selection` 反白；**Leaflet 內建樣式另外覆蓋**（彈窗、縮放鈕、比例尺、授權列），地圖圖磚以 `invert(1) hue-rotate(180deg)` 反相，夜間不刺眼 |
+| **不靠顏色單獨傳達** | 健康狀況除色點外皆有文字標籤；色票在深淺兩模式都維持 WCAG AA 對比 |
+| **手機瀏覽器** | `viewport-fit=cover` ＋ `env(safe-area-inset-*)` 避開瀏海與底部指示列；`100dvh` 取代 `100vh` 避免網址列造成高度跳動；`-webkit-text-size-adjust: 100%` 防止橫向時字級被自動放大 |
+| **觸控操作** | 按鈕／頁籤／篩選標籤在 ≤940 px 放大到 40–44 px 高；`touch-action: manipulation` 消除點擊延遲與高亮方塊 |
+| **iOS 輸入放大** | 輸入框在 ≤940 px 一律 16 px（iOS 對 <16 px 的輸入框聚焦時會自動放大整頁；注意屬性選擇器 `input[type="text"]` 權重較高，必須同權重覆寫才蓋得掉） |
+| **窄螢幕排版** | 五個分頁斷點 940 / 700 / 400 px：統計卡 2 欄、圖表縮高、**地圖移到最上方**、表格自帶橫向捲動（不用 `overflow-x: hidden`，避免破壞 sticky 頁首）、單株詳情改為底部浮出的面板而非置中彈窗、頁籤列改可橫向滑動不擠成兩行 |
+| **列印** | 不輸出模糊森林背景、隱藏頁首頁尾與按鈕，回到白底黑字 |
+
+自動化稽核 `scripts/ui-audit.sh`（需另備注入式量測頁）以無頭 Chrome 在 360／390／834／1440 px 與深淺色共 14 種組合下量測頁面捲動寬度、元素溢出、觸控目標高度與輸入框字級，全部 `pageOverflow = 0`。
+
 ---
 
 ## 三、系統架構
@@ -309,7 +324,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 6 組測試，共 75 項
+npm test               # 7 組測試，共 88 項
 npm run verify         # check ＋ test
 ```
 
@@ -321,6 +336,7 @@ npm run verify         # check ＋ test
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
+| `tests/ui.test.js` | 裝置適配：viewport／theme-color／`color-scheme`、深色模式變數與 Leaflet 覆蓋、手機斷點、觸控目標、輸入框 16 px、動態視窗高度與安全區域、禁止 `overflow-x: hidden`、格線項目可壓縮、列印樣式、CSS 大括號成對 | 13 |
 
 ### API 安全測試涵蓋範圍
 
@@ -337,6 +353,13 @@ npm run verify         # check ＋ test
 ### 前端渲染驗證
 
 `scripts/verify-ui.sh <port>` 以無頭 Chrome 抓取五個分頁渲染後的 DOM，確認 JavaScript 真的執行、圖表與地圖標記真的產生（而非只檢查原始碼）。實測結果：總覽 5 張圖表、地圖 658 個標記、分析頁 5 張圖表。
+
+`scripts/ui-audit.sh <port>` 是**裝置適配稽核**：在 360／390／414／834／1440 px 與深淺色共 50 組組合下，量測頁面橫向溢出、元素溢出、觸控目標高度、文字輸入框字級、統計卡欄數、地圖是否排到最前、頁籤是否改為橫向滑動。因為無頭 Chrome 的視窗寬度下限約 500 px，量測在**同源 iframe** 內進行（寬度才真正可控）：
+
+```bash
+node scripts/dev-server.mjs 3351 &
+bash scripts/ui-audit.sh 3351          # 有問題時離開碼為 1
+```
 
 ---
 

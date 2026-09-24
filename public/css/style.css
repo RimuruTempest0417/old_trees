@@ -3,6 +3,7 @@
    以自然色系（森林綠／土黃／古紙白）呈現，支援深色模式與列印。
    ============================================================= */
 :root {
+  color-scheme: light dark;     /* 讓原生控件（下拉選單、捲軸、日期選擇器）跟隨系統深淺色 */
   --green-900: #14532d;
   --green-700: #166534;
   --green-600: #15803d;
@@ -21,6 +22,7 @@
   --card: #ffffff;
   --line: #dde5de;
   --line-strong: #c3d0c5;
+  --link: #166534;              /* 連結／強調文字色：淺色模式為深綠，深色模式另設亮綠（見下） */
   --shadow: 0 1px 2px rgba(20, 83, 45, .06), 0 8px 24px -12px rgba(20, 83, 45, .18);
   --radius: 12px;
   --radius-sm: 8px;
@@ -41,6 +43,7 @@
     --amber-100: #3a2c12;
     --red-100: #3d1a1a;
     --blue-100: #17253f;
+    --link: #7fe3aa;              /* 深色底上 #166534 對比不足，改用亮綠 */
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
   }
 }
@@ -61,7 +64,11 @@ body {
   line-height: 1.75;
   font-size: 15.5px;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;   /* 橫向時避免 iOS 自動放大字級 */
 }
+
+/* 圖片、畫布、表格一律不得超出容器（手機常見的橫向溢出元凶） */
+img, canvas, svg, table, pre { max-width: 100%; }
 
 /* 森林背景圖層：固定於視窗、套用模糊，置於所有內容之後 */
 body::before {
@@ -93,7 +100,7 @@ h2 { font-size: 1.35rem; }
 h3 { font-size: 1.1rem; }
 h4 { font-size: .98rem; }
 p { margin: 0 0 .9em; }
-a { color: var(--green-700); text-decoration: none; }
+a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -125,9 +132,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.4rem 0; }
 .brand:hover { text-decoration: none; }
 .brand-mark { font-size: 1.7rem; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-.brand-text strong { font-size: 1.06rem; color: var(--green-900); }
+.brand-text strong { font-size: 1.06rem; color: var(--link); }
 .brand-text small { font-size: .68rem; color: var(--ink-mute); letter-spacing: .04em; text-transform: uppercase; }
-@media (prefers-color-scheme: dark) { .brand-text strong { color: var(--green-500); } }
 
 .tabs { display: flex; gap: .25rem; margin-left: auto; flex-wrap: wrap; }
 .tab {
@@ -159,7 +165,14 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .split { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; align-items: start; }
-@media (max-width: 940px) { .split { grid-template-columns: 1fr; } }
+@media (max-width: 940px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+/* 格線／彈性項目預設的 min-width: auto 等於「不得小於內容最小寬度」，
+   一旦卡片裡有寬表格或圖表，項目就會撐破容器造成整頁橫向溢出
+   （實測：360 px 螢幕上分析頁卡片寬 364 px）。改成 min-width: 0 讓卡片
+   縮到格線寬度，內部寬表格再由 .table-wrap 自己橫向捲動。 */
+.grid > *, .split > *, .map-layout > *, .footer-grid > *, .photo-grid > * { min-width: 0; }
+.chart-box { min-width: 0; }
 
 .card {
   background: var(--card); border: 1px solid var(--line);
@@ -204,7 +217,7 @@ input[type="range"] { width: 100%; accent-color: var(--green-600); }
   background: var(--card); color: var(--ink); font: inherit; font-weight: 600; font-size: .9rem;
   cursor: pointer;
 }
-.btn:hover { border-color: var(--green-600); color: var(--green-700); }
+.btn:hover { border-color: var(--green-600); color: var(--link); }
 .btn-primary { background: var(--green-700); border-color: var(--green-700); color: #fff; }
 .btn-primary:hover { background: var(--green-600); color: #fff; }
 .btn-sm { padding: .28rem .6rem; font-size: .82rem; }
@@ -234,7 +247,7 @@ input[type="range"] { width: 100%; accent-color: var(--green-600); }
 }
 
 /* ── 表格 ─────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; min-width: 0; max-width: 100%; }
 table.data { width: 100%; border-collapse: collapse; font-size: .88rem; }
 table.data th, table.data td { padding: .42rem .55rem; border-bottom: 1px solid var(--line); text-align: left; }
 table.data th { background: color-mix(in srgb, var(--green-100) 55%, transparent); font-weight: 700; position: sticky; top: 0; }
@@ -250,7 +263,7 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
 /* ── 地圖 ─────────────────────────────────────────────────── */
 #map { height: 68vh; min-height: 420px; border-radius: var(--radius); border: 1px solid var(--line); }
 .map-layout { display: grid; grid-template-columns: 330px 1fr; gap: 1rem; align-items: start; }
-@media (max-width: 940px) { .map-layout { grid-template-columns: 1fr; } #map { height: 56vh; } }
+@media (max-width: 940px) { .map-layout { grid-template-columns: minmax(0, 1fr); } #map { height: 56vh; } }
 
 .tree-list { display: flex; flex-direction: column; gap: .45rem; }
 .tree-item {
@@ -321,7 +334,7 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
   content: ''; position: absolute; left: -1.52rem; top: .45rem; width: 11px; height: 11px;
   border-radius: 50%; background: var(--green-600); border: 2px solid var(--card);
 }
-.timeline-year { font-weight: 700; color: var(--green-700); font-size: .92rem; }
+.timeline-year { font-weight: 700; color: var(--link); font-size: .92rem; }
 
 /* ── 相片牆 ───────────────────────────────────────────────── */
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .8rem; }
@@ -381,15 +394,146 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
   max-width: var(--maxw); margin: 0 auto; display: grid; gap: 1.4rem;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
-.site-footer h4 { color: var(--green-700); margin-bottom: .4rem; }
+.site-footer h4 { color: var(--link); margin-bottom: .4rem; }
 .site-footer ul { margin: 0; padding-left: 1.1rem; }
 .site-footer li { font-size: .83rem; color: var(--ink-soft); margin-bottom: .25rem; }
 .footer-note { max-width: var(--maxw); margin: 1.4rem auto 0; font-size: .78rem; color: var(--ink-mute); }
 
+/* ── 深色模式補充 ─────────────────────────────────────────────
+   變數已在檔首定義；這裡處理原生控件以外的細節，特別是
+   Leaflet 內建樣式（為淺色底設計）與會透光的 sticky 表頭。 */
+@media (prefers-color-scheme: dark) {
+  table.data th { background: #1f2c24; }         /* 不透明，捲動時資料列不會透出 */
+  .modal-backdrop { background: rgba(0, 0, 0, .68); }
+  .toast { background: var(--green-600); }
+  .skip-link { background: var(--green-600); }
+  .leaflet-container { background: #0c120e; }
+  /* OSM 圖磚是為淺色地圖設計的；深色模式下反相＋轉色相，維持可讀且不刺眼 */
+  .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(.86) contrast(.92); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: var(--card); color: var(--ink);
+    box-shadow: 0 10px 28px -12px rgba(0, 0, 0, .75);
+  }
+  .leaflet-popup-close-button { color: var(--ink-mute) !important; }
+  .leaflet-bar a { background: var(--card); color: var(--ink); border-bottom-color: var(--line); }
+  .leaflet-bar a:hover { background: var(--line); color: var(--ink); }
+  .leaflet-control-attribution {
+    background: color-mix(in srgb, var(--card) 88%, transparent); color: var(--ink-mute);
+  }
+  .leaflet-control-attribution a { color: var(--link); }
+  .leaflet-control-scale-line {
+    background: color-mix(in srgb, var(--card) 78%, transparent);
+    border-color: var(--line-strong); color: var(--ink-soft);
+  }
+  ::selection { background: var(--green-600); color: #04120a; }
+}
+
+/* ── 手機與平板 ───────────────────────────────────────────── */
+@media (max-width: 940px) {
+  /* 平板與手機：縮小邊距，並把觸控目標與輸入字級調到適合手指 */
+  main { padding: 1.2rem .95rem 3rem; }
+  /* iOS 在輸入框字級 <16px 時聚焦會自動放大整頁；選擇器須與基礎樣式同權重才蓋得掉 */
+  select,
+  input[type="text"], input[type="number"], input[type="search"], input[type="email"],
+  input[type="tel"], input[type="url"], input[type="date"], textarea { font-size: 16px; }
+  .btn { min-height: 44px; }
+  .btn-sm { min-height: 40px; }
+  .chip { min-height: 40px; display: inline-flex; align-items: center; }
+}
+
+@media (max-width: 700px) {
+  html { overflow-x: clip; }        /* 用 clip 而非 hidden，才不會破壞 sticky 頁首 */
+  body { font-size: 16px; }
+  select, input[type="text"], input[type="number"], input[type="search"] { padding: .55rem .65rem; }
+
+  main { padding: .9rem .85rem calc(2.2rem + env(safe-area-inset-bottom)); }
+
+  /* 頁首：品牌＋狀態列一行，頁籤自成一行可橫向滑動 */
+  .header-inner {
+    gap: .45rem;
+    padding: calc(.45rem + env(safe-area-inset-top)) .85rem .45rem;
+  }
+  .brand-mark { font-size: 1.4rem; }
+  .brand-text strong { font-size: .98rem; }
+  .brand-text small { display: none; }
+  .header-status { margin-left: auto; }
+  .tabs {
+    order: 3; width: 100%; margin-left: 0; flex-wrap: nowrap;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: .1rem;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: .5rem .85rem; min-height: 40px; display: inline-flex; align-items: center; }
+
+  h1 { font-size: 1.45rem; }
+  h2 { font-size: 1.18rem; }
+  .page-head { padding: .85rem .9rem; }
+  .page-head p { font-size: .92rem; }
+
+  .card { padding: .9rem .95rem; }
+  .grid, .split, .map-layout { gap: .8rem; }
+  .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+  .kpi .kpi-value { font-size: 1.5rem; }
+
+  .chart-box { height: 250px; }
+  .chart-box.tall { height: 310px; }
+  .chart-box.short { height: 200px; }
+
+  #map { height: 58dvh; min-height: 300px; }
+  .map-layout > div:nth-child(2) { order: -1; }   /* 手機先看到地圖，再往下是篩選與清單 */
+  .card-scroll { max-height: 52dvh; }
+
+  /* 彈窗改為底部浮出、接近全螢幕，按鈕留在姆指可及處 */
+  .modal { padding: 0; align-items: flex-end; }
+  .modal-panel {
+    max-width: 100%; max-height: 92dvh; border-radius: 14px 14px 0 0;
+    padding: 1rem .95rem calc(1.1rem + env(safe-area-inset-bottom));
+  }
+  .modal-close { top: .2rem; right: .3rem; font-size: 2rem; padding: .2rem .45rem; }
+
+  /* 觸控目標放大（平板已於 940px 斷點處理，這裡再加手機專屬的緊湊尺寸） */
+  .btn { padding: .6rem 1rem; min-height: 44px; }
+  .btn-sm { padding: .5rem .8rem; min-height: 40px; }
+  .chip { padding: .45rem .85rem; min-height: 40px; display: inline-flex; align-items: center; }
+
+  .table-wrap { margin: 0 -.15rem; }
+  table.data { font-size: .84rem; }
+  table.data th, table.data td { padding: .4rem .45rem; }
+
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: .6rem; }
+  .photo-card img { height: 104px; }
+  .article { font-size: .96rem; }
+  .article table { font-size: .84rem; }
+  .footer-grid { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
+
+  .toast {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 1.7rem); text-align: center; border-radius: 14px;
+  }
+  .leaflet-popup-content { max-width: 64vw; }
+  .legend-box { font-size: .74rem; }
+}
+
+@media (max-width: 400px) {                     /* iPhone SE 等窄機 */
+  .kpi .kpi-value { font-size: 1.35rem; }
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .tab { padding: .5rem .7rem; }
+}
+
+/* 觸控裝置（不限寬度）：移除點擊高亮的灰色方塊，取消雙擊縮放延遲 */
+@media (hover: none) {
+  .btn, .chip, .tab, .tree-item, .photo-card, .route-card {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
 /* ── 列印 ─────────────────────────────────────────────────── */
 @media print {
   .site-header, .site-footer, .btn, .chips, .tabs { display: none !important; }
-  body { background: #fff; color: #000; }
+  body::before, body::after { display: none !important; }   /* 不要把模糊森林背景印出來 */
+  body { background: #fff; color: #000; font-size: 12pt; }
   .card { box-shadow: none; border-color: #999; page-break-inside: avoid; }
   #map { height: 320px; }
 }
