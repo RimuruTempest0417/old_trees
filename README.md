@@ -420,6 +420,19 @@ bash scripts/ui-audit.sh 3351          # 有問題時離開碼為 1
 檔頭的「版本升級」段會自動補齊缺少的欄位、資料表與函式（可重複執行，不會弄丟實地考察紀錄）。
 執行完重新整理，`/api/health` 的 `schema.ok` 應變成 `true`、`missing` 為空。
 
+### 症狀：`ERROR: 42P16: cannot change name of view column "species" to "tree_geo_precision"`
+
+**原因**：`CREATE OR REPLACE VIEW` 只能「在既有欄位後面追加」，不能改變既有欄位的位置或名稱。
+舊版 `v_trees` 的第 10 欄是 `species`，新版同一位置是 `tree_geo_precision`，舊資料庫重跑時就報 42P16。
+（同理，函式回傳型別改變時 `CREATE OR REPLACE FUNCTION` 會報 42P13。）
+
+**解法**：`supabase/schema.sql` 的檢視表段落現在**先 `drop view … cascade` 再重建**，
+並用 DO 迴圈刪除本專案的 `rpc_*` 函式後重建，因此**直接重跑 `supabase/init.sql` 即可**。
+若想單獨先修這一步，可先執行 `supabase/fix_42P16.sql`（只刪檢視表與函式，不動資料）。
+
+驗證方式（PGlite 實跑，已納入 `tests/sql.test.js`）：把 `v_trees` 換成舊版欄位順序與舊版
+`rpc_overview` 回傳型別後重跑 `init.sql`，必須成功重建且 `trees`／`v_trees`／`rpc_overview` 都恢復正常。
+
 ### 錯誤碼對照
 
 | `error_code` | 意思 | 下一步 |

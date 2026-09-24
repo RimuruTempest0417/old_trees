@@ -292,7 +292,34 @@ comment on table public.timeline_events is '澳門古樹保護立法與名錄時
 
 -- ---------------------------------------------------------------------------
 -- 7. 檢視表 views — 供分析與圖表使用
+--    （舊資料庫相容：先刪再建，見下方說明）
 -- ---------------------------------------------------------------------------
+-- 為什麼要先 drop：CREATE OR REPLACE VIEW 只能「在既有欄位後面追加」，無法改變
+-- 既有欄位的位置或名稱。舊版 v_trees 的第 10 欄是 species，新版同一位置是
+-- tree_geo_precision，於是舊資料庫重跑本檔時 PostgreSQL 直接報
+--   42P16: cannot change name of view column "species" to "tree_geo_precision"
+-- （HINT 建議用 ALTER VIEW RENAME COLUMN，但檢視表本來就是本檔產生的一次性物件，
+--  整體重建最乾淨）。cascade 會一併刪掉相依檢視，下面再全部重新建立。
+-- 同理，函式若回傳型別改變，CREATE OR REPLACE FUNCTION 會報 42P13，因此一併刪除。
+drop view if exists public.v_trees         cascade;
+drop view if exists public.v_parish_stats  cascade;
+drop view if exists public.v_species_stats cascade;
+
+do $$
+declare r record;
+begin
+  for r in
+    select p.oid::regprocedure as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('rpc_overview', 'rpc_parishes', 'rpc_species_ranking',
+                        'rpc_age_histogram', 'rpc_scatter', 'rpc_find_trees')
+  loop
+    execute format('drop function if exists %s cascade', r.sig);
+  end loop;
+end $$;
+
 create or replace view public.v_trees as
 select t.id, t.tree_no, t.grade, t.age_years, t.height_m, t.health,
        t.lat, t.lon, t.in_namelist,

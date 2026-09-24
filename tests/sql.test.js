@@ -100,6 +100,40 @@ test('重新初始化種子資料不會清掉實地考察紀錄（field_records 
   await db.exec('delete from public.field_records');   // 還原，避免影響其他測試
 });
 
+test('舊資料庫的檢視表欄位順序與函式回傳型別不同時，重跑 schema.sql 仍能升級（42P16／42P13 修復）', async () => {
+  // 這是實際發生在 Supabase 上的錯誤：
+  //   ERROR: 42P16: cannot change name of view column "species" to "tree_geo_precision"
+  // 成因：CREATE OR REPLACE VIEW 只能往後追加欄位，不能改變既有欄位的位置／名稱。
+  const old = new PGlite();
+  await old.exec(SCHEMA);          // 先建好（當作「已經存在的新版」）
+  // 把 v_trees 換成「舊版」欄位順序：第 10 欄叫 species（新版同位置是 tree_geo_precision）
+  await old.exec(`
+    drop view if exists public.v_trees cascade;
+    create view public.v_trees as
+      select t.id, t.tree_no, t.grade, t.age_years, t.height_m, t.health,
+             t.lat, t.lon, t.in_namelist,
+             s.name_zh as species, s.name_sci,
+             st.name_zh as site, p.code as parish
+      from public.trees t
+        left join public.species s on s.id = t.species_id
+        left join public.sites   st on st.id = t.site_id
+        left join public.parishes p on p.code = t.parish_code;
+    -- 舊版函式回傳型別不同（jsonb 而非 json），CREATE OR REPLACE FUNCTION 會報 42P13
+    drop function if exists public.rpc_overview() cascade;
+    create function public.rpc_overview() returns jsonb language sql stable as
+      $$ select '{}'::jsonb $$;
+  `);
+  // 重跑新版 schema.sql：應該先刪除舊檢視表與函式，再重建，全程無錯
+  await old.exec(SCHEMA);
+  const cols = (await old.query(`select column_name from information_schema.columns
+    where table_schema='public' and table_name='v_trees' order by ordinal_position`)).rows.map((r) => r.column_name);
+  assert.ok(cols.includes('tree_geo_precision'), 'v_trees 應重建為新版欄位');
+  assert.ok(cols.includes('species'), 'species 欄位仍應存在（改名為 tree_geo_precision 的修正）');
+  const ov = (await old.query(`select rpc_overview() as o`)).rows[0].o;
+  assert.ok(ov && typeof ov === 'object' && 'tree_count' in ov, 'rpc_overview 應重建為新版（回傳 json）');
+  await old.close();
+});
+
 test('升級段落以 alter table if exists ＋ add column if not exists 寫成，可安全重複執行', async () => {
   const start = SCHEMA.indexOf('-- >>> 版本升級 開始');
   const end = SCHEMA.indexOf('-- <<< 版本升級 結束');
