@@ -356,7 +356,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 10 組測試，共 133 項
+npm test               # 10 組測試，共 137 項
 npm run verify         # check ＋ test
 ```
 
@@ -364,9 +364,9 @@ npm run verify         # check ＋ test
 | --- | --- | --- |
 | `tests/analysis.test.js` | 統計函式單元測試（相關係數、迴歸、F 分佈、卡方分佈） | 18 |
 | `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄），以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 30 |
-| `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
+| `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性（含 `/api/tree?no=` 與路徑形式一致） | 13 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
-| `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為 | 4 |
+| `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為、單段落＋查詢參數形式、**前端不得出現多段落呼叫**、`vercel.json` 的 rewrite | 7 |
 | `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 17 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
@@ -453,6 +453,30 @@ end if;
 ```
 
 （`trees.grade`、`trees.health` 同樣處理。）已納入 `tests/sql.test.js` 回歸測試。
+
+### 某些 API 端點在線上 404（「The page could not be found」），本機卻正常？
+
+**Vercel 的萬用入口 `api/[[...route]].js` 實際上線時只匹配「一個」路徑段落**：
+`/api/health`、`/api/trees` 正常，但 `/api/tree/544` 會直接被 Vercel 回 404，
+連 Serverless Function 都進不去（本機 dev-server 走 `lib/router.js`，不受此限制，所以本機正常）。
+
+v0.6.7 的三層修正：
+
+1. 前端一律呼叫**單段落**端點：單株詳情改用 `/api/tree?no=544`（`public/js/api.js`）。
+2. `lib/router.js` 同時支援 `/api/tree/:tree_no` 與 `/api/tree?no=…` 兩種形式。
+3. `vercel.json` 加上 rewrite，把 `/api/tree/:no` 轉成 `/api/tree?no=:no`，
+   讓 REST 形式在線上也可用。
+
+`tests/router.test.js` 有兩項守門測試：解析 `public/js/api.js` 確認前端不得出現多段落呼叫；
+並確認 `vercel.json` 的 rewrite 存在。
+
+### 網站打開後被導到 Vercel 登入頁？
+
+Vercel 專案的 **Deployment Protection** 開啟了（`Vercel Authentication`），
+連正式網址都會要求登入 Vercel，老師與同學將無法開啟。
+到 Vercel → 專案 → **Settings → Deployment Protection**，把
+**Vercel Authentication** 設為 `Disabled`（只想保護預覽環境時選 `Standard Protection`），
+存檔後重新整理即可。
 
 ### 畫面顯示「資料庫需要升級」，但 `init.sql` 已經跑完了？
 

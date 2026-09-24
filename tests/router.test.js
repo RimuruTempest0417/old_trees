@@ -46,6 +46,32 @@ test('路徑比對：固定路徑、單段動態參數、未知路徑', () => {
   assert.equal(matchRoute('/api/__proto__'), null, '不可把原型屬性當成路由');
 });
 
+test('單段落 ＋ 查詢參數的路由形式（Vercel 唯一可靠的形式）', async () => {
+  assert.deepEqual(matchRoute('/api/tree', '?no=544'), { id: 'tree', params: { tree_no: '544' } });
+  assert.deepEqual(matchRoute('/api/tree', '?tree_no=544') , null, '只認 queryParam 指定的參數名');
+  assert.deepEqual(matchRoute('/api/tree/544'), { id: 'tree', params: { tree_no: '544' } }, '路徑形式仍要可用');
+  assert.equal(matchRoute('/api/tree'), null, '沒有查詢參數時不算命中');
+});
+
+test('前端只能呼叫「單段落」API 路徑（Vercel 的 api catch-all 只匹配一個段落）', () => {
+  // 2026-09-24 實際故障：/api/tree/544 在 Vercel 上 404（「The page could not be found」），
+  // 但 /api/trees、/api/health 正常 —— 因為萬用入口只匹配一個路徑段落。
+  // 這項測試擋住「前端又出現多段落呼叫」這種回歸。
+  const js = fs.readFileSync(path.join(ROOT, 'public', 'js', 'api.js'), 'utf8');
+  const paths = [...js.matchAll(/request\(\s*[`'"]\/([^`'"$]*)/g)].map((m) => m[1]);
+  assert.ok(paths.length >= 10, `應解析到多個端點，實際 ${paths.length}`);
+  for (const p of paths) {
+    assert.ok(!p.includes('/'), `前端不可呼叫多段落端點：/${p}`);
+  }
+});
+
+test('vercel.json 把 /api/tree/:no 重寫成單段落形式', () => {
+  const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+  const rw = (cfg.rewrites || []).find((r) => r.source === '/api/tree/:no');
+  assert.ok(rw, 'vercel.json 必須有 /api/tree/:no 的 rewrite');
+  assert.equal(rw.destination, '/api/tree?no=:no');
+});
+
 test('萬用入口在真實伺服器上仍能正確分派（含動態路由與 404）', async () => {
   const { base, child } = await startServer(PORT);
   try {

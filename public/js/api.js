@@ -48,7 +48,8 @@ export const api = {
   parishes: () => request('/parishes'),
   species: (params) => request('/species', params),
   trees: (params) => request('/trees', params),
-  tree: (no) => request(`/tree/${encodeURIComponent(no)}`),
+  // 單段落形式：Vercel 的 api catch-all 只匹配一個路徑段落（/api/tree/544 會 404）
+  tree: (no) => request('/tree', { no }),
   stats: (params) => request('/stats', params),
   routes: () => request('/routes'),
   route: (params) => request('/route', params),

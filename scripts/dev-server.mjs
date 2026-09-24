@@ -95,7 +95,7 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
   if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname === '/' ? '/index.html' : pathname);
 
-  const match = ROUTER.matchRoute(pathname);
+  const match = ROUTER.matchRoute(pathname, url.search);
   if (!match) return ROUTER.notFound(res, pathname);
   // 收集 body
   const chunks = [];

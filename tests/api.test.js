@@ -96,6 +96,22 @@ test('GET /api/trees 分頁與排序正確', async () => {
   assert.deepEqual(ages, [...ages].sort((a, b) => b - a));
 });
 
+test('GET /api/tree?no=：單段落形式（Vercel 上唯一可靠的形式）與路徑形式結果相同', async () => {
+  // 2026-09-24：Vercel 的 api/[[...route]].js 只匹配一個路徑段落，
+  // /api/tree/544 在線上直接 404（連 function 都進不去），因此前端改呼叫 /api/tree?no=…
+  const oldest = csvRows[0][2];   // [分級, 樹齡, 古樹編號, 物種, …]
+  const a = await get(base, `/api/tree/${oldest}`);
+  const b = await get(base, `/api/tree?no=${encodeURIComponent(oldest)}`);
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+  assert.deepEqual(b.json.tree, a.json.tree, '兩種形式的單株資料必須一致');
+
+  const missing = await get(base, '/api/tree?no=999999999');
+  assert.equal(missing.status, 404);
+  const bad = await get(base, '/api/tree?no=%3Cscript%3E');
+  assert.equal(bad.status, 400);
+});
+
 test('GET /api/tree/:tree_no 回傳單株詳情與同地點鄰居', async () => {
   const oldest = csvRows.reduce((a, b) => (Number(a[1]) >= Number(b[1]) ? a : b));
   const { json } = await get(base, `/api/tree/${oldest[2]}`);
