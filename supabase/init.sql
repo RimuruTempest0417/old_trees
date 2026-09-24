@@ -26,6 +26,11 @@
 -- 全新資料庫執行時表還不存在，全部以 NOTICE 跳過；舊資料庫則就地補齊；
 -- 重複執行時欄位已存在，同樣跳過。放在檔首也避免舊資料庫在後面的
 -- comment on column／檢視表／RPC 就先失敗。
+--
+-- 限制條件（CHECK）：舊版的「允許值」可能與新版不同（例如 sites.geo_precision
+-- 早期不含 'official'），只檢查限制條件是否存在並不足夠，因此一律先移除再重建，
+-- 並先把超出新允許值的既有資料正規化，否則 seed 會撞
+--   23514: new row for relation "sites" violates check constraint "sites_geo_precision_check"。
 -- ---------------------------------------------------------------------------
 -- parishes
 alter table if exists public.parishes             add column if not exists code                 text;
@@ -133,14 +138,23 @@ alter table if exists public.field_records        add column if not exists lon  
 alter table if exists public.field_records        add column if not exists created_at           timestamptz default now();
 
 do $$ begin
-  if not exists (select 1 from pg_constraint where conname = 'sites_geo_precision_check') then
-    alter table if exists public.sites add constraint sites_geo_precision_check check (geo_precision in ('official','exact','approx','parish'));
+  if to_regclass('public.sites') is not null then
+    update public.sites set geo_precision = 'approx'
+      where geo_precision is not null and geo_precision not in ('official','exact','approx','parish');
+    alter table public.sites drop constraint if exists sites_geo_precision_check;
+    alter table public.sites add constraint sites_geo_precision_check check (geo_precision in ('official','exact','approx','parish'));
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'trees_grade_check') then
-    alter table if exists public.trees add constraint trees_grade_check check (grade in ('一級','二級','三級','不分級'));
+  if to_regclass('public.trees') is not null then
+    update public.trees set grade = '不分級'
+      where grade is not null and grade not in ('一級','二級','三級','不分級');
+    alter table public.trees drop constraint if exists trees_grade_check;
+    alter table public.trees add constraint trees_grade_check check (grade in ('一級','二級','三級','不分級'));
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'trees_health_check') then
-    alter table if exists public.trees add constraint trees_health_check check (health in ('健康','一般','瀕危'));
+  if to_regclass('public.trees') is not null then
+    update public.trees set health = '一般'
+      where health is not null and health not in ('健康','一般','瀕危');
+    alter table public.trees drop constraint if exists trees_health_check;
+    alter table public.trees add constraint trees_health_check check (health in ('健康','一般','瀕危'));
   end if;
 end $$;
 

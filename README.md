@@ -433,6 +433,27 @@ bash scripts/ui-audit.sh 3351          # 有問題時離開碼為 1
 驗證方式（PGlite 實跑，已納入 `tests/sql.test.js`）：把 `v_trees` 換成舊版欄位順序與舊版
 `rpc_overview` 回傳型別後重跑 `init.sql`，必須成功重建且 `trees`／`v_trees`／`rpc_overview` 都恢復正常。
 
+### 症狀：`ERROR: 23514: new row for relation "sites" violates check constraint "sites_geo_precision_check"`
+
+**原因**：限制條件（CHECK）的**允許值**在版本間改變了。舊版 `sites.geo_precision` 只允許
+`('exact','approx','parish')`，新版加入 `'official'`（市政署逐株座標）；舊資料庫的限制條件
+仍然是舊的，seed 一寫入官方座標就違反。
+
+**解法**：升級段落現在對本專案定義的 CHECK 條件一律**先移除再重建**（先前只「不存在才新增」，
+因此永遠更新不到舊定義），並在重建前把超出新允許值的既有資料正規化：
+
+```sql
+if to_regclass('public.sites') is not null then
+  update public.sites set geo_precision = 'approx'
+    where geo_precision is not null and geo_precision not in ('official','exact','approx','parish');
+  alter table public.sites drop constraint if exists sites_geo_precision_check;
+  alter table public.sites add constraint sites_geo_precision_check
+    check (geo_precision in ('official','exact','approx','parish'));
+end if;
+```
+
+（`trees.grade`、`trees.health` 同樣處理。）已納入 `tests/sql.test.js` 回歸測試。
+
 ### 錯誤碼對照
 
 | `error_code` | 意思 | 下一步 |

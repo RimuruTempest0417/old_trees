@@ -59,15 +59,25 @@ for table, body in blocks:
         tables.append((table, cols))
 
 checks = [
-    ('sites', 'geo_precision', "geo_precision in ('official','exact','approx','parish')"),
-    ('trees', 'grade', "grade in ('一級','二級','三級','不分級')"),
-    ('trees', 'health', "health in ('健康','一般','瀕危')"),
+    ('sites', 'geo_precision', "geo_precision in ('official','exact','approx','parish')", "'approx'",
+     "'official','exact','approx','parish'"),
+    ('trees', 'grade', "grade in ('一級','二級','三級','不分級')", "'不分級'",
+     "'一級','二級','三級','不分級'"),
+    ('trees', 'health', "health in ('健康','一般','瀕危')", "'一般'", "'健康','一般','瀕危'"),
 ]
+# 舊版資料庫的限制條件「允許值」可能與新版不同（例：sites.geo_precision 早期不含 'official'），
+# 只判斷「限制條件是否存在」是不夠的——必須先移除再重建，否則 seed 會撞
+#   23514: new row for relation "sites" violates check constraint "sites_geo_precision_check"。
+# 重建前先把超出新允許值的既有資料正規化，否則 add constraint 會驗證失敗。
+# to_regclass 守衛讓本段在「全新資料庫（表還沒建）」時直接跳過。
 check_sql = ['do $$ begin']
-for table, col, expr in checks:
+for table, col, expr, fallback, values in checks:
     cname = f'{table}_{col}_check'
-    check_sql.append(f"""  if not exists (select 1 from pg_constraint where conname = '{cname}') then
-    alter table if exists public.{table} add constraint {cname} check ({expr});
+    check_sql.append(f"""  if to_regclass('public.{table}') is not null then
+    update public.{table} set {col} = {fallback}
+      where {col} is not null and {col} not in ({values});
+    alter table public.{table} drop constraint if exists {cname};
+    alter table public.{table} add constraint {cname} check ({expr});
   end if;""")
 check_sql.append('end $$;')
 
@@ -99,6 +109,11 @@ section = (
     '-- 全新資料庫執行時表還不存在，全部以 NOTICE 跳過；舊資料庫則就地補齊；\n'
     '-- 重複執行時欄位已存在，同樣跳過。放在檔首也避免舊資料庫在後面的\n'
     '-- comment on column／檢視表／RPC 就先失敗。\n'
+    '--\n'
+    '-- 限制條件（CHECK）：舊版的「允許值」可能與新版不同（例如 sites.geo_precision\n'
+    '-- 早期不含 \'official\'），只檢查限制條件是否存在並不足夠，因此一律先移除再重建，\n'
+    '-- 並先把超出新允許值的既有資料正規化，否則 seed 會撞\n'
+    '--   23514: new row for relation "sites" violates check constraint "sites_geo_precision_check"。\n'
     '-- ---------------------------------------------------------------------------\n'
     + '\n'.join(body_lines).rstrip() + '\n\n'
     + '\n'.join(check_sql) + '\n'

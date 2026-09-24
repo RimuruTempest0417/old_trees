@@ -134,6 +134,44 @@ test('舊資料庫的檢視表欄位順序與函式回傳型別不同時，重�
   await old.close();
 });
 
+test('舊版 CHECK 限制條件的允許值不同時也能升級（23514 修復）', async () => {
+  // 實際發生在 Supabase 上的錯誤：
+  //   ERROR: 23514: new row for relation "sites" violates check constraint "sites_geo_precision_check"
+  //   DETAIL: Failing row contains (1, 氹仔區兵房斜巷6號, …, official, iam, …)
+  // 成因：舊版資料庫的限制條件只允許 ('exact','approx','parish')，不含 'official'；
+  //       舊版升級段落只「在不存在時才新增」，因此永遠不會更新，seed 一寫入官方座標值就爆。
+  const old = new PGlite();
+  await old.exec(SCHEMA);
+  await old.exec(`
+    alter table public.sites drop constraint if exists sites_geo_precision_check;
+    alter table public.sites add constraint sites_geo_precision_check
+      check (geo_precision in ('exact','approx','parish'));   -- 舊版：不含 official
+  `);
+  await old.exec(SCHEMA);      // 修正前：舊限制條件被保留 → 這裡不會錯，但 seed 會爆
+  await old.exec(SEED);        // 修正前：23514（seed 內含 geo_precision='official'）
+  const official = (await old.query(
+    `select count(*)::int n from public.sites where geo_precision = 'official'`)).rows[0].n;
+  assert.ok(official > 0, '升級後應可寫入 geo_precision = official 的官方座標資料');
+  const def = (await old.query(`select pg_get_constraintdef(oid) d from pg_constraint
+    where conname = 'sites_geo_precision_check'`)).rows[0].d;
+  assert.match(def, /official/, '限制條件應更新為含 official 的新版');
+  await old.close();
+});
+
+test('舊資料庫若有超出新允許值的資料，升級時會先正規化再重建限制條件', async () => {
+  const old = new PGlite();
+  await old.exec(SCHEMA);
+  // 完全沒有 geo_precision 限制條件，且已有一筆不在新允許值內的舊資料
+  await old.exec(`
+    alter table public.sites drop constraint if exists sites_geo_precision_check;
+    update public.sites set geo_precision = 'osm' where id = (select min(id) from public.sites);
+  `);
+  await old.exec(SCHEMA);      // 若沒有先正規化，這裡的 add constraint 會失敗
+  const bad = (await old.query(`select count(*)::int n from public.sites where geo_precision = 'osm'`)).rows[0].n;
+  assert.equal(bad, 0, '超出新允許值的舊資料應被正規化為 approx');
+  await old.close();
+});
+
 test('升級段落以 alter table if exists ＋ add column if not exists 寫成，可安全重複執行', async () => {
   const start = SCHEMA.indexOf('-- >>> 版本升級 開始');
   const end = SCHEMA.indexOf('-- <<< 版本升級 結束');
@@ -142,9 +180,11 @@ test('升級段落以 alter table if exists ＋ add column if not exists 寫成�
   assert.ok(upgrade.length > 500, '升級段落過短');
   assert.ok(/add column if not exists/.test(upgrade), '升級段落必須使用 add column if not exists');
   assert.ok(/alter table if exists/.test(upgrade), '升級段落必須使用 alter table if exists（與 create table 順序無關）');
-  assert.ok(!/alter table (?!if exists)/.test(upgrade), '升級段落有未加 if exists 的 alter table');
+  // 限制條件必須「先移除再重建」：只判斷存在與否會漏掉「舊版允許值不同」的情況
+  assert.match(upgrade, /drop constraint if exists sites_geo_precision_check/);
+  assert.match(upgrade, /add constraint sites_geo_precision_check check/);
+  assert.match(upgrade, /to_regclass\('public\.sites'\) is not null/, '升級段在全新資料庫上必須安全跳過');
   assert.ok(!/add column (?!if not exists)/.test(upgrade), '升級段落有未加 if not exists 的欄位');
-  assert.ok(/pg_constraint where conname/.test(upgrade), 'CHECK 條件需以 pg_constraint 判斷後再加');
   // 舊版資料庫若已對 trees 設外鍵，必須移除，否則重新 seed 會清掉考察紀錄
   assert.match(upgrade, /drop constraint if exists field_records_tree_no_fkey/);
   // 產生器必須幂等（重跑不會產生第二段）
