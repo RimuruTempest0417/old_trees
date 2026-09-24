@@ -356,7 +356,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 9 組測試，共 109 項
+npm test               # 10 組測試，共 126 項
 npm run verify         # check ＋ test
 ```
 
@@ -367,6 +367,7 @@ npm run verify         # check ＋ test
 | `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性 | 12 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為 | 4 |
+| `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 17 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql | 8 |
 | `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級 | 17 |
@@ -397,7 +398,44 @@ bash scripts/ui-audit.sh 3351          # 有問題時離開碼為 1
 
 ---
 
-## 十一、資料來源與授權
+## 十一、疑難排解（部署後常見狀況）
+
+### 症狀：某些分頁出現「伺服器處理請求時發生錯誤」，實地考察頁寫「無法連線 API」
+
+**原因幾乎都是「程式碼是新的、資料庫還是舊版結構」**：舊資料庫少了後來新增的
+`field_records` 表或 `v_trees` 的部分欄位，查詢就會失敗。
+
+**先看診斷資訊**：開 `https://<你的網址>/api/health`，回應中的 `schema` 會列出缺少的項目：
+
+```json
+{ "ok": false, "error_code": "db_schema_outdated",
+  "error": "資料庫結構是舊版：缺少資料表 field_records，所以這個查詢無法完成。",
+  "hint": "請在 Supabase Dashboard → SQL Editor 貼上並執行最新的 supabase/init.sql…",
+  "schema": { "ok": false, "missing": ["資料表 field_records（實地考察）：Could not find the table …"] } }
+```
+
+網站也會在頁面最上方顯示「資料庫需要升級」提示（含可展開的缺少項目清單）。
+
+**解法**：Supabase → SQL Editor → 貼上 `supabase/init.sql` 全文 → Run。
+檔頭的「版本升級」段會自動補齊缺少的欄位、資料表與函式（可重複執行，不會弄丟實地考察紀錄）。
+執行完重新整理，`/api/health` 的 `schema.ok` 應變成 `true`、`missing` 為空。
+
+### 錯誤碼對照
+
+| `error_code` | 意思 | 下一步 |
+| --- | --- | --- |
+| `db_schema_outdated` | 資料庫缺少資料表／欄位／函式 | 重跑 `supabase/init.sql` |
+| `db_permission` | 權限不足 | 確認 Vercel 的 `SUPABASE_SERVICE_ROLE_KEY` 是 service_role（不是 anon） |
+| `db_unreachable` | 連不上資料庫 | 確認 `SUPABASE_URL` 正確、專案未被暫停 |
+| `db_query_failed` | 其他資料庫錯誤 | 訊息中會附原始錯誤 |
+
+> 一般 5xx 只回「伺服器處理請求時發生錯誤」以避免洩漏內部細節；但資料庫結構類的問題
+> 屬於使用者必須自己處理的狀況，因此會帶 `code`／`hint` 原樣回傳（`err.public = true`）。
+> 前端一律用 `errText()`／`errDetail()` 轉成可讀文字——**不會再出現 `[object Object]`**。
+
+---
+
+## 十二、資料來源與授權
 
 | 項目 | 來源 |
 | --- | --- |

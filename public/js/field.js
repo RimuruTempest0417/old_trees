@@ -8,7 +8,7 @@
  *   3. 未來要接手機拍照上傳、GPS 自動定位、QR 掃描帶入樹號，介面已留位。
  */
 import { api } from './api.js';
-import { esc, num, toast, downloadCsv } from './ui.js';
+import { esc, num, errDetail, toast, downloadCsv } from './ui.js';
 
 const LS_KEY = 'macau-heritage-trees.field-records.v1';
 const HEALTHS = ['健康', '一般', '瀕危'];
@@ -239,7 +239,7 @@ export async function render(section, params = new URLSearchParams()) {
     } catch (err) {
       serverRecords = [];
       writable = false;
-      $('#field-notice').innerHTML = `<div class="notice"><strong>讀取紀錄失敗：</strong>${esc(err.message || err)}</div>`;
+      $('#field-notice').innerHTML = `<div class="notice"><strong>讀取紀錄失敗：</strong>${esc(errDetail(err))}</div>`;
       sourceEl.textContent = '無法連線 API，僅顯示本機暫存紀錄。';
     }
     renderRows();
@@ -290,7 +290,7 @@ export async function render(section, params = new URLSearchParams()) {
       e.target.reset();
       section.querySelector('input[name="observed_on"]').value = today();
       statusEl.textContent = okLocal
-        ? `已暫存在本機瀏覽器（${err.demo ? '示範模式未連接資料庫' : esc(err.message || err)}）。`
+        ? `已暫存在本機瀏覽器（${err.demo ? '示範模式未連接資料庫' : esc(errDetail(err))}）。`
         : '無法寫入本機暫存，請確認瀏覽器未封鎖儲存空間。';
       toast(okLocal ? '已暫存於本機瀏覽器' : '儲存失敗');
     }

@@ -2,8 +2,8 @@
  * 應用程式入口：雜湊路由、頁首資料來源標示、共用快取。
  * 檢視模組採動態 import，第一次進入某個分頁才載入對應程式碼。
  */
-import { api, cached } from './api.js';
-import { esc, toast, closeModal } from './ui.js';
+import { api, cached, healthRaw } from './api.js';
+import { esc, errText, errDetail, toast, closeModal } from './ui.js';
 
 const VIEWS = {
   overview: () => import('./dashboard.js'),
@@ -52,7 +52,7 @@ async function showView(name, params) {
     section.innerHTML = `
       <div class="card">
         <h2>載入「${esc(TITLES[name])}」時發生錯誤</h2>
-        <p class="muted">${esc(err.message || err)}</p>
+        <p class="muted">${esc(errDetail(err))}</p>
         <p class="small">請確認 Serverless Functions 是否正常運作，或稍後重試。</p>
         <button class="btn btn-primary" onclick="location.reload()">重新載入</button>
       </div>`;
@@ -93,8 +93,34 @@ async function initSourceBadge() {
   } catch (err) {
     badge.className = 'badge badge-bad';
     badge.textContent = '無法連線 API';
-    badge.title = String(err.message || err);
+    badge.title = errDetail(err);
   }
+}
+
+/**
+ * 資料庫結構檢查：程式碼是新的、資料庫卻還是舊版結構時，各分頁會零散地失敗，
+ * 而錯誤訊息被通用化，使用者完全不知道要做什麼。這裡在頁面最上方直接說明
+ * 「缺什麼、要執行哪個檔案」，並把清單收在細節裡。
+ */
+async function checkSchema() {
+  let h;
+  try {
+    h = await healthRaw();
+  } catch {
+    return;                                  // health 本身失敗時，徽章已顯示原因
+  }
+  const missing = (h.schema && Array.isArray(h.schema.missing)) ? h.schema.missing : [];
+  if (h.ok && !missing.length) return;       // 一切正常，不打擾使用者
+  const hint = (h.schema && h.schema.hint) || h.hint || '';
+  const banner = document.createElement('div');
+  banner.className = 'notice';
+  banner.style.margin = '1rem auto 0';
+  banner.style.maxWidth = 'var(--maxw)';
+  banner.innerHTML = `<strong>資料庫需要升級：</strong>偵測到資料庫結構不是最新版本，部分資料（例如實地考察紀錄）無法讀取。`
+    + (hint ? ` ${esc(hint)}` : '')
+    + (missing.length ? ` <details style="margin-top:.4rem"><summary class="small">查看缺少的項目（${missing.length}）</summary>`
+      + `<ul class="small" style="margin:.4rem 0 0 1.1rem">${missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></details>` : '');
+  document.querySelector('main').prepend(banner);
 }
 
 window.addEventListener('hashchange', route);
@@ -109,6 +135,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
   initSourceBadge();
+  checkSchema();
   route();
 });
 

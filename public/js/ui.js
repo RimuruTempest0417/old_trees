@@ -159,3 +159,35 @@ export async function copyText(text) {
     toast('複製失敗，請手動選取');
   }
 }
+
+/**
+ * 把任何被 catch 到的東西轉成一句可讀文字。
+ *
+ * 為什麼一定要用這個：`esc(err.message || err)` 在 err 是「沒有 message 的物件」時，
+ * 畫面會出現字面上的「[object Object]」——等於沒有任何錯誤資訊（部署後實際踩到）。
+ * 這裡依序處理：字串 → Error／有 message → 伺服器回傳的 {error:{...}} → 物件 JSON。
+ */
+export function errText(err) {
+  if (err == null) return '未知錯誤';
+  if (typeof err === 'string') return err;
+  if (typeof err.message === 'string' && err.message) return err.message;
+  if (typeof err.error === 'string' && err.error) return err.error;
+  if (err.error && typeof err.error === 'object') return errText(err.error);
+  if (typeof err === 'object') {
+    try {
+      const s = JSON.stringify(err);
+      return s && s !== '{}' ? s.slice(0, 400) : '未知錯誤（沒有附帶訊息）';
+    } catch {
+      return '未知錯誤（無法序列化的物件）';
+    }
+  }
+  return String(err);
+}
+
+/** 錯誤的完整描述（訊息 ＋ 伺服器附帶的提示），用於 notice／彈窗 */
+export function errDetail(err) {
+  const base = errText(err);
+  const hint = err && typeof err.hint === 'string' ? err.hint : '';
+  const where = err && err.path ? `（${err.path}${err.status ? ` HTTP ${err.status}` : ''}）` : '';
+  return `${base}${where}${hint ? ` ${hint}` : ''}`;
+}

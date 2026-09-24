@@ -1,6 +1,6 @@
 /** 保育科普：文章清單、全文（Markdown ＋ KaTeX）、立法時間線、參考來源。 */
 import { api, cached } from './api.js';
-import { esc, num, loading, markdown, renderMath } from './ui.js';
+import { esc, num, errDetail, loading, markdown, renderMath } from './ui.js';
 
 let activeSlug = null;
 
@@ -90,7 +90,7 @@ export async function render(section, params) {
       });
       window.location.hash = `#/knowledge?slug=${encodeURIComponent(slug)}`;
     } catch (err) {
-      box.innerHTML = `<h3>載入失敗</h3><p class="muted">${esc(err.message || err)}</p>`;
+      box.innerHTML = `<h3>載入失敗</h3><p class="muted">${esc(errDetail(err))}</p>`;
     }
   }
 

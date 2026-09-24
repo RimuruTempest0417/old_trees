@@ -2,6 +2,7 @@
 import { api, cached } from './api.js';
 import {
   esc, num, healthBadge, gradeBadge, safeUrl, loading, openModal, closeModal, toast, downloadCsv, healthColor,
+  errDetail,
 } from './ui.js';
 
 const MACAU_CENTER = [22.1630, 113.5540];
@@ -294,7 +295,7 @@ export async function render(section, params) {
       const goField = document.getElementById('go-field');
       if (goField) goField.addEventListener('click', () => closeModal());
     } catch (err) {
-      openModal(`<h3>讀取失敗</h3><p class="muted">${esc(err.message || err)}</p>`);
+      openModal(`<h3>讀取失敗</h3><p class="muted">${esc(errDetail(err))}</p>`);
     }
   }
 

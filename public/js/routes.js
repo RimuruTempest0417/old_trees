@@ -2,6 +2,7 @@
 import { api, cached } from './api.js';
 import {
   esc, num, loading, toast, copyText, downloadCsv, healthBadge,
+  errDetail,
 } from './ui.js';
 
 const MACAU_CENTER = [22.1630, 113.5540];
@@ -64,7 +65,7 @@ export async function render(section, params) {
     const data = await api.routes();
     routes = data.routes;
   } catch (err) {
-    section.querySelector('#route-list').innerHTML = `<p class="muted small">讀取路綫失敗：${esc(err.message)}</p>`;
+    section.querySelector('#route-list').innerHTML = `<p class="muted small">讀取路綫失敗：${esc(errDetail(err))}</p>`;
   }
 
   section.querySelector('#route-list').innerHTML = routes.map((r) => `
@@ -130,7 +131,7 @@ export async function render(section, params) {
       drawRoute(r);
       renderDetail(r);
     } catch (err) {
-      detail.innerHTML = `<p class="muted">${esc(err.message || err)}</p>`;
+      detail.innerHTML = `<p class="muted">${esc(errDetail(err))}</p>`;
       lineLayer.clearLayers(); markerLayer.clearLayers();
     }
   }
