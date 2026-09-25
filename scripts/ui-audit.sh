@@ -18,7 +18,7 @@ set -uo pipefail
 
 PORT=3351
 WIDTHS="360,390,414,834,1440"
-VIEWS="overview,map,analytics,priority,routes,knowledge,card,qr,field,monitoring"
+VIEWS="overview,map,analytics,priority,routes,knowledge,card,qr,field,monitoring,chemistry"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 
 while [ $# -gt 0 ]; do

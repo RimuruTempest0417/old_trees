@@ -11,7 +11,7 @@
  *
  * 預載清單由 `scripts/build-sw.mjs` 依實際檔案產生，不要手改標記區內的內容。
  */
-const VERSION = 'v0.11.5';
+const VERSION = 'v0.12.0';
 const SHELL_CACHE = `mht-shell-${VERSION}`;
 const DATA_CACHE = `mht-data-${VERSION}`;
 const MEDIA_CACHE = `mht-media-${VERSION}`;
@@ -32,6 +32,7 @@ const PRECACHE = [
   '/js/app.js',
   '/js/card.js',
   '/js/charts.js',
+  '/js/chemistry.js',
   '/js/dashboard.js',
   '/js/field.js',
   '/js/knowledge.js',

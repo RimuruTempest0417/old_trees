@@ -77,6 +77,7 @@ export const api = {
   timeline: () => request('/timeline'),
   priority: (params) => request('/priority', params),
   monitoring: (params) => request('/monitoring', params),
+  envChem: (params) => request('/env-chem', params),
   fieldRecords: (params) => request('/field-records', params),
   saveFieldRecord: (body) => request('/field-records', {}, {
     method: 'POST',

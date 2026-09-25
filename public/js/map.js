@@ -301,10 +301,34 @@ export async function render(section, params) {
           <a class="btn btn-sm" id="qr-sheet" href="#/qr?tree=${esc(t.tree_no)}">列印標籤</a>
           <a class="btn btn-sm" id="card-link" href="#/card?tree=${esc(t.tree_no)}">A4 檔案卡</a>
         </div>
+        <div class="card" style="margin-top:.8rem;padding:.6rem .8rem" id="env-bg">
+          <strong class="small">環境背景（化學視角）</strong>
+          <div class="small muted" id="env-bg-body">讀取官方環境監測數據…</div>
+        </div>
         <div class="notice notice-info small" style="margin-top:1rem">
           保育提醒：觀賞時請勿攀爬、刻字、採果或踩踏樹根區；如發現枯枝、樹皮剝落或周邊施工，可向市政署反映。
         </div>`);
       bindDetailButtons(document.getElementById('modal-body'));
+      // 環境背景：官方監測站的區域年均值（不是這一株的實測值，措辭必須說清楚）
+      const envBox = document.getElementById('env-bg-body');
+      if (envBox && t.parish) {
+        cached(`env-bg:${t.parish}`, () => api.envChem({ region: t.parish }))
+          .then((r) => {
+            const region = r && r.region;
+            if (!region) { envBox.textContent = '這一株所在堂區沒有對應的官方空氣監測站。'; return; }
+            const pol = (region.pollutants || {})['PM2.5'] || {};
+            const no2 = (region.pollutants || {}).NO2 || {};
+            // 官方年均值有一位小數，不能用預設的整數格式（會把 19.1 顯示成 19）
+            const line = (b) => Object.entries(b.by_station || {}).map(([s, v]) => `${esc(s)} ${num(v, 1)}`).join('　');
+            const link = r.doc && r.doc.hash ? `資料內容雜湊 ${esc(r.doc.hash)}` : '';
+            envBox.innerHTML = `${esc(region.region)}（${region.year} 年官方監測站年平均）：
+              PM2.5 ${line(pol)} ${esc(pol.unit || 'µg/m³')}；
+              NO₂ ${line(no2)} ${esc(no2.unit || 'µg/m³')}。
+              <br><span class="tiny">這是<strong>該區域的空氣背景值</strong>，不是這一株古樹的實測值；
+              想看酸雨、土壤與水泥的化學機制請到<a href="#/chemistry">化學視角</a>分頁。${link ? `<br>${link}` : ''}</span>`;
+          })
+          .catch(() => { envBox.textContent = '（環境背景暫時無法載入）'; });
+      }
       const goField = document.getElementById('go-field');
       if (goField) goField.addEventListener('click', () => closeModal());
       // 二維碼：掃描即可在手機開啟這一株（實地考察掛牌用）

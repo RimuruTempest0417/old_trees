@@ -313,7 +313,7 @@ test('資料表列數與 CSV 一致', async () => {
   assert.equal((await one('select count(*)::int n from public.species')).n, new Set(csv.map((r) => r[3])).size);
   assert.equal((await one('select count(*)::int n from public.parishes')).n, 8);
   assert.equal((await one('select count(*)::int n from public.routes')).n, 5);
-  assert.equal((await one('select count(*)::int n from public.conservation_topics')).n, 11);
+  assert.equal((await one('select count(*)::int n from public.conservation_topics')).n, 12);
   assert.equal((await one('select count(*)::int n from public.timeline_events')).n, 9);
 });
 
@@ -506,7 +506,10 @@ test('路綫資料具備候選地點與堂區', async () => {
 
 test('保育科普文章內容完整（標題／摘要／內文／來源）', async () => {
   const rows = await all('select slug, category, title, summary, body_md, sources from public.conservation_topics');
-  assert.equal(rows.length, 11);
+  // 篇數不寫死：直接跟資料檔比對，新增文章時不必再來改這個數字
+  const arts = JSON.parse(fs.readFileSync(new URL('../data/conservation.json', import.meta.url), 'utf8'));
+  assert.equal(rows.length, arts.length, '入庫篇數要與 data/conservation.json 一致');
+  assert.ok(rows.some((r) => r.slug === 'chemistry-view'), '化學視角文章要在庫內');
   for (const r of rows) {
     assert.ok(r.title.length > 4, `${r.slug} 標題過短`);
     assert.ok(r.body_md.length > 200, `${r.slug} 內文過短`);

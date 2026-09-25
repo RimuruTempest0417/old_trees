@@ -230,7 +230,8 @@ test('GET /api/species、/api/conservation、/api/timeline 內容完整', async 
   assert.equal(sp.json.rows.reduce((s, r) => s + r.tree_count, 0), csvRows.length);
 
   const cons = await get(base, '/api/conservation');
-  assert.equal(cons.json.count, 11);
+  const artsJson = JSON.parse(fs.readFileSync(new URL('../data/conservation.json', import.meta.url), 'utf8'));
+  assert.equal(cons.json.count, artsJson.length, 'API 篇數要與資料檔一致');
   assert.ok(cons.json.categories.length >= 5);
   const one = await get(base, '/api/conservation?slug=legislation');
   assert.equal(one.json.topic.slug, 'legislation');

@@ -58,13 +58,20 @@ for table, body in blocks:
     if cols:
         tables.append((table, cols))
 
-checks = [
-    ('sites', 'geo_precision', "geo_precision in ('official','exact','approx','parish')", "'approx'",
-     "'official','exact','approx','parish'"),
-    ('trees', 'grade', "grade in ('一級','二級','三級','不分級')", "'不分級'",
-     "'一級','二級','三級','不分級'"),
-    ('trees', 'health', "health in ('健康','一般','瀕危')", "'一般'", "'健康','一般','瀕危'"),
-]
+# 限制條件的「允許值」直接從 schema.sql 的 `check (欄位 in (…))` 推導，
+# 不再手抄一份清單——手抄的舊毛病是：新增允許值（例如 conservation_topics.category
+# 多了「化學視角」）時忘了同步，於是舊資料庫升級後 seed 仍被 23514 擋住。
+# FALLBACK 是「既有資料超出新允許值時要正規化成什麼」；沒列到的欄位取清單第一個值。
+FALLBACK = {'geo_precision': "'approx'", 'grade': "'不分級'", 'health': "'一般'", 'category': "'管護技術'"}
+checks = []
+for table, body in blocks:
+    for m in re.finditer(r'check\s*\(\s*(\w+)\s+in\s*\(([^)]+)\)', body, re.S):
+        col, values = m.group(1), ' '.join(m.group(2).split())
+        if not any(name == col for name, _ in next(c for t, c in tables if t == table)):
+            continue
+        checks.append((table, col, f'{col} in ({values})',
+                       FALLBACK.get(col, values.split(',')[0].strip()), values))
+assert checks, '沒有從 schema.sql 推導出任何 CHECK 限制條件'
 # 舊版資料庫的限制條件「允許值」可能與新版不同（例：sites.geo_precision 早期不含 'official'），
 # 只判斷「限制條件是否存在」是不夠的——必須先移除再重建，否則 seed 會撞
 #   23514: new row for relation "sites" violates check constraint "sites_geo_precision_check"。

@@ -153,6 +153,18 @@ do $$ begin
     alter table public.trees drop constraint if exists trees_health_check;
     alter table public.trees add constraint trees_health_check check (health in ('健康','一般','瀕危'));
   end if;
+  if to_regclass('public.conservation_topics') is not null then
+    update public.conservation_topics set category = '管護技術'
+      where category is not null and category not in ('為何保育','分佈與歷史','立法與制度','管護技術','數學與數據','居民與社區','常見問題','化學視角');
+    alter table public.conservation_topics drop constraint if exists conservation_topics_category_check;
+    alter table public.conservation_topics add constraint conservation_topics_category_check check (category in ('為何保育','分佈與歷史','立法與制度','管護技術','數學與數據','居民與社區','常見問題','化學視角'));
+  end if;
+  if to_regclass('public.field_records') is not null then
+    update public.field_records set health = '一般'
+      where health is not null and health not in ('健康', '一般', '瀕危');
+    alter table public.field_records drop constraint if exists field_records_health_check;
+    alter table public.field_records add constraint field_records_health_check check (health in ('健康', '一般', '瀕危'));
+  end if;
 end $$;
 
 -- field_records 早期版本對 trees 設了外鍵，會讓重新初始化種子資料時
@@ -290,7 +302,7 @@ comment on table public.routes is '精選路綫推薦；實際停靠次序由 /a
 create table if not exists public.conservation_topics (
     id         serial primary key,
     slug       text not null unique,
-    category   text not null check (category in ('為何保育','分佈與歷史','立法與制度','管護技術','數學與數據','居民與社區','常見問題')),
+    category   text not null check (category in ('為何保育','分佈與歷史','立法與制度','管護技術','數學與數據','居民與社區','常見問題','化學視角')),
     title      text not null,
     summary    text,
     body_md    text not null,
