@@ -112,6 +112,48 @@ test('getTree() 在 Supabase 模式也必須套用官方值優先（線上單株
   }
 });
 
+test('樹齡也比照官方值優先：查詢要取 official_age_years，年齡區間篩選不得交給 SQL', async () => {
+  // 資料庫的 age_years 是《名錄》值（#619 是 155 年），畫面顯示的是自然網現行值（115 年）。
+  // 若把年齡條件交給 SQL，用「115–120 年」就會漏掉 #619（DB 寫 155），反之亦然。
+  const calls = [];
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    calls.push({ url: u, body: init && init.body ? JSON.parse(init.body) : null });
+    if (u.includes('/rest/v1/v_trees')) {
+      return json([{
+        tree_no: '619', official_no: '619', age_years: 155, official_age_years: 115,
+        height_m: 15, species: '心葉榕', site: '某地', parish: '花地瑪堂區',
+        health: '一般', grade: '三級', official_health: '一般', official_grade: '三級',
+        lat: 22.2, lon: 113.54, diameter_cm: 80,
+      }]);
+    }
+    if (u.includes('/rest/v1/rpc/rpc_find_trees')) {
+      return json([{
+        tree_no: '619', age_years: 155, official_age_years: 115, health: '一般', grade: '三級',
+        official_health: '一般', official_grade: '三級', parish: '花地瑪堂區',
+      }]);
+    }
+    return json([]);
+  };
+  try {
+    const rows = await repo.allTrees();
+    const sel = decodeURIComponent(new URL(calls[0].url).searchParams.get('select') || '');
+    assert.ok(sel.includes('official_age_years'), `allTrees 必須取 official_age_years（select=${sel}）`);
+    assert.equal(rows[0].age_years, 115, '顯示樹齡必須是官方現行值');
+    assert.equal(rows[0].listing_age_years, 155, '《名錄》原值要保留');
+
+    calls.length = 0;
+    const found = await repo.findTrees({ min_age: 110, max_age: 120, limit: 10 });
+    const rpc = calls.find((c) => c.url.includes('rpc_find_trees'));
+    assert.equal(rpc.body.p_min_age, null, '年齡下限不得交給 SQL（SQL 用的是名錄樹齡）');
+    assert.equal(rpc.body.p_max_age, null, '年齡上限不得交給 SQL');
+    assert.deepEqual(found.rows.map((r) => r.tree_no), ['619'], 'JS 端要用顯示樹齡篩選，才篩得到 #619');
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
 test('官方值優先：Supabase 模式的分級／健康狀況也要用官方的 official_* 欄位', async () => {
   const calls = [];
   const orig = globalThis.fetch;

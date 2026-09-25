@@ -25,16 +25,21 @@ const repo = await import('../lib/repo.js');
 const { officialFirst } = repo;
 
 test('officialFirst：官方現行值優先，名錄值保留在 listing_*，缺官方值時才回退', () => {
-  const a = officialFirst({ grade: '三級', official_grade: '不分級', health: '一般', official_health: '健康' });
+  const a = officialFirst({ grade: '三級', official_grade: '不分級', health: '一般', official_health: '健康', age_years: 155, official_age_years: 115 });
   assert.equal(a.grade, '不分級');
   assert.equal(a.health, '健康');
+  assert.equal(a.age_years, 115, '樹齡也要用官方現行值');
   assert.equal(a.listing_grade, '三級', '名錄值必須保留（資料核對要用）');
   assert.equal(a.listing_health, '一般');
+  assert.equal(a.listing_age_years, 155);
   // 官方沒有值時回退到名錄值，不得變成 null
-  const b = officialFirst({ grade: '三級', official_grade: null, health: '一般', official_health: null });
+  const b = officialFirst({ grade: '三級', official_grade: null, health: '一般', official_health: null, age_years: '300' });
   assert.equal(b.grade, '三級');
   assert.equal(b.health, '一般');
+  assert.equal(b.age_years, 300, '缺官方樹齡時回退名錄值，且要轉成數字');
+  assert.equal(b.official_age_years, null);
   assert.equal(officialFirst({}).grade, null);
+  assert.equal(officialFirst({}).age_years, null);
   assert.equal(officialFirst(null).grade, null, '不得因 null 拋錯');
 });
 
@@ -70,8 +75,31 @@ test('658 株：顯示的分級與健康狀況必須等於官方現行值', asyn
   // 名錄與官方的已知差異必須剛好是這 5 株（資料一旦更新，這裡會提醒我們重新確認）
   const gradeDiff = trees.filter((t) => t.listing_grade && t.listing_grade !== t.grade).map((t) => t.tree_no);
   const healthDiff = trees.filter((t) => t.listing_health && t.listing_health !== t.health).map((t) => t.tree_no);
+  const ageDiff = trees.filter((t) => t.listing_age_years != null && t.listing_age_years !== t.age_years).map((t) => t.tree_no);
   assert.deepEqual(gradeDiff.sort(), ['1132'], '分級差異株數改變了，請重新核對官方資料');
   assert.deepEqual(healthDiff.sort(), ['548', '627', '638', '641'], '健康狀況差異株數改變了，請重新核對官方資料');
+  assert.deepEqual(ageDiff, ['619'], '樹齡差異株數改變了，請重新核對官方資料');
+  // 顯示的樹齡必須等於官方現行值（#619 名錄 155 年、自然網 115 年）
+  for (const t of trees) {
+    const src = snap.trees.find((x) => x.tree_no === t.tree_no);
+    if (src.official_age_years != null) assert.equal(t.age_years, Number(src.official_age_years), `#${t.tree_no} 樹齡`);
+  }
+});
+
+test('#619 這一株：顯示官方現行樹齡 115 年、名錄 155 年仍保留，年齡篩選跟著顯示值走', async () => {
+  const t = await repo.getTree('619');
+  assert.equal(t.age_years, 115, '顯示樹齡必須是市政署自然網現行值');
+  assert.equal(t.listing_age_years, 155, '《名錄》原值要保留給資料核對');
+  assert.equal(t.official_age_years, 115);
+  // 年齡區間篩選必須與畫面一致：>=150 不該出現 #619，<=120 應該出現
+  const old = await repo.findTrees({ min_age: 150, limit: 2000 });
+  assert.ok(!old.rows.some((r) => r.tree_no === '619'), '顯示樹齡 115 年的株不得被 min_age=150 篩出來');
+  const young = await repo.findTrees({ max_age: 120, limit: 2000 });
+  assert.ok(young.rows.some((r) => r.tree_no === '619'), '顯示樹齡 115 年應被 max_age=120 篩到');
+  // 總覽的平均樹齡也要用官方值（名錄 133.28 → 官方 133.22）
+  const o = await repo.overview();
+  assert.equal(o.avg_age, 133.2);
+  assert.equal(o.max_age, 515, '最老仍是 515 年（不受影響）');
 });
 
 test('統計與篩選都用同一個「顯示值」：不分級 5 株（含 #1132）', async () => {

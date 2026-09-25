@@ -231,7 +231,9 @@ export async function render(section, params) {
         return String(mine) !== String(theirs);
       };
       const diffNotes = [];
-      if (differs(t.age_years, t.official_age_years)) diffNotes.push(`樹齡：市政署現行 ${num(t.official_age_years)} 年（本站《名錄》值 ${num(t.age_years)} 年）`);
+      // 樹齡的顯示值也是官方現行值（v0.11.2 起），所以要比對的是《名錄》原值 listing_age_years
+      const la = t.listing_age_years != null ? t.listing_age_years : t.age_years;
+      if (differs(la, t.official_age_years)) diffNotes.push(`樹齡：《古樹名錄》原列 ${num(la)} 年，市政署自然網現行為 ${num(t.official_age_years)} 年 — 本頁以官方現行值為準`);
       if (differs(t.height_m, t.official_height_m)) diffNotes.push(`樹高：市政署現行 ${num(t.official_height_m, 2)} 公尺（本站《名錄》值 ${num(t.height_m, 2)} 公尺）`);
       // 分級與健康狀況的顯示值一律是市政署自然網「現行值」（官方值優先）；
       // 這裡把《古樹名錄》CSV 的另一個官方值也列出來，讓差異可被檢查，而不是被我們默默選一個。
