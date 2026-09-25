@@ -233,8 +233,12 @@ export async function render(section, params) {
       const diffNotes = [];
       if (differs(t.age_years, t.official_age_years)) diffNotes.push(`樹齡：市政署現行 ${num(t.official_age_years)} 年（本站《名錄》值 ${num(t.age_years)} 年）`);
       if (differs(t.height_m, t.official_height_m)) diffNotes.push(`樹高：市政署現行 ${num(t.official_height_m, 2)} 公尺（本站《名錄》值 ${num(t.height_m, 2)} 公尺）`);
-      if (differs(t.health, t.official_health)) diffNotes.push(`健康狀況：市政署現行「${t.official_health}」（本站《名錄》值「${t.health}」）`);
-      if (differs(t.grade, t.official_grade)) diffNotes.push(`分級：市政署現行「${t.official_grade}」（本站《名錄》值「${t.grade}」）`);
+      // 分級與健康狀況的顯示值一律是市政署自然網「現行值」（官方值優先）；
+      // 這裡把《古樹名錄》CSV 的另一個官方值也列出來，讓差異可被檢查，而不是被我們默默選一個。
+      const lg = t.listing_grade != null ? t.listing_grade : t.grade;
+      const lh = t.listing_health != null ? t.listing_health : t.health;
+      if (differs(lh, t.official_health)) diffNotes.push(`健康狀況：《古樹名錄》原列「${lh}」，市政署自然網現行為「${t.official_health}」— 本頁以官方現行值為準`);
+      if (differs(lg, t.official_grade)) diffNotes.push(`分級：《古樹名錄》原列「${lg}」，市政署自然網現行為「${t.official_grade}」— 本頁以官方現行值為準`);
       // 多主幹：胸徑／胸圍直接取市政署官方值（不換算），並標示代表值取哪一支
       const stemLabel = (t.stem_count || 1) > 1 ? `（${t.stem_count} 支主幹，取最大胸徑那支）` : '';
       openModal(`

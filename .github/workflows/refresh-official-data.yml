@@ -54,6 +54,12 @@ jobs:
             git diff --stat -- data/iam_trees.json
           fi
 
+      - name: 存入官方觀測快照（監測時間序列的資料來源）
+        if: steps.diff.outputs.changed == 'true'
+        # 官方只公布現行值、沒有歷史值，所以每次官方內容變更就存一份帶日期的快照；
+        # 內容沒變時本步驟也不會重複存檔（以監測欄位的內容雜湊判斷）。
+        run: npm run build:observations
+
       - name: 重建種子檔與前端快照
         if: steps.diff.outputs.changed == 'true'
         run: npm run build:data
