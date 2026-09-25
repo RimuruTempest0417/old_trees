@@ -26,6 +26,7 @@
     "test:card": "node --test tests/card.test.js",
     "test:supabase-path": "node --test tests/supabase-path.test.js",
     "test:pwa": "node --test tests/pwa.test.js",
+    "test:priority": "node --test tests/priority.test.js",
     "qr:verify": "node scripts/qr-roundtrip.mjs && python3 scripts/qr-decode.py .qr-check",
     "build:sw": "node scripts/build-sw.mjs",
     "pwa:check": "python3 scripts/pwa-check.py",

@@ -75,6 +75,7 @@ export const api = {
   route: (params) => request('/route', params),
   conservation: (params) => request('/conservation', params),
   timeline: () => request('/timeline'),
+  priority: (params) => request('/priority', params),
   fieldRecords: (params) => request('/field-records', params),
   saveFieldRecord: (body) => request('/field-records', {}, {
     method: 'POST',

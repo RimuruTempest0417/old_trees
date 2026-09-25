@@ -347,12 +347,95 @@ export function routeBookHtml(data = {}, opts = {}) {
   return { pages: [cover, ...pages], html: [cover, ...pages].join('\n') };
 }
 
+/**
+ * 優先保育名單（A4）：第一頁是評分方法與摘要，其後分頁列名次。
+ * 純函式，方便測試頁數與欄位。
+ */
+export const PRIORITY_PAGE_ROWS = 40;
+
+export function priorityListHtml(data = {}, opts = {}) {
+  const items = data.items || [];
+  const m = data.method || { weights: {}, steps: [], tiers: [], caveats: [] };
+  const s = data.summary || {};
+  const per = opts.pageRows || PRIORITY_PAGE_ROWS;
+
+  const methodRows = (m.steps || []).map((x) => `<tr><th>${esc(x.name)}</th><td>${num(x.weight)} 分</td><td>${esc(x.rule)}</td></tr>`).join('');
+  const tierRows = (m.tiers || []).map((t) => `<tr><th>${esc(t.id)} 級</th><td>${num(t.min)} 分以上</td><td>${esc(t.hint)}</td></tr>`).join('');
+  // 封面刻意拆成兩張 A4：兩欄式版面在列印時無法跨頁（實測一張封面被切成 4 張紙），
+  // 因此改成「單欄、兩頁」，頁數才可預期：2 ＋ 名單分頁。
+  const cover = `<article class="card-page card-priority">
+    <header class="card-head">
+      <div>
+        <h1>澳門古樹優先保育名單</h1>
+        <p class="card-sub">依樹齡、健康狀況、官方級別、樹種稀有度、區位風險五項評分（合計 ${num(m.total || 100)} 分）</p>
+      </div>
+      <div class="card-tags"><span class="tag">共 ${num(data.evaluated)} 株受評</span><span class="tag">本表列出 ${num(items.length)} 株</span></div>
+    </header>
+    <h3>一、評分方法</h3>
+    <table class="card-table"><tbody>${methodRows}</tbody></table>
+    <h3>二、等級門檻</h3>
+    <table class="card-table"><tbody>${tierRows}</tbody></table>
+    <footer class="card-foot"><p>資料來源：市政署《古樹名木保護名錄》公開資料（本表僅重新排序，未變更官方數據）</p>
+      <p>產生時間：${esc(opts.date || '－')}　｜　本表由平台自動產生，非官方文件</p></footer>
+  </article>`;
+
+  const guide = `<article class="card-page card-priority">
+    <header class="card-head compact">
+      <div><h2>澳門古樹優先保育名單｜評估結果與使用說明</h2></div>
+      <div class="card-tags"><span class="tag">方法與限制</span></div>
+    </header>
+    <h3>三、整體結果</h3>
+    <table class="card-table"><tbody>
+      <tr><th>受評古樹</th><td>${num(s.evaluated)} 株（全澳名錄）</td></tr>
+      <tr><th>S 級（最優先）</th><td>${num((s.by_tier || {}).S)} 株</td></tr>
+      <tr><th>A 級（高度優先）</th><td>${num((s.by_tier || {}).A)} 株</td></tr>
+      <tr><th>B 級（中度優先）</th><td>${num((s.by_tier || {}).B)} 株</td></tr>
+      <tr><th>C 級（一般）</th><td>${num((s.by_tier || {}).C)} 株</td></tr>
+      <tr><th>平均分數</th><td>${num(s.mean_score, 1)} 分</td></tr>
+      ${s.top ? `<tr><th>最高分</th><td>#${esc(s.top.tree_no)} ${esc(s.top.species)}（${num(s.top.age_years)} 年）${num(s.top.score)} 分・${esc(s.top.tier)} 級</td></tr>` : ''}
+    </tbody></table>
+    <h3>四、名次規則</h3>
+    <p class="card-desc">${esc(m.tie_break || '')}</p>
+    <h3>五、使用限制（請務必一起看）</h3>
+    <ul class="card-list">${(m.caveats || []).map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
+    <footer class="card-foot"><p>分數＝樹齡＋健康狀況＋官方級別＋樹種稀有度＋區位風險（合計 100 分）</p>
+      <p>產生時間：${esc(opts.date || '－')}</p></footer>
+  </article>`;
+
+  const chunks = [];
+  for (let i = 0; i < items.length; i += per) chunks.push(items.slice(i, i + per));
+
+  const pages = chunks.map((chunk, idx) => `<article class="card-page card-priority">
+    <header class="card-head compact">
+      <div><h2>優先保育名單（續）</h2></div>
+      <div class="card-tags"><span class="tag">第 ${idx + 1}／${chunks.length} 頁</span>
+        <span class="tag">${num(chunk[0].rank)}–${num(chunk[chunk.length - 1].rank)} 名</span></div>
+    </header>
+    <table class="card-table prio">
+      <thead><tr><th>名次</th><th>編號</th><th>樹種</th><th>樹齡</th><th>健康</th><th>級別</th><th>胸徑</th><th>風險</th><th>分數</th><th>等級</th><th>主要理由</th></tr></thead>
+      <tbody>${chunk.map((r) => `<tr>
+        <td>${num(r.rank)}</td><td>#${esc(r.tree_no)}</td><td>${esc(r.species)}</td>
+        <td>${num(r.age_years)}</td><td>${esc(r.health)}</td><td>${esc(r.grade || '—')}</td>
+        <td>${r.diameter_cm == null ? '—' : num(r.diameter_cm, 1)}</td>
+        <td>${esc(({ high: '高', mid: '中', low: '低' })[r.risk_level] || '中')}</td>
+        <td><strong>${num(r.score)}</strong></td><td>${esc(r.tier)}</td>
+        <td class="small">${esc((r.reasons || []).slice(0, 2).join('；'))}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <footer class="card-foot"><p>分數＝樹齡＋健康狀況＋官方級別＋樹種稀有度＋區位風險（合計 100 分）</p>
+      <p>產生時間：${esc(opts.date || '－')}</p></footer>
+  </article>`);
+
+  return { pages: [cover, guide, ...pages], html: [cover, guide, ...pages].join('\n') };
+}
+
 /* ── 畫面（列印分頁） ─────────────────────────────────── */
 
 const stamp = () => new Date().toLocaleString('zh-TW', { hour12: false });
 
 export async function render(section, params = new URLSearchParams()) {
   const mode = params.get('mode') || (params.get('route') ? 'book' : (params.get('field') ? 'form' : 'card'));
+  const prioLimit = params.get('limit') || '50';
   const base = location.origin;
   section.innerHTML = `
     <h1 class="view-title">列印</h1>
@@ -362,10 +445,13 @@ export async function render(section, params = new URLSearchParams()) {
         <button type="button" class="seg-btn${mode === 'card' ? ' active' : ''}" data-mode="card">古樹檔案卡</button>
         <button type="button" class="seg-btn${mode === 'form' ? ' active' : ''}" data-mode="form">實地考察單</button>
         <button type="button" class="seg-btn${mode === 'book' ? ' active' : ''}" data-mode="book">路綫資料冊</button>
+        <button type="button" class="seg-btn${mode === 'priority' ? ' active' : ''}" data-mode="priority">優先保育名單</button>
       </div>
       <label class="field" data-only="card"><span>古樹編號</span><input type="number" min="1" id="c-no" value="${esc(params.get('tree') || '66')}"></label>
       <label class="field" data-only="form"><span>帶入古樹編號（可留空＝空白表）</span><input type="number" min="1" id="f-no" value="${esc(params.get('tree') || '')}"></label>
       <label class="field" data-only="book"><span>路綫</span><select id="b-route"></select></label>
+      <label class="field" data-only="priority"><span>名單長度</span>
+        <select id="p-limit2">${['20', '50', '100', '200', '0'].map((v) => `<option value="${v}"${prioLimit === v ? ' selected' : ''}>${v === '0' ? '全部 658 株' : `前 ${v} 株`}</option>`).join('')}</select></label>
       <button type="button" class="btn" id="c-build">產生預覽</button>
       <button type="button" class="btn btn-primary" id="c-print" hidden>列印／存成 PDF</button>
     </div>
@@ -412,6 +498,12 @@ export async function render(section, params = new URLSearchParams()) {
         const tree = no ? (await api.tree(no)).tree : null;
         sheet.innerHTML = fieldFormHtml(tree, { base, date: stamp() });
         hint.textContent = tree ? `已產生 1 頁考察單（已帶入編號 ${no} 的基本資料）。` : '已產生 1 頁空白考察單（未帶入任何古樹）。';
+      } else if (mode2 === 'priority') {
+        const limit = section.querySelector('#p-limit2').value;
+        const data = await api.priority({ limit });
+        const list = priorityListHtml(data, { date: stamp() });
+        sheet.innerHTML = list.html;
+        hint.textContent = `已產生 ${list.pages.length} 頁（方法頁 1 頁 ＋ 名單 ${list.pages.length - 1} 頁，每頁 ${PRIORITY_PAGE_ROWS} 列）。`;
       } else {
         const code = routeSel.value;
         if (!code) { sheet.innerHTML = '<p class="empty">沒有可印的路綫。</p>'; return; }
@@ -434,4 +526,4 @@ export async function render(section, params = new URLSearchParams()) {
   await build();
 }
 
-export default { render, cardModel, cardHtml, fieldFormHtml, routeBookHtml, schematicMapSvg, checkItems, projectXY };
+export default { render, cardModel, cardHtml, fieldFormHtml, routeBookHtml, priorityListHtml, schematicMapSvg, checkItems, projectXY };

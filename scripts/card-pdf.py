@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -19,7 +20,9 @@ os.makedirs(OUT, exist_ok=True)
 
 
 def print_pdf(url, path, wait_ms=16000):
+    # 每次都清掉 profile：Chrome 會快取舊的 JS，導致「改了樣式、PDF 卻是舊版」的假失敗
     profile = os.path.join(OUT, 'profile-pdf')
+    shutil.rmtree(profile, ignore_errors=True)
     os.makedirs(profile, exist_ok=True)
     args = [CHROME, '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
             f'--user-data-dir={profile}', f'--virtual-time-budget={wait_ms}',
@@ -67,6 +70,11 @@ if route_code:
     stops = len(json.loads(detail).get('stops') or [])
     cases.append((f'book-{route_code}', f'http://localhost:{PORT}/#/card?mode=book&route={route_code}', stops + 1))
 cases.append(('form-66', f'http://localhost:{PORT}/#/card?mode=form&tree=66', 1))
+# 優先保育名單：方法頁 1 頁 ＋ 每頁 26 列（與 public/js/card.js 的 PRIORITY_PAGE_ROWS 一致）
+PRIO_ROWS_PER_PAGE = 40
+PRIO_LIMIT = 50
+cases.append(('prio-50', f'http://localhost:{PORT}/#/card?mode=priority&limit={PRIO_LIMIT}',
+              2 + -(-PRIO_LIMIT // PRIO_ROWS_PER_PAGE)))
 
 fails = []
 for name, url, expect in cases:
@@ -87,8 +95,16 @@ for name, url, expect in cases:
     joined = unicodedata.normalize('NFKC', re.sub(r'\s+', '', ' '.join(p['text'] for p in pages)))
     key = {'card-66': ['古樹檔案卡', '華潤楠', '官方未提供'],
            'form-66': ['實地考察紀錄單', '現場量測'],
-           'book': ['路綫資料冊', '非等比地圖']}
-    want = key['card-66'] if name.startswith('card') else (key['form-66'] if name.startswith('form') else key['book'])
+           'book': ['路綫資料冊', '非等比地圖'],
+           'prio': ['澳門古樹優先保育名單', '評分方法', '使用限制', '非官方文件']}
+    if name.startswith('card'):
+        want = key['card-66']
+    elif name.startswith('form'):
+        want = key['form-66']
+    elif name.startswith('prio'):
+        want = key['prio']
+    else:
+        want = key['book']
     missing = [w for w in want if w not in joined]
     if missing:
         ok = False
