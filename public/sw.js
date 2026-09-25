@@ -11,7 +11,7 @@
  *
  * 預載清單由 `scripts/build-sw.mjs` 依實際檔案產生，不要手改標記區內的內容。
  */
-const VERSION = 'v0.12.0';
+const VERSION = 'v0.12.1';
 const SHELL_CACHE = `mht-shell-${VERSION}`;
 const DATA_CACHE = `mht-data-${VERSION}`;
 const MEDIA_CACHE = `mht-media-${VERSION}`;

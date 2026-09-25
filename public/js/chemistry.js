@@ -1,5 +1,5 @@
 /**
- * 化學視角（#/chemistry）—— 作業要求 F 的網站化呈現
+ * 化學視角（#/chemistry）—— 官方環境數據與化學機制的呈現
  *
  * 把官方環境監測數據（環保局《澳門環境狀況報告2025》、氣象局《澳門空氣質量監測統計年度報告2025》）
  * 與本站的古樹資料放在一起看，並把「酸雨 → 土壤酸化 → 根系受害」、「水泥／鋪面 → 鹼性微環境與缺氧」
@@ -115,9 +115,9 @@ export function summaryText(d) {
 export async function render(section) {
   section.innerHTML = `<div class="page-head">
       <h1>化學視角</h1>
-      <p>作業要求 F：針對「為什麼要保育、澳門的分佈、保育條件、歷史關聯」挑一點做<strong>化學視角</strong>補充。
-      本頁把澳門官方的<strong>空氣監測與酸雨監測</strong>數據，和本站的古樹資料放在一起看，
-      並列出<strong>酸雨、土壤酸鹼、水泥與鋪面</strong>影響樹木的化學機制與出處。</p>
+      <p>這一頁把澳門官方的<strong>空氣監測與降雨酸鹼度</strong>數據，和本站的古樹資料放在一起看，
+      並列出<strong>酸雨、土壤酸鹼、水泥與鋪面</strong>影響樹木的化學機制與出處。
+      每一項數字都標明來源；官方沒有公開的，就明說沒有。</p>
     </div>
     <div id="chem-notice"></div>
     <div id="chem-body">${loading('讀取官方環境數據…')}</div>`;
@@ -217,10 +217,10 @@ export async function render(section) {
     </div>
 
     <div class="notice notice-info" style="margin-top:1rem">
-      <strong>本頁沒有的東西（作業要求的界線，先說清楚）</strong>
+      <strong>本頁沒有的東西</strong>
       <ul class="small" style="margin:.4rem 0 0 1.1rem">
-        <li><strong>沒有澳門官方逐點土壤理化數據集</strong>：作業要求提到「市區及郊區土壤理化特性」，
-          本站查到的公開資料只有官方報告的敘述段落與學術研究（見下方文獻），<strong>沒有可供逐株對照的官方土壤採樣數據</strong>；
+        <li><strong>沒有澳門官方逐點土壤理化數據集</strong>：市區與郊區的土壤理化特性，
+          公開資料只有官方報告的敘述段落與學術研究（見下方文獻），<strong>沒有可供逐株對照的官方土壤採樣數據</strong>；
           因此本平台不填任何自造數值。</li>
         <li><strong>沒有逐點礦物成分數據</strong>：因此不以數據推論「礦物成分差異影響物種分佈」，
           只在科普文章中說明機制與文獻看法。</li>

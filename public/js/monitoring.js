@@ -167,7 +167,7 @@ export async function render(section, params) {
       <h2>怎麼看這一頁</h2>
       <ol class="plain-list">
         <li><strong>官方快照</strong>：市政署自然網只公布現行值，沒有歷史值。我們的每日擷取會在官方名錄<strong>內容有變更</strong>時自動存一份帶日期的快照（<code>data/observations/</code>），所以時間軸會隨時間變長。</li>
-        <li><strong>《名錄》版本</strong>：作業提供的官方名錄值視為較早的官方版本，因此一開始就有一組可比對的官方時間點。</li>
+        <li><strong>《名錄》版本</strong>：官方名錄值視為較早的官方版本，因此一開始就有一組可比對的官方時間點。</li>
         <li><strong>實地考察</strong>：由師生實測的紀錄（<a href="#/field">實地考察</a>分頁新增），帶日期、觀察者、健康狀況與量測值。</li>
         <li><strong>不硬湊</strong>：缺值不內插、不平均；可量測時間點不足兩個（或跨距未滿 30 天）就不畫趨勢，並說明原因。</li>
         <li><strong>官方變動≠異常</strong>：官方分級／健康狀況的改變屬「官方資料更新」，會標示出來但不列為異常；只有量測值異常（胸徑減少 ≥ 0.5 公分、樹高減少 ≥ 0.2 公尺）或實地觀察惡化才列「需確認」。</li>

@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const html = readFileSync(`${ROOT}public/index.html`, 'utf8');
@@ -182,4 +182,22 @@ test('模態框必須高於 Leaflet 控制項（縮放鈕不得蓋住彈窗）',
   assert.ok(modalZ, '找不到 .modal 的 z-index');
   assert.ok(Number(modalZ[1]) > 1000, `模態框 z-index ${modalZ[1]} 低於 Leaflet 控制項的 1000`);
   assert.match(css, /\.leaflet-container \{ isolation: isolate; z-index: 0; \}/);
+});
+
+test('網站上看不到「作業」字眼（會讓老師誤會的措辭不得出現在介面）', () => {
+  // 使用者明確要求：介面不要出現「作業要求」「作業提供」這類把網站寫成作業的措辭，
+  // 也不要出現「（作業要求的界線，先說清楚）」這種括號說明。全站前端檔案一律掃描。
+  const dir = `${ROOT}public/js/`;
+  const files = readdirSync(dir).filter((f) => f.endsWith('.js') && !f.includes(' '));
+  const hits = [];
+  for (const f of files) {
+    const src = readFileSync(dir + f, 'utf8');
+    if (/作業/.test(src)) hits.push(`public/js/${f}`);
+  }
+  if (/作業/.test(html)) hits.push('public/index.html');
+  assert.deepEqual(hits, [], `介面不得出現「作業」字眼：${hits.join('、')}`);
+  // 「本頁沒有的東西」這張誠實卡要保留（只是不能掛作業的括號說明）
+  const chem = readFileSync(`${ROOT}public/js/chemistry.js`, 'utf8');
+  assert.match(chem, /<strong>本頁沒有的東西<\/strong>/);
+  assert.ok(!/本頁沒有的東西（/.test(chem), '誠實卡標題不得再加括號說明');
 });
