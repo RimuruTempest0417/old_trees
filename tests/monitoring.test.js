@@ -224,6 +224,9 @@ test('GET /api/monitoring?tree=1132 回傳完整序列', async () => {
   assert.equal(json.tree.tree_no, '1132');
   assert.equal(json.tree.grade, '不分級', '顯示分級必須是官方現行值');
   assert.equal(json.tree.listing_grade, '三級', '名錄值要保留');
+  assert.equal(json.tree.age_years, 14);
+  assert.equal(json.tree.official_age_years, 14);
+  assert.equal(json.tree.listing_age_years, 14, '單株 payload 要與 listing_grade／listing_health 對稱');
   assert.equal(json.series.points.length, 2);
   assert.ok(json.series.steps.some((s) => s.grade_change === '三級 → 不分級'));
   assert.ok(json.data.fetched_at, '要附官方資料履歷');
@@ -272,4 +275,6 @@ test('監測頁面必須完成接線（分頁、路由、API、Service Worker �
   assert.match(view, /無法擬合/);
   assert.match(view, /官方資料更新/);
   assert.match(view, /不內插/);
+  // 單株卡片要說明「樹齡」的兩個來源（名錄 vs 自然網現行）
+  assert.match(view, /listing_age_years/, '單株卡片要說明樹齡的兩個來源（名錄 vs 自然網現行）');
 });

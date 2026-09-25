@@ -104,6 +104,7 @@ function detailHtml(data) {
         <span class="badge badge-muted">${esc(t.health || '—')}</span>・官方分級
         <span class="badge badge-muted">${esc(t.grade || '未列級')}</span>
         ${t.listing_grade && t.listing_grade !== t.grade ? `<br>《古樹名錄》原本列「${esc(t.listing_grade)}」，市政署自然網現行為「${esc(t.official_grade || '—')}」— 本平台以官方現行值為準。` : ''}
+        ${t.listing_age_years != null && t.listing_age_years !== t.age_years ? `<br>《古樹名錄》原本列 ${num(t.listing_age_years)} 年，市政署自然網現行為 ${num(t.official_age_years)} 年 — 本平台以官方現行值為準。` : ''}
       </p>
       <p class="small">${esc(trendText(s.trend))}</p>
       <h3>觀測點（共 ${num(s.points.length)} 個；有日期 ${num(dated.length)} 個）</h3>
