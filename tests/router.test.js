@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { matchRoute, ROUTES } from '../lib/router.js';
+import { matchRoute, ROUTES, loadRoute } from '../lib/router.js';
 import { startServer, stopServer, get } from './helpers/server.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -33,6 +33,48 @@ test('路由表與 lib/routes/ 的檔案一一對應', () => {
   assert.deepEqual([...ids].sort(), [...files].sort(), '路由表與 lib/routes/ 不一致（多或少檔）');
   // handler 已不在 api/ 底下，否則又會變成一個 function
   for (const id of ids) assert.ok(!fs.existsSync(path.join(ROOT, 'api', `${id}.js`)), `api/${id}.js 不該存在`);
+});
+
+test('每個路由 id 都要有「字面字串」的模組載入器（線上才找得到檔案）', async () => {
+  // 2026-09-25 實際故障：新增 /api/priority 時只加了路由表，忘了加 LOADERS。
+  // 本機沒事，是因為 scripts/dev-server.mjs 自己用檔案路徑 import 後以 opts.handler 傳進來，
+  // 完全繞過 LOADERS；線上的唯一入口 api/[[...route]].js 走的是 loadRoute()，
+  // 找不到載入器就整個 function 崩掉（Vercel 回 FUNCTION_INVOCATION_FAILED，HTTP 500）。
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'router.js'), 'utf8');
+  // 1. 每一個路由 id 都必須能載入（真的呼叫 loadRoute，不是看原始碼）
+  for (const r of ROUTES) {
+    const fn = await loadRoute(r.id);
+    assert.equal(typeof fn, 'function', `${r.id} 載入後不是函式`);
+  }
+  // 2. 載入器只能是字面字串路徑（用變數組字串，Vercel 的打包器追蹤不到）
+  const loaderBlock = src.slice(src.indexOf('const LOADERS = {'), src.indexOf('};', src.indexOf('const LOADERS = {')));
+  const paths = [...loaderBlock.matchAll(/import\(\s*'([^']+)'\s*\)/g)].map((m) => m[1]);
+  assert.equal(paths.length, ROUTES.length, `載入器數量 ${paths.length} 與路由數 ${ROUTES.length} 不符`);
+  for (const p of paths) {
+    assert.match(p, /^\.\/routes\/[a-z0-9-]+\.js$/, `載入器路徑必須是字面字串且指向 lib/routes：${p}`);
+  }
+  // 3. lib/routes 底下的每個檔案都要有人載入，反之亦然
+  const files = fs.readdirSync(path.join(ROOT, 'lib', 'routes')).filter((f) => f.endsWith('.js'));
+  assert.deepEqual(paths.map((p) => p.replace('./routes/', '')).sort(), files.sort(),
+    'lib/routes 的檔案與載入器不一致');
+});
+
+test('不用 dev-server 的捷徑也要能分派（模擬線上唯一入口的路徑）', async () => {
+  // dev-server 會傳 opts.handler；線上 api/[[...route]].js 不會傳，
+  // 因此這裡刻意「不傳 handler」跑一次真正的 loadRoute + handler。
+  const { dispatch } = await import('../lib/router.js');
+  let body = '';
+  const res = {
+    statusCode: 200, headers: {}, writableEnded: false,
+    setHeader(k, v) { this.headers[k] = v; },
+    end(chunk) { this.writableEnded = true; body = String(chunk || ''); },
+  };
+  const req = { method: 'GET', url: '/api/priority?limit=2', headers: { host: 'localhost' } };
+  const handled = await dispatch(req, res, '/api/priority');
+  assert.equal(handled, true, 'router 必須處理 /api/priority');
+  const data = JSON.parse(body);
+  assert.equal(data.ok, true, `回應不是成功：${body.slice(0, 200)}`);
+  assert.equal(data.items.length, 2);
 });
 
 test('路徑比對：固定路徑、單段動態參數、未知路徑', () => {
