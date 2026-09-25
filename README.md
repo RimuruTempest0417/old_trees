@@ -377,7 +377,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 17 組測試，共 255 項
+npm test               # 17 組測試，共 256 項
 npm run verify         # check ＋ test
 ```
 
@@ -386,7 +386,7 @@ npm run verify         # check ＋ test
 | `tests/analysis.test.js` | 統計函式單元測試（相關係數、迴歸、F 分佈、卡方分佈） | 18 |
 | `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄）、**官方胸徑／胸圍入庫與多主幹株數**，以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 33 |
 | `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性（含 `/api/tree?no=` 與路徑形式一致、**官方胸徑／胸圍**、**主題路綫一定要產生停靠站**） | 16 |
-| `tests/supabase-path.test.js` | **Supabase 模式的查詢形狀**：以假的 `fetch` 攔截 PostgREST 請求，驗證 `allTrees()` 送出的欄位含座標（線上事故：曾誤用只回散佈圖欄位的 `rpc_scatter`，候選古樹全被濾掉，路綫推薦回 `route: null`）；**官方值優先也要在 Supabase 模式成立**（查詢必須取 `official_grade`／`official_health`；用官方分級／健康狀況篩選時，SQL 端不得再帶該條件，改由 JS 以顯示值篩選，否則會漏掉 #1132 這種名錄值與官方現行值不同的株） | 4 |
+| `tests/supabase-path.test.js` | **Supabase 模式的查詢形狀**：以假的 `fetch` 攔截 PostgREST 請求，驗證 `allTrees()` 送出的欄位含座標（線上事故：曾誤用只回散佈圖欄位的 `rpc_scatter`，候選古樹全被濾掉，路綫推薦回 `route: null`）；**官方值優先也要在 Supabase 模式成立**（查詢必須取 `official_grade`／`official_health`；用官方分級／健康狀況篩選時，SQL 端不得再帶該條件，改由 JS 以顯示值篩選，否則會漏掉 #1132 這種名錄值與官方現行值不同的株；**`getTree()` 也必須走正常化**——Supabase 分支曾繞過 `normalizeTreeRow()`，導致線上單株詳情仍顯示《名錄》舊分級，而本機示範模式測不到） | 5 |
 | `tests/pwa.test.js` | **離線 PWA**：manifest 欄位與圖示尺寸（實際讀 PNG 標頭比對）、`sw.js` 預載清單與實際檔案同步（重跑產生器必須無差異，且逐一以 HTTP 確認 200）、`index.html` 引用的每個本機資源都在預載清單內、只處理 GET、`/api/health` 不快取、照片與圖磚有上限、離線狀態文案（含「伺服器連不上但裝置有網路」的情況）、伺服器以正確 MIME 提供 `sw.js`／manifest | 16 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為、單段落＋查詢參數形式、**前端不得出現多段落呼叫**、`vercel.json` 的 rewrite；**每個路由 id 都必須能以字面字串載入模組**（線上唯一入口走 `loadRoute()`，本機 dev-server 會用 `opts.handler` 繞過，曾因此讓 `/api/priority` 上線即 500）、**不傳 handler 也要能分派** | 9 |

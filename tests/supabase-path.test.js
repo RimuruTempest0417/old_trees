@@ -77,6 +77,41 @@ test('findTrees() 與 getTree() 維持原有行為（只確認沒有動到）', 
   }
 });
 
+
+test('getTree() 在 Supabase 模式也必須套用官方值優先（線上單株詳情曾顯示名錄舊分級）', async () => {
+  // 2026-09-25 線上實際狀況：/api/tree/1132 回 grade「三級」（資料庫的名錄值），
+  // 但 /api/trees 與優先保育名單顯示「不分級」——同一株在兩個頁面不一致。
+  // 根因：Supabase 分支的 getTree 直接回 v_trees 的原始列，沒有走 normalizeTreeRow／officialFirst，
+  // 而本機 snapshot 分支走 normalizeTreeRow(enrich(t))，所以本機測試看不到。
+  const calls = [];
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    if (u.includes('/rest/v1/v_trees')) {
+      return json([{
+        tree_no: '1132', official_no: '1132', age_years: 14, height_m: 6.01, species: '華潤楠',
+        parish: '嘉模堂區', site: '小潭山', health: '一般', grade: '三級',
+        official_health: '一般', official_grade: '不分級',
+        lat: 22.15, lon: 113.55, diameter_cm: 14, girth_cm: 44, stem_count: 2,
+        stem_measures: '胸徑 12.00／14.00 公分；胸圍 37.7／44.0 公分（共 2 支主幹，代表值取最大胸徑那支）',
+      }]);
+    }
+    return json([]);
+  };
+  try {
+    const t = await repo.getTree('1132');
+    assert.ok(calls.some((u) => u.includes('/rest/v1/v_trees')), '應向 v_trees 取單株');
+    assert.equal(t.grade, '不分級', '單株詳情的分級必須是官方現行值');
+    assert.equal(t.listing_grade, '三級', '《名錄》值要保留給資料核對');
+    assert.equal(t.official_grade, '不分級');
+    assert.equal(t.girth_cm, 44);
+    assert.match(t.stem_measures, /37\.7／44\.0/);
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
 test('官方值優先：Supabase 模式的分級／健康狀況也要用官方的 official_* 欄位', async () => {
   const calls = [];
   const orig = globalThis.fetch;
