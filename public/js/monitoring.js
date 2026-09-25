@@ -25,7 +25,7 @@ const arr = (v) => (Array.isArray(v) ? v : []);
 const levelTone = { warn: 'danger', good: 'good', info: 'muted' };
 const kindLabel = {
   diameter_down: '胸徑變化', height_down: '樹高變化', health_worse: '健康轉差',
-  health_better: '健康改善', grade_change: '官方分級更新', long_gap: '複查提醒',
+  health_better: '健康改善', grade_change: '官方分級更新', age_change: '官方樹齡更新', long_gap: '複查提醒',
   no_field_record: '尚無考察紀錄',
 };
 
@@ -47,6 +47,7 @@ export function summaryText(data) {
 function stepRow(s) {
   const bits = [];
   if (s.grade_change) bits.push(`<span class="badge badge-muted">分級 ${esc(s.grade_change)}</span>`);
+  if (s.age_change) bits.push(`<span class="badge badge-muted">官方樹齡 ${esc(s.age_change)}</span>`);
   if (s.health_change) bits.push(`${healthBadge(s.health_from)} <span class="muted">→</span> ${healthBadge(s.health_to)}`);
   if (s.diameter_delta !== null && s.diameter_delta !== undefined) bits.push(`<span class="badge ${s.diameter_delta < 0 ? 'badge-warn' : 'badge-good'}">胸徑 ${s.diameter_delta > 0 ? '+' : ''}${esc(s.diameter_delta)} 公分</span>`);
   if (s.height_delta !== null && s.height_delta !== undefined) bits.push(`<span class="badge ${s.height_delta < 0 ? 'badge-warn' : 'badge-good'}">樹高 ${s.height_delta > 0 ? '+' : ''}${esc(s.height_delta)} 公尺</span>`);
@@ -63,7 +64,7 @@ function pointsTable(points) {
   return `
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>日期</th><th>來源</th><th>官方健康狀況</th><th>官方分級</th><th>樹高（公尺）</th><th>胸徑（公分）</th><th>胸圍（公分）</th><th>備註</th></tr></thead>
+        <thead><tr><th>日期</th><th>來源</th><th>官方健康狀況</th><th>官方分級</th><th>樹齡（年）</th><th>樹高（公尺）</th><th>胸徑（公分）</th><th>胸圍（公分）</th><th>備註</th></tr></thead>
         <tbody>
           ${points.map((p) => `
             <tr>
@@ -71,6 +72,7 @@ function pointsTable(points) {
               <td><span class="badge badge-${SRC_TONE[p.source] || 'muted'}">${esc(SRC_LABEL[p.source] || p.source)}</span></td>
               <td>${p.health ? healthBadge(p.health) : '<span class="muted">—</span>'}</td>
               <td>${p.grade ? gradeBadge(p.grade) : '<span class="muted">—</span>'}</td>
+              <td>${p.age_years !== null && p.age_years !== undefined ? num(p.age_years) : '<span class="muted">—</span>'}</td>
               <td>${p.height_m !== null && p.height_m !== undefined ? num(p.height_m, 2) : '<span class="muted">—</span>'}</td>
               <td>${p.diameter_cm !== null && p.diameter_cm !== undefined ? num(p.diameter_cm, 2) : '<span class="muted">—</span>'}</td>
               <td>${p.girth_cm !== null && p.girth_cm !== undefined ? num(p.girth_cm, 1) : '<span class="muted">—</span>'}</td>
@@ -198,7 +200,7 @@ export async function render(section, params) {
                 <td>#${esc(r.tree_no)}</td>
                 <td>${esc(r.species || '')}</td>
                 <td>${r.health ? healthBadge(r.health) : '<span class="muted">—</span>'}</td>
-                <td class="small">${arr(r.changes).map((c) => (c.grade ? `分級 ${esc(c.grade)}` : `健康 ${esc(c.health || '')}`)).join('、') || '<span class="muted">—</span>'}</td>
+                <td class="small">${arr(r.changes).map((c) => (c.grade ? `分級 ${esc(c.grade)}` : (c.age ? `樹齡 ${esc(c.age)}` : `健康 ${esc(c.health || '')}`))).join('、') || '<span class="muted">—</span>'}</td>
                 <td>${arr(r.anomalies).some((a) => a.level === 'warn') ? '<span class="badge badge-danger">需確認</span>' : '<span class="badge badge-muted">—</span>'}</td>
                 <td><a href="#/monitoring?tree=${esc(r.tree_no)}">看序列</a></td>
               </tr>`).join('')}
@@ -230,7 +232,7 @@ export async function render(section, params) {
       編號: r.tree_no, 樹種: r.species, 地點: r.site, 堂區: r.parish,
       官方健康狀況: r.health, 官方分級: r.grade, 觀測點數: r.points,
       實地考察筆數: r.field_records,
-      變化: arr(r.changes).map((c) => `${c.to || '未載日期'}:${c.grade || ''}${c.health || ''}`).join(' | '),
+      變化: arr(r.changes).map((c) => `${c.to || '未載日期'}:${c.grade || ''}${c.age || ''}${c.health || ''}`).join(' | '),
       異常: arr(r.anomalies).map((a) => a.text).join(' | '),
     })));
   });

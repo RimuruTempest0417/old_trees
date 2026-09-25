@@ -155,6 +155,24 @@ test('官方快照檔與 lib/official-history.js 必須一致（產生器 --chec
   assert.equal(Object.keys(SNAPSHOTS[0].trees).length, 658);
 });
 
+test('#619 的監測序列：官方樹齡由 155 年更新為 115 年，列為官方資料更新', () => {
+  const src = JSON.parse(read('data/snapshot.json'));
+  const t = src.trees.find((x) => x.tree_no === '619');
+  const s = buildSeries({ ...t, age_years: 115 }, {
+    listing: { grade: t.grade, health: t.health, age_years: t.age_years },
+    snapshots: SNAPSHOTS,
+    records: [],
+  });
+  const step = s.steps[0];
+  assert.equal(step.age_from, 155, '《名錄》原值 155 年');
+  assert.equal(step.age_to, 115, '官方現行值 115 年');
+  assert.equal(step.age_change, '155 → 115 年');
+  const a = s.anomalies.find((x) => x.kind === 'age_change');
+  assert.ok(a, '官方樹齡更新要被記錄下來');
+  assert.equal(a.level, 'info', '官方值變動是資料更新，不是異常');
+  assert.ok(!s.anomalies.some((x) => x.level === 'warn'));
+});
+
 test('#1132 的監測序列：官方分級由三級更新為不分級，且不列為異常', () => {
   const src = JSON.parse(read('data/snapshot.json'));
   const t = src.trees.find((x) => x.tree_no === '1132');
@@ -174,15 +192,17 @@ test('全站監測概況的變動株數，必須與「名錄 vs 官方現行」�
   const snap = SNAPSHOTS[SNAPSHOTS.length - 1].trees;
   const expected = src.trees.filter((t) => {
     const o = snap[t.tree_no] || {};
-    return (t.grade && o.grade && t.grade !== o.grade) || (t.health && o.health && t.health !== o.health);
+    return (t.grade && o.grade && t.grade !== o.grade)
+      || (t.health && o.health && t.health !== o.health)
+      || (t.age_years != null && o.age_years != null && Number(t.age_years) !== Number(o.age_years));
   }).map((t) => t.tree_no).sort();
-  assert.deepEqual(expected, ['1132', '548', '627', '638', '641'], '官方兩個來源的差異株數改變了，請重新核對');
+  assert.deepEqual(expected, ['1132', '548', '619', '627', '638', '641'], '官方兩個來源的差異株數改變了，請重新核對');
   const series = src.trees.map((t) => buildSeries(t, {
-    listing: { grade: t.grade, health: t.health },
+    listing: { grade: t.grade, health: t.health, age_years: t.age_years },
     snapshots: SNAPSHOTS,
   }));
   const sum = monitoringSummary(series, SNAPSHOTS, []);
-  assert.equal(sum.official_changed, 5);
+  assert.equal(sum.official_changed, 6, '官方變動 6 株：分級 1、健康 4、樹齡 1');
 });
 
 // ── 3) 端到端（真的啟動伺服器）────────────────────────────────
@@ -215,8 +235,8 @@ test('GET /api/monitoring 概況與清單（預設精簡）', async () => {
   assert.equal(status, 200);
   assert.equal(json.total, 658);
   assert.equal(json.count, 5);
-  assert.equal(json.summary.official_changed, 5);
-  assert.deepEqual(json.summary.changed_trees.sort(), ['1132', '548', '627', '638', '641']);
+  assert.equal(json.summary.official_changed, 6, '官方變動 6 株：分級 1、健康 4、樹齡 1');
+  assert.deepEqual(json.summary.changed_trees.sort(), ['1132', '548', '619', '627', '638', '641']);
   assert.equal(json.summary.with_field_record, 0, '示範模式沒有考察紀錄');
   // 契約：changes 一定是陣列（前端要 .map）；精簡模式只省略 points／steps 這類完整序列
   assert.ok(json.items.every((r) => Array.isArray(r.changes)), 'changes 必須是陣列，否則前端 .map 會 TypeError');
@@ -226,7 +246,7 @@ test('GET /api/monitoring 概況與清單（預設精簡）', async () => {
 
 test('GET /api/monitoring?rows=1 取得每株變動摘要', async () => {
   const { json } = await get(base, '/api/monitoring?only=changed&rows=1&limit=3');
-  assert.equal(json.total, 5);
+  assert.equal(json.total, 6, '官方變動 6 株（分級 1、健康 4、樹齡 1）');
   assert.equal(json.count, 3);
   assert.ok(json.items.every((r) => Array.isArray(r.changes) && r.changes.length >= 1));
 });

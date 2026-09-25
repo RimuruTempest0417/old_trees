@@ -3,6 +3,7 @@
 set -u
 URL="$1"; OUT="$2"; shift 2
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+mkdir -p "$(dirname "$OUT")"
 PROF="$(dirname "$OUT")/prof-$(basename "$OUT" .html)"
 rm -rf "$PROF"
 "$CHROME" --headless=new --disable-gpu --no-first-run --no-default-browser-check \
