@@ -12,6 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = (p) => JSON.parse(readFileSync(ROOT + p, 'utf8'));
@@ -150,6 +151,26 @@ test('學名版本差異已保留（現行接受名＋市政署名）', () => {
   const both = snap.species.filter((s) => s.name_sci && s.name_sci_official);
   assert.ok(both.length >= 10, `應並列多個學名版本，實際 ${both.length}`);
   assert.ok(snap.species.every((s) => s.name_sci), '每個樹種都應有學名');
+});
+
+test('官方資料履歷（lib/data-meta.js）必須與 data/ 同步，且擷取時間講得出來', async () => {
+  // 這條測試是「自動更新」的守門員：抓了新資料卻忘了重跑 meta（或反過來）
+  // 就會紅燈，使用者才不會看到舊的擷取時間而誤以為資料沒更新。
+  const { DATA_META } = await import('../lib/data-meta.js');
+  const trees = readFileSync(ROOT + 'data/iam_trees.json');
+  const hash = createHash('sha256').update(trees).digest('hex').slice(0, 16);
+  assert.equal(DATA_META.data_hash, hash, 'data_hash 與 data/iam_trees.json 不一致，請跑 npm run build:data-meta');
+  assert.equal(DATA_META.record_count, Object.keys(iam).length, 'record_count 必須等於實際筆數');
+  assert.equal(DATA_META.fetched_at, meta.fetched_at, 'fetched_at 必須與 data/iam_meta.json 一致');
+  assert.ok(DATA_META.source_page.startsWith('https://www.iam.gov.mo/'), '來源必須是市政署網域');
+  // 網站要能看到擷取時間（不是只有 API 有）
+  const siteInfo = readFileSync(ROOT + 'lib/repo.js', 'utf8');
+  assert.match(siteInfo, /fetched_at: DATA_META.fetched_at/);
+  const dash = readFileSync(ROOT + 'public/js/dashboard.js', 'utf8');
+  assert.match(dash, /官方資料擷取時間/);
+  // 產生器本身要支援 --check（CI 用）
+  const gen = readFileSync(ROOT + 'scripts/gen-data-meta.mjs', 'utf8');
+  assert.match(gen, /--check/);
 });
 
 test('官方描述已進資料庫種子檔（Supabase 模式同享）', () => {

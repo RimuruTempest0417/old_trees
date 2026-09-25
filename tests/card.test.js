@@ -17,7 +17,7 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const vendorSrc = fs.readFileSync(path.join(ROOT, 'public', 'vendor', 'qrcode.js'), 'utf8');
 globalThis.qrcode = new Function(`${vendorSrc}; return qrcode;`)();
 
-const { cardModel, cardHtml, fieldFormHtml, routeBookHtml, schematicMapSvg, projectXY, checkItems, geoLabel } =
+const { cardModel, cardHtml, fieldFormHtml, routeBookHtml, routeOptionsHtml, schematicMapSvg, projectXY, checkItems, geoLabel } =
   await import('../public/js/card.js');
 // 二維碼只是模組方塊，網址不會以文字出現在 HTML；因此改為比對「該網址編出來的 SVG 是否原樣內嵌」。
 const { qrSvg } = await import('../public/js/qr.js');
@@ -195,6 +195,31 @@ test('fieldFormHtml：帶入某株時填好基本資料並附該株紀錄表二�
   assert.ok(!html.includes(qrSvg(model.qrUrl, { size: 30 })), '考察單不該誤用詳情頁網址');
   assert.match(html, /aria-label="古樹二維碼"/);
   assert.match(html, /現場量測與觀察/);
+});
+
+test('路綫下拉：不得出現「（0 站）」，一律顯示該路綫自己的停靠上限', () => {
+  // 2026-09-25 實際 bug：下拉顯示站數用的是「候選地點數」，
+  // 而「路綫五：全澳最老古樹巡禮」的候選地點刻意為空（停靠點由系統按樹齡自動選出）
+  // → 畫面出現「（0 站）」，但實際會產生 10 站。修正後改顯示 max_stops。
+  const routes = [
+    { code: 'macau-heritage-core', name: '路綫一：澳門半島歷史城區古樹徑', site_count: 11, max_stops: 10 },
+    { code: 'oldest-trees', name: '路綫五：全澳最老古樹巡禮', site_count: 0, max_stops: 10 },
+  ];
+  const html = routeOptionsHtml(routes, 'oldest-trees');
+  assert.ok(!/（0 站）/.test(html), '不得出現「（0 站）」');
+  assert.ok(!/>0 站/.test(html), '不得出現站數 0');
+  assert.match(html, /路綫五：全澳最老古樹巡禮（最多 10 站）/);
+  assert.match(html, /路綫一：澳門半島歷史城區古樹徑（11 個候選地點・最多 10 站）/);
+  assert.match(html, /data-max="10"/);
+  assert.match(html, /value="oldest-trees" data-max="10" selected/);
+  // 沒有 max_stops 的路綫也不能顯示 0
+  const odd = routeOptionsHtml([{ code: 'x', name: '測試路綫', site_count: 3, max_stops: 0 }], '');
+  assert.match(odd, /測試路綫（3 個候選地點・站數依產生結果）/);
+  // 空清單要有合理的單一選項，不能是空字串
+  assert.match(routeOptionsHtml([], ''), /（尚無路綫）/);
+  // 名稱一律跳脫
+  const shot = routeOptionsHtml([{ code: 'x', name: '<img src=x onerror=alert(1)>', site_count: 1, max_stops: 2 }], '');
+  assert.ok(!/<img/.test(shot), '路綫名稱必須跳脫');
 });
 
 test('projectXY：經度依緯度壓縮（東西向不會與南北向等比）', () => {

@@ -32,7 +32,9 @@
     "pwa:check": "python3 scripts/pwa-check.py",
     "verify": "npm run check && npm test",
     "vendor": "node scripts/vendor.mjs",
-    "build:data": "python3 scripts/content.py && python3 scripts/build_seed.py"
+    "build:data": "python3 scripts/content.py && python3 scripts/build_seed.py",
+    "build:data-meta": "node scripts/gen-data-meta.mjs",
+    "refresh:official": "python3 scripts/fetch_iam.py --no-images && npm run build:data && npm run build:data-meta && node scripts/build-sw.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"

@@ -1,0 +1,102 @@
+name: 每日擷取官方古樹名錄
+
+# 為什麼要有這個 workflow：
+#   古樹資料是市政署「澳門自然網」公布的官方名錄。以前只能人手跑
+#   python3 scripts/fetch_iam.py，官網改了名錄我們不會知道。
+#   這裡每天定時重抓一次，有變更就自動重建種子檔／快照／資料履歷並推送，
+#   Vercel 收到推送後自動重新部署 → 網站上的「官方資料擷取時間」當天就會更新。
+#
+# 注意：Supabase 資料庫要重跑 supabase/init.sql 才會同步（SQL Editor 手動執行），
+#   因此名錄有變更時，本 workflow 會同時開一個 Issue 提醒（見最後一步）。
+
+on:
+  schedule:
+    # 每天 20:20 UTC = 隔天 04:20（澳門時間 UTC+8），離峰時段
+    - cron: '20 20 * * *'
+  workflow_dispatch: {}   # 也可以在 GitHub 上按「Run workflow」手動觸發
+
+permissions:
+  contents: write   # 推送更新後的資料
+  issues: write     # 建立提醒 Issue
+
+concurrency:
+  group: refresh-official-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出原始碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 擷取市政署官方古樹名錄（不含照片）
+        # --no-images：照片已隨版本控管在 public/photos/，不必每天重抓 19 MB
+        run: python3 scripts/fetch_iam.py --no-images
+
+      - name: 判斷官方名錄「內容」是否有變更
+        id: diff
+        run: |
+          # 只比對資料內容（data/iam_trees.json），不比對擷取時間——
+          # 否則每天都會因為 fetched_at 不同而產生無意義的提交與重新部署。
+          if git diff --quiet -- data/iam_trees.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "官方名錄內容與上次相同，無需更新。"
+            git checkout -- .   # 還原擷取時間等痕跡
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "偵測到官方名錄變更："
+            git diff --stat -- data/iam_trees.json
+          fi
+
+      - name: 重建種子檔與前端快照
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run build:data
+
+      - name: 更新官方資料履歷（lib/data-meta.js）
+        if: steps.diff.outputs.changed == 'true'
+        run: npm run build:data-meta
+
+      - name: 重建 Service Worker 預載清單
+        if: steps.diff.outputs.changed == 'true'
+        run: node scripts/build-sw.mjs
+
+      - name: 變更時先跑測試（資料壞掉就不推送）
+        if: steps.diff.outputs.changed == 'true'
+        run: npm test
+
+      - name: 提交並推送（Vercel 會自動重新部署）
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name 'macau-heritage-trees-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m "每日自動擷取市政署官方古樹名錄（$(TZ=Asia/Macau date +%Y-%m-%d)）"
+          git push
+
+      - name: 提醒 Supabase 需要重跑 init.sql
+        if: steps.diff.outputs.changed == 'true'
+        continue-on-error: true   # 沒有 Issues 權限或 Issues 關閉時，不讓整個工作失敗
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE="$(TZ=Asia/Macau date +%Y-%m-%d)"
+          COUNT="$(python3 -c "import json; print(len(json.load(open('data/iam_trees.json'))))")"
+          {
+            echo "每日自動擷取偵測到市政署名錄有變更，資料檔與網站（Vercel）已自動更新。"
+            echo ""
+            echo "**還需要你做一件事**：到 Supabase Dashboard → SQL Editor 貼上並執行 \`supabase/init.sql\` 全文，"
+            echo "資料庫才會同步（網站以 Supabase 模式運作時，統計數字才會跟上官方最新名錄）。"
+            echo ""
+            echo "擷取時間：${DATE}（澳門時間）"
+            echo "筆數：${COUNT}"
+            echo "線上網站：https://old-trees-mylearning.vercel.app"
+          } > /tmp/issue-body.md
+          gh issue create \
+            --title "官方古樹名錄有更新（${DATE}，共 ${COUNT} 筆）— 請重跑 Supabase init.sql" \
+            --body-file /tmp/issue-body.md || true

@@ -177,6 +177,18 @@ test('GET /api/routes 與 GET /api/route 路綫推薦可用', async () => {
   assert.equal(list.json.count, 5);
   const codes = list.json.routes.map((r) => r.code);
   assert.ok(codes.includes('coloane-wild'));
+  // 每一條精選路綫都要有停靠上限（列印下拉顯示「最多 N 站」用的就是這個）；
+  // 沒有 max_stops 就會讓「候選地點數＝0」的路綫看起來像 0 站（2026-09-25 的 bug）
+  for (const r of list.json.routes) {
+    assert.ok(r.max_stops >= 2, `${r.code} 的 max_stops 必須 ≥ 2，實際 ${r.max_stops}`);
+  }
+
+  // 不帶 max_stops 也要生得出停靠點：這正是列印頁原本的呼叫方式
+  for (const code of codes) {
+    const r = await get(base, `/api/route?code=${encodeURIComponent(code)}`);
+    assert.equal(r.status, 200, `${code} 應回傳 200`);
+    assert.ok(r.json.stops.length > 0, `${code} 不帶 max_stops 時沒有停靠點（列印冊會變 0 站）`);
+  }
 
   for (const code of codes) {
     const r = await get(base, `/api/route?code=${encodeURIComponent(code)}&max_stops=8`);

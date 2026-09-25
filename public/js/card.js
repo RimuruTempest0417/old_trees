@@ -355,26 +355,28 @@ export const PRIORITY_PAGE_ROWS = 40;
 
 export function priorityListHtml(data = {}, opts = {}) {
   const items = data.items || [];
-  const m = data.method || { weights: {}, steps: [], tiers: [], caveats: [] };
+  const m = data.method || { weights: {}, steps: [], marks: [], caveats: [] };
   const s = data.summary || {};
   const per = opts.pageRows || PRIORITY_PAGE_ROWS;
 
   const methodRows = (m.steps || []).map((x) => `<tr><th>${esc(x.name)}</th><td>${num(x.weight)} 分</td><td>${esc(x.rule)}</td></tr>`).join('');
-  const tierRows = (m.tiers || []).map((t) => `<tr><th>${esc(t.id)} 級</th><td>${num(t.min)} 分以上</td><td>${esc(t.hint)}</td></tr>`).join('');
+  // 「分數刻度」只用來說明閱讀分組，刻意不叫「級」——級別一律以官方為準。
+  const markRows = (m.marks || []).map((t) => `<tr><th>${esc(t.label)}</th><td>${esc(t.hint)}</td></tr>`).join('');
   // 封面刻意拆成兩張 A4：兩欄式版面在列印時無法跨頁（實測一張封面被切成 4 張紙），
   // 因此改成「單欄、兩頁」，頁數才可預期：2 ＋ 名單分頁。
   const cover = `<article class="card-page card-priority">
     <header class="card-head">
       <div>
         <h1>澳門古樹優先保育名單</h1>
-        <p class="card-sub">依樹齡、健康狀況、官方級別、樹種稀有度、區位風險五項評分（合計 ${num(m.total || 100)} 分）</p>
+        <p class="card-sub">依樹齡、官方健康狀況、官方分級、樹種稀有度、區位風險五項評分（合計 ${num(m.total || 100)} 分）｜分級一律採官方名錄</p>
       </div>
       <div class="card-tags"><span class="tag">共 ${num(data.evaluated)} 株受評</span><span class="tag">本表列出 ${num(items.length)} 株</span></div>
     </header>
     <h3>一、評分方法</h3>
     <table class="card-table"><tbody>${methodRows}</tbody></table>
-    <h3>二、等級門檻</h3>
-    <table class="card-table"><tbody>${tierRows}</tbody></table>
+    <h3>二、分數刻度（閱讀用，不是分級）</h3>
+    <table class="card-table"><tbody>${markRows}</tbody></table>
+    <p class="card-desc">${esc(m.grading_policy || '分級一律以官方為準，本表不自行分級。')}</p>
     <footer class="card-foot"><p>資料來源：市政署《古樹名木保護名錄》公開資料（本表僅重新排序，未變更官方數據）</p>
       <p>產生時間：${esc(opts.date || '－')}　｜　本表由平台自動產生，非官方文件</p></footer>
   </article>`;
@@ -387,12 +389,16 @@ export function priorityListHtml(data = {}, opts = {}) {
     <h3>三、整體結果</h3>
     <table class="card-table"><tbody>
       <tr><th>受評古樹</th><td>${num(s.evaluated)} 株（全澳名錄）</td></tr>
-      <tr><th>S 級（最優先）</th><td>${num((s.by_tier || {}).S)} 株</td></tr>
-      <tr><th>A 級（高度優先）</th><td>${num((s.by_tier || {}).A)} 株</td></tr>
-      <tr><th>B 級（中度優先）</th><td>${num((s.by_tier || {}).B)} 株</td></tr>
-      <tr><th>C 級（一般）</th><td>${num((s.by_tier || {}).C)} 株</td></tr>
-      <tr><th>平均分數</th><td>${num(s.mean_score, 1)} 分</td></tr>
-      ${s.top ? `<tr><th>最高分</th><td>#${esc(s.top.tree_no)} ${esc(s.top.species)}（${num(s.top.age_years)} 年）${num(s.top.score)} 分・${esc(s.top.tier)} 級</td></tr>` : ''}
+      <tr><th>官方分級：一級</th><td>${num((s.by_grade || {}).一級)} 株</td></tr>
+      <tr><th>官方分級：二級</th><td>${num((s.by_grade || {}).二級)} 株</td></tr>
+      <tr><th>官方分級：三級</th><td>${num((s.by_grade || {}).三級)} 株</td></tr>
+      <tr><th>官方分級：不分級</th><td>${num((s.by_grade || {}).不分級)} 株</td></tr>
+      <tr><th>官方健康狀況：瀕危</th><td>${num((s.by_health || {}).瀕危)} 株</td></tr>
+      <tr><th>官方健康狀況：一般</th><td>${num((s.by_health || {}).一般)} 株</td></tr>
+      <tr><th>官方健康狀況：健康</th><td>${num((s.by_health || {}).健康)} 株</td></tr>
+      <tr><th>平均分數（本站排序用）</th><td>${num(s.mean_score, 1)} 分</td></tr>
+      <tr><th>75 分以上／60–74 分</th><td>${num((s.by_score || {}).m75)} 株／${num((s.by_score || {}).m60)} 株（閱讀分組，非分級）</td></tr>
+      ${s.top ? `<tr><th>最高分</th><td>#${esc(s.top.tree_no)} ${esc(s.top.species)}（${num(s.top.age_years)} 年・官方健康狀況 ${esc(s.top.health || '—')}・官方分級 ${esc(s.top.grade || '未列級')}）${num(s.top.score)} 分</td></tr>` : ''}
     </tbody></table>
     <h3>四、名次規則</h3>
     <p class="card-desc">${esc(m.tie_break || '')}</p>
@@ -412,13 +418,13 @@ export function priorityListHtml(data = {}, opts = {}) {
         <span class="tag">${num(chunk[0].rank)}–${num(chunk[chunk.length - 1].rank)} 名</span></div>
     </header>
     <table class="card-table prio">
-      <thead><tr><th>名次</th><th>編號</th><th>樹種</th><th>樹齡</th><th>健康</th><th>級別</th><th>胸徑</th><th>風險</th><th>分數</th><th>等級</th><th>主要理由</th></tr></thead>
+      <thead><tr><th>名次</th><th>編號</th><th>樹種</th><th>樹齡</th><th>健康（官方）</th><th>分級（官方）</th><th>胸徑</th><th>風險</th><th>分數</th><th>主要理由</th></tr></thead>
       <tbody>${chunk.map((r) => `<tr>
         <td>${num(r.rank)}</td><td>#${esc(r.tree_no)}</td><td>${esc(r.species)}</td>
         <td>${num(r.age_years)}</td><td>${esc(r.health)}</td><td>${esc(r.grade || '—')}</td>
         <td>${r.diameter_cm == null ? '—' : num(r.diameter_cm, 1)}</td>
         <td>${esc(({ high: '高', mid: '中', low: '低' })[r.risk_level] || '中')}</td>
-        <td><strong>${num(r.score)}</strong></td><td>${esc(r.tier)}</td>
+        <td><strong>${num(r.score)}</strong></td>
         <td class="small">${esc((r.reasons || []).slice(0, 2).join('；'))}</td>
       </tr>`).join('')}</tbody>
     </table>
@@ -429,6 +435,26 @@ export function priorityListHtml(data = {}, opts = {}) {
   return { pages: [cover, guide, ...pages], html: [cover, guide, ...pages].join('\n') };
 }
 
+/**
+ * 路綫下拉選項（純函式，可測試）。
+ *
+ * 2026-09-25 修正的 bug：原本顯示「（${r.site_count} 站）」，而 site_count 是「候選地點數」，
+ * 「路綫五：全澳最老古樹巡禮」的候選地點刻意是空的（停靠點由系統按樹齡自動選出），
+ * 因此畫面出現「（0 站）」這種不可能的數字——它明明會產生 10 站。
+ * 現在一律顯示該路綫自己的 max_stops（策劃時設定的停靠上限），並把實際產生的站數
+ * 交給產生後的提示顯示（「已產生 N 頁（封面 ＋ M 站）」），兩者不再互相矛盾。
+ */
+export function routeOptionsHtml(routes = [], wanted = '') {
+  const opts = (routes || []).map((r) => {
+    const max = Number(r.max_stops) || 0;
+    const places = Number(r.site_count) || 0;
+    const label = max > 0 ? `最多 ${max} 站` : '站數依產生結果';
+    const extra = places > 0 ? `${places} 個候選地點・` : '';
+    return `<option value="${esc(r.code)}" data-max="${max}"${r.code === wanted ? ' selected' : ''}>${esc(r.name)}（${extra}${label}）</option>`;
+  });
+  return opts.join('') || '<option value="">（尚無路綫）</option>';
+}
+
 /* ── 畫面（列印分頁） ─────────────────────────────────── */
 
 const stamp = () => new Date().toLocaleString('zh-TW', { hour12: false });
@@ -436,6 +462,8 @@ const stamp = () => new Date().toLocaleString('zh-TW', { hour12: false });
 export async function render(section, params = new URLSearchParams()) {
   const mode = params.get('mode') || (params.get('route') ? 'book' : (params.get('field') ? 'form' : 'card'));
   const prioLimit = params.get('limit') || '50';
+  const prioGrade = params.get('grade') || '';
+  const prioHealth = params.get('health') || '';
   const base = location.origin;
   section.innerHTML = `
     <h1 class="view-title">列印</h1>
@@ -452,6 +480,14 @@ export async function render(section, params = new URLSearchParams()) {
       <label class="field" data-only="book"><span>路綫</span><select id="b-route"></select></label>
       <label class="field" data-only="priority"><span>名單長度</span>
         <select id="p-limit2">${['20', '50', '100', '200', '0'].map((v) => `<option value="${v}"${prioLimit === v ? ' selected' : ''}>${v === '0' ? '全部 658 株' : `前 ${v} 株`}</option>`).join('')}</select></label>
+      <label class="field" data-only="priority"><span>官方分級</span>
+        <select id="p-grade2"><option value="">全部分級</option>
+          ${['一級', '二級', '三級', '不分級'].map((g) => `<option value="${g}"${prioGrade === g ? ' selected' : ''}>${g}</option>`).join('')}
+        </select></label>
+      <label class="field" data-only="priority"><span>官方健康狀況</span>
+        <select id="p-health2"><option value="">全部健康狀況</option>
+          ${['健康', '一般', '瀕危'].map((h) => `<option value="${h}"${prioHealth === h ? ' selected' : ''}>${h}</option>`).join('')}
+        </select></label>
       <button type="button" class="btn" id="c-build">產生預覽</button>
       <button type="button" class="btn btn-primary" id="c-print" hidden>列印／存成 PDF</button>
     </div>
@@ -468,9 +504,7 @@ export async function render(section, params = new URLSearchParams()) {
   try {
     const data = await api.routes();
     const wanted = params.get('route') || '';
-    routeSel.innerHTML = (data.routes || [])
-      .map((r) => `<option value="${esc(r.code)}"${r.code === wanted ? ' selected' : ''}>${esc(r.name)}（${r.site_count} 站）</option>`)
-      .join('') || '<option value="">（尚無路綫）</option>';
+    routeSel.innerHTML = routeOptionsHtml(data.routes || [], wanted);
   } catch (err) {
     routeSel.innerHTML = '<option value="">（路綫載入失敗）</option>';
   }
@@ -500,14 +534,18 @@ export async function render(section, params = new URLSearchParams()) {
         hint.textContent = tree ? `已產生 1 頁考察單（已帶入編號 ${no} 的基本資料）。` : '已產生 1 頁空白考察單（未帶入任何古樹）。';
       } else if (mode2 === 'priority') {
         const limit = section.querySelector('#p-limit2').value;
-        const data = await api.priority({ limit });
+        const grade = section.querySelector('#p-grade2').value;
+        const health = section.querySelector('#p-health2').value;
+        const data = await api.priority({ limit, grade, health });
         const list = priorityListHtml(data, { date: stamp() });
         sheet.innerHTML = list.html;
         hint.textContent = `已產生 ${list.pages.length} 頁（方法頁 1 頁 ＋ 名單 ${list.pages.length - 1} 頁，每頁 ${PRIORITY_PAGE_ROWS} 列）。`;
       } else {
         const code = routeSel.value;
         if (!code) { sheet.innerHTML = '<p class="empty">沒有可印的路綫。</p>'; return; }
-        const data = await api.route({ code });
+        // 把路綫自己的停靠上限傳進去，成品站數才會與下拉顯示的「最多 N 站」一致
+        const maxStops = Number((routeSel.selectedOptions[0] || {}).dataset?.max) || undefined;
+        const data = await api.route({ code, max_stops: maxStops });
         // 注意：/api/route 回傳 {route, statistics, stops, ...}，
         // 必須整包交給 routeBookHtml，只傳 data.route 會掉掉所有停靠站（各站頁就全沒了）。
         const book = routeBookHtml(data, { base, date: stamp() });

@@ -7,6 +7,9 @@
 - **前端**：原生 ES Modules、Leaflet（地圖）、Chart.js（圖表）、KaTeX ＋ marked（科普文章）
 - **原始資料**：`source-data/古樹.csv`（658 筆）、**澳門市政署「澳門自然網」古樹名木專頁（658 筆逐株資料與官方照片）**、《古樹保育研究(1).docx》（需求文件）
 
+[![每日擷取官方古樹名錄](https://github.com/RimuruTempest0417/old_trees/actions/workflows/refresh-official-data.yml/badge.svg)](https://github.com/RimuruTempest0417/old_trees/actions/workflows/refresh-official-data.yml)
+[![線上網站](https://img.shields.io/badge/%E7%B7%9A%E4%B8%8A%E7%B6%B2%E7%AB%99-old--trees--mylearning.vercel.app-2ea44f)](https://old-trees-mylearning.vercel.app)
+
 ---
 
 ## 目錄
@@ -23,8 +26,9 @@
 10. [測試與驗證](#十測試與驗證)
 11. [離線使用與安裝（PWA）](#十一離線使用與安裝pwa)
 12. [優先保育名單（評分方法）](#十二優先保育名單評分方法)
-13. [疑難排解（部署後常見狀況）](#十三疑難排解部署後常見狀況)
-14. [資料來源與授權](#十四資料來源與授權)
+13. [官方資料自動擷取與資料履歷](#十三官方資料自動擷取與資料履歷)
+14. [疑難排解（部署後常見狀況）](#十四疑難排解部署後常見狀況)
+15. [資料來源與授權](#十五資料來源與授權)
 
 ---
 
@@ -139,6 +143,7 @@ macau-heritage-trees/
 │   ├── router.js           路由表與分派（線上與本機共用）
 │   ├── routes/             14 個端點的 handler（health／trees／tree／stats／priority…）
 │   ├── analysis.js｜geo.js｜repo.js｜http.js｜priority.js（優先保育評分模型）
+│   └── data-meta.js        官方資料履歷（擷取時間、筆數、內容雜湊；由 scripts/gen-data-meta.mjs 產生）
 ├── public/                 前端（index.html、css/、js/、photos/、vendor/、sw.js、manifest.webmanifest、offline.html、icons/）
 │   ├── js/priority.js      優先保育名單分頁（名次表、篩選、CSV、列印入口）
 │   └── photos/trees/       658 張古樹官方照片（市政署，縮圖）
@@ -147,8 +152,9 @@ macau-heritage-trees/
 │   ├── seed.sql            658 筆古樹（含官方座標／照片／描述）＋ 品種 ＋ 地點 ＋ 文章 ＋ 時間線
 │   └── init.sql            schema.sql ＋ seed.sql 合併檔（一鍵初始化）
 ├── data/                   建置產物（snapshot.json、iam_trees.json、conservation.json、species.json…）
-├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed／make_icons）、開發伺服器、驗證腳本（Node：check-syntax／vendor／build-sw／qr-roundtrip；Python：card-check／card-pdf／pwa-check／qr-decode／ui-audit）
+├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed／make_icons）、開發伺服器、驗證腳本（Node：check-syntax／vendor／build-sw／gen-data-meta／qr-roundtrip；Python：card-check／card-pdf／pwa-check／qr-decode／ui-audit）
 ├── source-data/            原始 CSV 與 docx
+├── .github/workflows/      每日自動擷取官方名錄（refresh-official-data.yml）
 └── tests/                  15 組測試（統計／SQL／API／路由／安全／機密／官方資料／前端／實地考察／優先保育／二維碼／列印／Supabase 查詢形狀／離線 PWA）
 ```
 
@@ -211,7 +217,7 @@ macau-heritage-trees/
 | `GET /api/route` | 路綫計算；`code=<精選路綫>` 或 `parish/species/theme/max_stops` 自訂 |
 | `GET /api/conservation` | 科普文章清單；`slug=<文章>` 取全文 |
 | `GET /api/timeline` | 立法與名錄時間線 |
-| `GET /api/priority` | 優先保育名單；參數 `limit`（預設 50，`0`／`all=1` 為全部）、`tier`（可逗號多選）、`parish`、`species`、`q`；回傳 `summary`（等級分佈、平均分）與 `method`（權重、規則、等級門檻、限制） |
+| `GET /api/priority` | 優先保育名單；參數 `limit`（預設 50，`0`／`all=1` 為全部）、`grade`（**官方分級**，可逗號多選）、`health`（**官方健康狀況**）、`parish`、`species`、`q`；回傳 `summary`（官方分級／健康狀況分佈、分數刻度統計、平均分）與 `method`（權重、規則、分級政策、限制）。**不含任何自訂級別欄位** |
 | `GET /api/field-records` | 實地考察紀錄清單；`limit` 可選（上限 500）；回傳 `writable` 旗標說明是否已連接資料庫 |
 | `POST /api/field-records` | 新增一筆實地考察紀錄（JSON body）；欄位驗證不過回 `400`，示範模式回 `stored: false` 並附說明 |
 
@@ -364,7 +370,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 15 組測試，共 225 項
+npm test               # 15 組測試，共 230 項
 npm run verify         # check ＋ test
 ```
 
@@ -379,12 +385,12 @@ npm run verify         # check ＋ test
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為、單段落＋查詢參數形式、**前端不得出現多段落呼叫**、`vercel.json` 的 rewrite；**每個路由 id 都必須能以字面字串載入模組**（線上唯一入口走 `loadRoute()`，本機 dev-server 會用 `opts.handler` 繞過，曾因此讓 `/api/priority` 上線即 500）、**不傳 handler 也要能分派** | 9 |
 | `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 17 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
-| `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql、**胸徑／胸圍 658/658 官方值**、**多主幹取最大胸徑那支且逐支保留** | 11 |
+| `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql、**胸徑／胸圍 658/658 官方值**、**多主幹取最大胸徑那支且逐支保留**、**官方資料履歷（`lib/data-meta.js`）雜湊必須與 `data/` 同步** | 12 |
 | `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級、**胸徑胸圍不得自行換算**、**空路綫必須顯示訊息而不是拋錯** | 20 |
 | `tests/field.test.js` | 實地考察：API 清單與新增、輸入驗證（必填、健康值、數值範圍、長度截斷）、`schema.sql`／`init.sql` 含 `field_records`、前端分頁與地圖入口串接 | 10 |
 | `tests/qr.test.js` | 二維碼：標準尺寸公式、三個定位圖案、時序圖案、靜區、決定性、資料過大時明確報錯、URL 產生器（絕對網址／特殊字元編碼）、SVG 與下載檔格式、**658 株全部試算一次** | 11 |
-| `tests/priority.test.js` | **優先保育名單**：五項權重合計 100、各項門檻與等級邊界（S≥75／A≥60／B≥45）、缺值必須中性計分（`Number(null)===0` 的陷阱）、名次規則可重現、篩選語意、方法說明必含「冠幅未列入」與「非官方認定」、**以真實 658 筆資料評分**（515 年一級瀕危株必須在前 3 名）、`/api/priority` 實跑（預設 50 筆、`limit=0` 全部、條件篩選）、前端與列印串接、**內插陣列必須 join** 的靜態守門、列印頁數＝2＋名單分頁 | 21 |
-| `tests/card.test.js` | 列印模組：官方缺值一律標「官方未提供」（不補造）、查核清單規則、A4 頁面結構（每張卡就是一個 `.card-page`）、**路綫資料冊頁數＝站數＋1**、站點示意圖落在紙內且比例尺合理、二維碼指向正確網址、**所有欄位都經過跳脫（紙本也是注入點）**、極端輸入（空物件／超長描述／缺照片）不拋錯、右半邊站名不得畫出框外、**胸徑胸圍採官方值（多主幹加註）**、座標精度以中文呈現 | 25 |
+| `tests/priority.test.js` | **優先保育名單**：五項權重合計 100、各項門檻與分數刻度邊界（75／60／45）、缺值必須中性計分（`Number(null)===0` 的陷阱）、名次規則可重現、**分級鐵律**（程式與介面不得出現 S／A／B／C 級或 `tier` 欄位；官方分級與健康狀況以外的值不得進入名單；官方分佈必須與來源檔一致）、**KPI 株數必須數字相加**（`num(1)+num(6)` 會變 "16"）、官方分級／健康狀況篩選、方法說明必含分級政策與「冠幅未列入」「非官方認定」「分數段落不是級別」、**以真實 658 筆資料評分**（515 年一級瀕危株必須在前 3 名）、`/api/priority` 實跑、前端與列印串接、**內插陣列必須 join** 的靜態守門、列印頁數＝2＋名單分頁 | 24 |
+| `tests/card.test.js` | 列印模組：官方缺值一律標「官方未提供」（不補造）、查核清單規則、A4 頁面結構（每張卡就是一個 `.card-page`）、**路綫資料冊頁數＝站數＋1**、**路綫下拉不得出現「（0 站）」（顯示路綫自己的停靠上限，名稱必須跳脫）**、站點示意圖落在紙內且比例尺合理、二維碼指向正確網址、**所有欄位都經過跳脫（紙本也是注入點）**、極端輸入（空物件／超長描述／缺照片）不拋錯、右半邊站名不得畫出框外、**胸徑胸圍採官方值（多主幹加註）**、座標精度以中文呈現 | 26 |
 
 ### API 安全測試涵蓋範圍
 
@@ -485,13 +491,18 @@ npm run pwa:check                  # 真實斷網測試：關掉伺服器後頁�
 | 面向 | 權重 | 規則 |
 | --- | --- | --- |
 | 樹齡 | 30 | ≥300 年 30 分／200–299 年 25 分／150–199 年 19 分／100–149 年 13 分／50–99 年 7 分／<50 年 3 分 |
-| 健康狀況 | 25 | 瀕危 25 分／一般 12 分／健康 5 分 |
-| 官方級別 | 20 | 一級 20 分／二級 14 分／三級 6 分／不分級 0 分 |
+| 官方健康狀況 | 25 | 瀕危 25 分／一般 12 分／健康 5 分 |
+| 官方分級 | 20 | 一級 20 分／二級 14 分／三級 6 分／不分級 0 分 |
 | 樹種稀有度 | 15 | 全澳名錄僅 1 株 15 分／2–3 株 12 分／4–10 株 9 分／11–30 株 6 分／31–100 株 3 分／>100 株 1 分 |
 | 區位風險 | 10 | 車道、人流與設施周邊（馬路、圓形地、酒店、學校、街市…）10 分／公園、前地、街巷 6 分／郊野、山徑、海灘 3 分 |
 
-**等級**：S ≥ 75 分、A ≥ 60 分、B ≥ 45 分、C < 45 分。
+**分數刻度**（純閱讀分段，**不是級別**）：75 分以上／60–74 分／45–59 分／45 分以下。
 **名次規則**：分數高者在前 → 同分時樹齡高者在前 → 再同則樹號小者在前（結果可重現）。
+
+> **分級鐵律（v0.10.0 起）**：本平台**不自行分級**。畫面上的「健康」與「分級」兩欄
+> 都是市政署名錄的官方欄位（健康／一般／瀕危；一級／二級／三級／不分級，官方未列級者顯示「官方未列級」），
+> 篩選條件也只用官方值。0–100 分是排序工具，不會改變任何一株的官方級別。
+> 程式與介面上任何自訂等級字樣（S／A／B／C 級、`tier` 欄位）都由 `tests/priority.test.js` 擋下。
 
 設計上的三個原則（與專案其他部分一致）：
 
@@ -507,12 +518,36 @@ npm run pwa:check                  # 真實斷網測試：關掉伺服器後頁�
 
 ### 實際結果（2026-09 官方資料）
 
-- 658 株受評，平均 41.4 分；**S 級 5 株、A 級 8 株、B 級 167 株、C 級 478 株**。
-- 前 3 名：#981 桑（315 年・瀕危・二級・91 分）、#544 海南蒲桃（515 年・瀕危・一級・87 分）、#543 海南蒲桃（495 年・瀕危・二級・81 分）。
+- 658 株受評，平均 41.4 分；分數分佈：**75 分以上 5 株、60–74 分 8 株、45–59 分 167 株、45 分以下 478 株**。
+- 官方分級分佈：一級 1、二級 6、三級 646、不分級 5；官方健康狀況：健康 215、一般 422、瀕危 21（畫面上的數字與官方來源檔逐筆一致）。
+- 前 3 名：#981 桑（315 年・官方健康狀況 瀕危・官方分級 二級・91 分）、#544 海南蒲桃（515 年・瀕危・一級・87 分）、#543 海南蒲桃（495 年・瀕危・二級・81 分）。
 
 ---
 
-## 十三、疑難排解（部署後常見狀況）
+## 十三、官方資料自動擷取與資料履歷
+
+官方名錄會變（新登錄、健康狀況更新、植株移除），所以不能只靠人手重抓。
+
+| 機制 | 位置 | 說明 |
+| --- | --- | --- |
+| 每日自動擷取 | `.github/workflows/refresh-official-data.yml` | 每天 04:20（澳門時間）抓 `https://www.iam.gov.mo/nature/BigJson/oldtrees_c.json`（不含照片） |
+| 變更偵測 | 同上的 `diff` 步驟 | **只比對官方名錄內容**；內容沒變就還原痕跡、不提交、不重新部署 |
+| 內容有變時 | 同上 | 重建 `supabase/seed.sql`、前端快照、`lib/data-meta.js` → 先跑 `npm test` → 提交推送 → Vercel 自動重新部署 |
+| 資料庫同步 | GitHub Issue 通知 | Supabase 需重跑 `supabase/init.sql`（SQL Editor 手動執行，本站不保管資料庫金鑰） |
+| 資料履歷 | `lib/data-meta.js`（由 `scripts/gen-data-meta.mjs` 產生） | 來源、清單端點、擷取時間、筆數、照片數、內容雜湊 |
+| 前端顯示 | 總覽頁「資料方法說明」 | 顯示**官方資料擷取時間**與內容雜湊，任何人一眼可驗資料新舊 |
+
+手動執行（需要立刻更新時）：
+
+```bash
+npm run build:data-meta   # 只更新履歷（會驗證是否與 data/ 同步）
+npm run refresh:official  # 重抓官方名錄 → 重建種子檔／快照／履歷／sw.js（完整一輪）
+```
+
+`tests/iam.test.js` 會驗證 `lib/data-meta.js` 的內容雜湊與 `data/iam_trees.json` 一致——
+抓了新資料卻忘了更新履歷（或反過來）都會讓 `npm test` 紅燈。
+
+## 十四、疑難排解（部署後常見狀況）
 
 ### 症狀：某些分頁出現「伺服器處理請求時發生錯誤」，實地考察頁寫「無法連線 API」
 
@@ -618,7 +653,7 @@ Vercel 專案的 **Deployment Protection** 開啟了（`Vercel Authentication`�
 
 ---
 
-## 十四、資料來源與授權
+## 十五、資料來源與授權
 
 | 項目 | 來源 |
 | --- | --- |
