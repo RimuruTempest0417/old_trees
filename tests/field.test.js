@@ -160,3 +160,24 @@ test('地圖詳情提供「新增實地考察紀錄」入口並帶入樹號', ()
   assert.match(map, /#\/field\?tree=\$\{esc\(t\.tree_no\)\}/);
   assert.match(map, /closeModal\(\)/);
 });
+
+test('預留空間已分成「已上線／規劃中」，做完的事不得再掛在待辦', () => {
+  const field = read('public/js/field.js');
+  const iLive = field.indexOf('這一區現在就能做的事');
+  const iTodo = field.indexOf('還在規劃中');
+  assert.ok(iLive > 0 && iTodo > iLive, '找不到「已上線／規劃中」兩段');
+
+  const live = field.slice(iLive, iTodo);
+  // 已完成的三項都要有真的可以點的入口，不是只有文字
+  assert.match(live, /#\/qr\?mode=field/, 'QR 分頁入口');
+  assert.match(live, /#\/monitoring/, '監測分頁入口');
+  assert.match(live, /#\/card\?mode=form/, '列印考察單入口');
+
+  const pending = field.slice(iTodo);
+  for (const done of ['QR 掃描帶入樹號', '與官方巡查比對', '列印版考察單']) {
+    assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);
+  }
+  for (const todo of ['手機拍照上傳', 'GPS 自動定位', '多人協作與審核', '觀察項目結構化']) {
+    assert.ok(pending.includes(todo), `規劃中清單缺少「${todo}」`);
+  }
+});
