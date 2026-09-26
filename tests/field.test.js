@@ -172,9 +172,11 @@ test('頁面下方只保留「還在規劃中」：已上線清單整段移除�
   const iTodo = field.indexOf('還在規劃中');
   assert.ok(iTodo > 0, '找不到「還在規劃中」');
   const pending = field.slice(iTodo);
-  for (const todo of ['GPS 誤差半徑比對', '多人協作與審核']) {
+  for (const todo of ['多人協作與審核']) {
     assert.ok(pending.includes(todo), `規劃中清單缺少「${todo}」`);
   }
+  // GPS 誤差半徑比對已於 v0.15.0 實作 → 不得再留在規劃中（做了的事不要留在規劃中）
+  assert.ok(!pending.includes('GPS 誤差半徑比對'), 'GPS 比對已實作，不該留在規劃中');
   // 已經做完的事不得再掛在待辦
   for (const done of ['手機拍照上傳', '觀察項目結構化', 'QR 掃描帶入樹號', '與官方巡查比對', '列印版考察單']) {
     assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);

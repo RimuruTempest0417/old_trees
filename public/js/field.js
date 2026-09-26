@@ -63,7 +63,21 @@ function saveLocal(list) {
   }
 }
 
-const localRecord = (r) => ({ ...r, local_id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, local: true });
+// 空字串對數值欄位代表「沒有量」，不是 0。表單送出的空欄位是 ''，若直接存下來再顯示，
+// 紀錄列就會出現「胸徑 0.0 cm」這種沒量也像有量的數字（實測發現）——一律先清洗成 null。
+const NUM_FIELDS = ['height_m', 'diameter_cm', 'crown_m', 'lat', 'lon', 'gps_accuracy_m', 'gps_distance_m'];
+const cleanNums = (r) => {
+  const out = { ...r };
+  for (const k of NUM_FIELDS) {
+    if (out[k] === '' || out[k] === undefined) out[k] = null;
+    else if (out[k] != null && Number.isFinite(Number(out[k]))) out[k] = Number(out[k]);
+  }
+  return out;
+};
+/** 有沒有真的量到值（'' 與 null 都算沒有） */
+const hasNum = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+
+const localRecord = (r) => ({ ...cleanNums(r), local_id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, local: true });
 
 const fmtBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
@@ -125,11 +139,68 @@ function photosHtml(r) {
   return out.length ? `<div class="field-thumbs">${out.join('')}</div>` : '—';
 }
 
+// ── GPS 誤差半徑比對（v0.15.0）────────────────────────────────
+// 官方逐株座標是比對基準，而手機定位自己帶著誤差半徑：只看距離，在室內或樹蔭下
+// （精度可能 ±80 公尺）就會給出假的「位置相符」。因此判定同時看距離與精度。
+// 這裡的門檻與規則必須和 lib/geo.js 的 GPS_MATCH_RADIUS_M／GPS_ACCURACY_LIMIT_M／gpsVerdict() 一致，
+// tests/gps.test.js 會逐項比對兩個檔案（前端不能直接 import 後端的 lib/，這是刻意的複製）。
+const GPS_RADIUS_M = 30;
+const GPS_ACCURACY_LIMIT_M = 50;
+
+/** 兩點球面距離（公尺），與 lib/geo.js 的 haversine 同式 */
+function haversineM(lat1, lon1, lat2, lon2) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const R = 6371008.8;
+  const dLat = rad(lat2 - lat1), dLon = rad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+/** 回傳 { status, distance_m, accuracy_m, radius_m, message }；status 為 ok／far／weak／unknown */
+function gpsVerdict({ treeLat = null, treeLon = null, lat = null, lon = null, accuracy = null }) {
+  const acc = Number.isFinite(Number(accuracy)) && accuracy !== null && accuracy !== ''
+    ? Math.round(Number(accuracy)) : null;
+  const base = { distance_m: null, accuracy_m: acc, radius_m: GPS_RADIUS_M };
+  if (treeLat == null || treeLon == null) {
+    return { ...base, status: 'unknown', message: '官方資料沒有這一株的座標，無法比對位置。' };
+  }
+  if (lat == null || lon == null) {
+    return { ...base, status: 'unknown', message: '還沒有現場座標——按「用目前位置比對樹木位置」或手動輸入。' };
+  }
+  const distance = Math.round(haversineM(treeLat, treeLon, lat, lon));
+  const accNote = acc != null ? `（定位精度約 ±${acc} 公尺）` : '';
+  if (acc != null && acc > GPS_ACCURACY_LIMIT_M) {
+    return { ...base, status: 'weak', distance_m: distance,
+      message: `定位精度約 ±${acc} 公尺，比 ±${GPS_ACCURACY_LIMIT_M} 公尺差，與官方座標相距 ${distance} 公尺僅供參考——請走到空曠處再測一次。` };
+  }
+  if (distance <= GPS_RADIUS_M) {
+    return { ...base, status: 'ok', distance_m: distance,
+      message: `與官方座標相距 ${distance} 公尺，在 ${GPS_RADIUS_M} 公尺比對半徑內——位置相符${accNote}。` };
+  }
+  return { ...base, status: 'far', distance_m: distance,
+    message: `與官方座標相距 ${distance} 公尺，超出 ${GPS_RADIUS_M} 公尺比對半徑——可能不是這一株，請核對樹號與現場立牌。` };
+}
+
+const GPS_TONE = { ok: 'tone-good', far: 'tone-danger', weak: 'tone-warn', unknown: 'muted' };
+
+/** 紀錄列裡的「位置比對」欄：只顯示已記錄的距離與精度，不對缺失值補數字 */
+function gpsCellHtml(r) {
+  const d = hasNum(r.gps_distance_m) ? Number(r.gps_distance_m) : null;
+  const a = hasNum(r.gps_accuracy_m) ? Number(r.gps_accuracy_m) : null;
+  if (d === null && a === null) return '—';
+  const parts = [];
+  if (d !== null) parts.push(`距 ${num(d, 0)} m`);
+  if (a !== null) parts.push(`±${num(a, 0)} m`);
+  const tone = d !== null && d <= GPS_RADIUS_M ? 'tone-good' : (d !== null ? 'tone-warn' : 'muted');
+  return `<span class="${tone}" title="與官方座標的距離／手機定位精度">${esc(parts.join('／'))}</span>`;
+}
+
 function rowHtml(r) {
   const metrics = [
-    r.height_m != null ? `高 ${num(r.height_m, 2)} m` : null,
-    r.diameter_cm != null ? `胸徑 ${num(r.diameter_cm, 1)} cm` : null,
-    r.crown_m != null ? `冠幅 ${num(r.crown_m, 1)} m` : null,
+    hasNum(r.height_m) ? `高 ${num(r.height_m, 2)} m` : null,
+    hasNum(r.diameter_cm) ? `胸徑 ${num(r.diameter_cm, 1)} cm` : null,
+    hasNum(r.crown_m) ? `冠幅 ${num(r.crown_m, 1)} m` : null,
   ].filter(Boolean).join('・');
   return `
     <tr>
@@ -140,6 +211,7 @@ function rowHtml(r) {
       <td class="tiny">${barkHtml(r)}</td>
       <td class="tiny">${surroundHtml(r)}</td>
       <td class="tiny">${esc(metrics || '—')}</td>
+      <td class="tiny nowrap">${gpsCellHtml(r)}</td>
       <td class="tiny">${esc(r.site_note || '—')}${r.damage_note ? `<br><span class="muted">異常：${esc(r.damage_note)}</span>` : ''}</td>
       <td>${photosHtml(r)}</td>
       <td class="tiny">${r.local ? '<span class="badge badge-fair" title="僅存在這台裝置的瀏覽器">本機</span>' : '<span class="badge badge-good">資料庫</span>'}</td>
@@ -238,17 +310,20 @@ export async function render(section, params = new URLSearchParams()) {
             <input type="url" name="photo_url" placeholder="https://…" maxlength="500">
           </label>
           <div class="row">
-            <label class="small" style="flex:1">緯度（選填）
-              <input type="number" name="lat" step="0.000001" placeholder="22.xxxxxx">
+            <label class="small" style="flex:1">緯度（現場）
+              <input type="number" name="lat" id="f-lat" step="0.000001" placeholder="22.xxxxxx">
             </label>
-            <label class="small" style="flex:1">經度（選填）
-              <input type="number" name="lon" step="0.000001" placeholder="113.xxxxxx">
+            <label class="small" style="flex:1">經度（現場）
+              <input type="number" name="lon" id="f-lon" step="0.000001" placeholder="113.xxxxxx">
             </label>
           </div>
+          <input type="hidden" name="gps_accuracy_m" id="f-gps-acc">
+          <input type="hidden" name="gps_distance_m" id="f-gps-dist">
           <div class="row">
             <button type="submit" class="btn btn-primary" id="field-save">儲存紀錄</button>
-            <button type="button" class="btn btn-sm" id="field-locate">用目前位置填入座標</button>
+            <button type="button" class="btn btn-sm" id="field-locate">用目前位置比對樹木位置</button>
           </div>
+          <p class="tiny muted" id="field-gps">還沒有現場座標——按「用目前位置比對樹木位置」，或手動輸入緯度／經度。</p>
           <p class="tiny muted" id="field-status"></p>
         </form>
       </div>
@@ -290,7 +365,8 @@ export async function render(section, params = new URLSearchParams()) {
             <tr>
               <th>古樹編號</th><th>觀察日期</th><th>記錄者</th><th>健康狀況</th>
               <th>樹皮狀況</th><th>周邊環境</th><th>現場量測</th><th>觀察重點</th>
-              <th>照片</th><th>儲存位置</th><th></th>
+              <th>位置比對</th>
+        <th>照片</th><th>儲存位置</th><th></th>
             </tr>
           </thead>
           <tbody id="field-rows"></tbody>
@@ -304,7 +380,6 @@ export async function render(section, params = new URLSearchParams()) {
     <div class="card" style="margin-top:1rem">
       <h2>還在規劃中</h2>
       <ul class="small">
-        <li><strong>GPS 誤差半徑比對</strong>：目前已可一鍵填入座標；下一步是記錄誤差半徑並自動比對最近的古樹，避免記錯編號。</li>
         <li><strong>多人協作與審核</strong>：教師／巡查員帳號可覆核學生紀錄，保留修改歷程（需 Supabase Auth）。</li>
       </ul>
     </div>`;
@@ -321,6 +396,27 @@ export async function render(section, params = new URLSearchParams()) {
   let writable = false;
   let localList = loadLocal();
   let pending = [];        // 待上傳照片：{ name, dataUrl, bytes }
+  let currentTree = null;  // 由古樹編號查到的官方資料（含 lat／lon），作為位置比對基準
+
+  /** 依目前的現場座標與官方座標重算位置比對，並把距離寫進表單（v0.15.0） */
+  function refreshGps() {
+    const el = $('#field-gps');
+    const latEl = section.querySelector('#f-lat'), lonEl = section.querySelector('#f-lon');
+    const lat = latEl.value === '' ? null : Number(latEl.value);
+    const lon = lonEl.value === '' ? null : Number(lonEl.value);
+    const accRaw = $('#f-gps-acc').value;
+    const v = gpsVerdict({
+      treeLat: currentTree ? currentTree.lat : null,
+      treeLon: currentTree ? currentTree.lon : null,
+      lat: Number.isFinite(lat) ? lat : null,
+      lon: Number.isFinite(lon) ? lon : null,
+      accuracy: accRaw === '' ? null : accRaw,
+    });
+    el.className = `tiny ${GPS_TONE[v.status] || 'muted'}`;
+    el.textContent = v.distance_m != null ? `${v.message}〔比對半徑 ${v.radius_m} 公尺〕` : v.message;
+    $('#f-gps-dist').value = v.distance_m == null ? '' : String(v.distance_m);
+    return v;
+  }
 
   // 從地圖帶來的古樹編號：順便顯示樹種與官方樹高，方便現場核對
   async function showTreeInfo(no) {
@@ -329,6 +425,8 @@ export async function render(section, params = new URLSearchParams()) {
     box.textContent = '讀取中…';
     try {
       const { tree } = await api.tree(no);
+      currentTree = tree;                       // 官方座標 → 位置比對的基準（v0.15.0）
+      refreshGps();
       box.innerHTML = `比對：<strong>${esc(tree.species)}</strong>・官方樹齡 ${num(tree.age_years)} 年・樹高 ${num(tree.height_m, 2)} m・${esc(tree.site || '')}`;
     } catch {
       box.innerHTML = '<span class="muted">查無此古樹編號（仍可記錄為名錄外個體）。</span>';
@@ -340,7 +438,7 @@ export async function render(section, params = new URLSearchParams()) {
     countEl.textContent = num(all.length);
     rowsEl.innerHTML = all.length
       ? all.map(rowHtml).join('')
-      : '<tr><td colspan="11" class="muted small">尚無紀錄。這一區就是留給實地考察的空間——走一趟，把第一筆記錄下來。</td></tr>';
+      : '<tr><td colspan="12" class="muted small">尚無紀錄。這一區就是留給實地考察的空間——走一趟，把第一筆記錄下來。</td></tr>';
     rowsEl.querySelectorAll('button[data-del]').forEach((b) => b.addEventListener('click', () => {
       localList = localList.filter((r) => r.local_id !== b.dataset.del);
       saveLocal(localList);
@@ -412,18 +510,27 @@ export async function render(section, params = new URLSearchParams()) {
     renderPhotos();
   });
 
+  // 用目前位置比對官方座標（v0.15.0）：填入座標、記下定位精度、算出與官方座標的距離
   $('#field-locate').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('此瀏覽器不支援定位'); return; }
-    statusEl.textContent = '取得定位中…';
+    const el = $('#field-gps');
+    el.className = 'tiny muted';
+    el.textContent = '取得定位中…（走到空曠處、避開樹蔭與建築物，精度會比較好）';
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        section.querySelector('input[name="lat"]').value = pos.coords.latitude.toFixed(6);
-        section.querySelector('input[name="lon"]').value = pos.coords.longitude.toFixed(6);
-        statusEl.textContent = `已填入座標（誤差約 ${Math.round(pos.coords.accuracy)} 公尺）`;
+        section.querySelector('#f-lat').value = pos.coords.latitude.toFixed(6);
+        section.querySelector('#f-lon').value = pos.coords.longitude.toFixed(6);
+        $('#f-gps-acc').value = String(Math.round(pos.coords.accuracy));
+        refreshGps();
       },
-      () => { statusEl.textContent = '無法取得定位（可能未授權或不在戶外），可手動輸入。'; },
+      () => {
+        el.className = 'tiny tone-warn';
+        el.textContent = '無法取得定位（可能未授權或不在戶外），可手動輸入緯度／經度；精度欄留空。';
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   });
+  ['#f-lat', '#f-lon'].forEach((sel) => $(sel).addEventListener('input', refreshGps));
 
   async function uploadPending(treeNo) {
     const paths = [];
@@ -536,6 +643,7 @@ export async function render(section, params = new URLSearchParams()) {
       照片張數: (Array.isArray(r.photo_urls) ? r.photo_urls.length : 0) + (r.photo_url ? 1 : 0),
       照片網址: [ ...(Array.isArray(r.photo_urls) ? r.photo_urls : []), r.photo_url || '' ].filter(Boolean).join(' '),
       緯度: r.lat ?? '', 經度: r.lon ?? '',
+      定位精度公尺: r.gps_accuracy_m ?? '', 與官方座標距離公尺: r.gps_distance_m ?? '',
       儲存位置: r.local ? '本機瀏覽器' : 'Supabase 資料庫',
     })));
   });

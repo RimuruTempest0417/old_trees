@@ -174,6 +174,8 @@ export function fieldFormHtml(tree, opts = {}) {
     ['胸徑（離地 1.3m，cm）', '', '樹高（m）', ''],
     ['冠幅 東西向（m）', '', '冠幅 南北向（m）', ''],
     ['健康狀況（健康／一般／需關注／瀕危）', '', '樹齡分級（一級／二級／三級／不分級）', ''],
+    ['現場 GPS 座標（緯度／經度）', '', '定位精度（± 公尺）', ''],
+    ['與官方座標距離（公尺）', '', '位置比對（□ 相符　□ 可能不是這一株）', ''],
   ].map(([a, b, c, d]) => `<tr><th>${esc(a)}</th><td>${esc(b)}</td><th>${esc(c)}</th><td>${esc(d)}</td></tr>`).join('');
   const checks = (model ? model.checks : checkItems({})).map((c) => `<li><span class="box"></span>${esc(c.label)}</li>`).join('');
   // v0.13.0：紙本考察單與線上表單用同一組選項（樹皮狀況／周邊環境／水泥覆蓋範圍），

@@ -28,7 +28,7 @@ if (!url) {
   console.error('用法：node scripts/cdp-check.mjs <url> --wait "<片段>" [--screenshot file.png]');
   process.exit(2);
 }
-const opt = { wait: [], timeout: 20000, width: 1440, height: 2200, selector: null, screenshot: null, json: false, dump: null, eval: null };
+const opt = { wait: [], timeout: 20000, width: 1440, height: 2200, selector: null, screenshot: null, json: false, dump: null, eval: null, geo: null, print: false };
 for (let i = 1; i < argv.length; i += 1) {
   const a = argv[i];
   if (a === '--wait') opt.wait.push(argv[++i]);
@@ -40,6 +40,8 @@ for (let i = 1; i < argv.length; i += 1) {
   else if (a === '--json') opt.json = true;
   else if (a === '--dump') opt.dump = argv[++i];
   else if (a === '--eval') opt.eval = argv[++i];
+  else if (a === '--geo') opt.geo = argv[++i];   // 模擬定位：--geo 22.205,113.541[,8]
+  else if (a === '--print') opt.print = true;    // 以列印媒體量測（A4 版面檢查用）
   else { console.error(`未知參數：${a}`); process.exit(2); }
 }
 
@@ -111,6 +113,21 @@ async function main() {
   });
   await send('Runtime.enable');
   await send('Page.enable');
+  if (opt.geo) {
+    // 模擬手機定位（v0.15.0 驗 GPS 比對用）：CDP 要同時「授權」與「覆寫座標」，
+    // 少一個 headless 的 getCurrentPosition 就直接進 error callback。
+    const [lat, lon, acc] = String(opt.geo).split(',').map(Number);
+    const { origin } = new URL(url);
+    try {
+      await send('Browser.grantPermissions', { origin, permissions: ['geolocation'] });
+    } catch (e) {
+      console.error(`（警告）授權定位失敗：${e.message}；仍會嘗試覆寫座標`);
+    }
+    await send('Emulation.setGeolocationOverride', {
+      latitude: lat, longitude: lon, accuracy: Number.isFinite(acc) ? acc : 10,
+    });
+  }
+  if (opt.print) await send('Emulation.setEmulatedMedia', { media: 'print' });
   await send('Page.navigate', { url });
 
   const expr = `(() => {
@@ -165,13 +182,15 @@ async function main() {
   }
   ws.close();
   child.kill('SIGKILL');
-  fs.rmSync(profile, { recursive: true, force: true });
+  // Chrome 有時還在寫 profile（ENOTEMPTY）→ 重試幾次，不要讓清理失敗蓋掉真正的結果
+  try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {}
   process.exit(missing.length || errors.length ? 1 : 0);
 }
 
 main().catch((e) => {
   console.error(`✗ ${e.message}`);
   try { child?.kill('SIGKILL'); } catch { /* 忽略 */ }
-  fs.rmSync(profile, { recursive: true, force: true });
+  // Chrome 有時還在寫 profile（ENOTEMPTY）→ 重試幾次，不要讓清理失敗蓋掉真正的結果
+  try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {}
   process.exit(2);
 });

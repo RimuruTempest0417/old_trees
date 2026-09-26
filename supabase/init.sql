@@ -143,6 +143,8 @@ alter table if exists public.field_records        add column if not exists concr
 alter table if exists public.field_records        add column if not exists photo_paths          text[] default '{}';
 alter table if exists public.field_records        add column if not exists lat                  numeric(9,6);
 alter table if exists public.field_records        add column if not exists lon                  numeric(9,6);
+alter table if exists public.field_records        add column if not exists gps_accuracy_m       numeric(8,2);
+alter table if exists public.field_records        add column if not exists gps_distance_m       numeric(10,2);
 alter table if exists public.field_records        add column if not exists created_at           timestamptz default now();
 
 do $$ begin
@@ -582,9 +584,17 @@ create table if not exists public.field_records (
     surround_items  text[] default '{}',                  -- 周邊環境：鄰近馬路／建築物／排水口／水泥覆蓋…
     concrete_cover  text,                                 -- 水泥覆蓋範圍（質性分級）
     photo_paths     text[] default '{}',                  -- 上傳到 Supabase Storage 的照片路徑
-    lat            numeric(9,6),
+    lat            numeric(9,6),                          -- 現場座標（手機定位或手動輸入）
     lon            numeric(9,6),
+    -- GPS 誤差半徑比對（v0.15.0）：記下手機定位精度與「與官方座標的距離」，
+    -- 讓「有沒有走到正確的那一株」可以事後被核對，而不是只有現場自己知道。
+    gps_accuracy_m numeric(8,2),                          -- 定位精度（公尺）
+    gps_distance_m numeric(10,2),                         -- 與官方座標距離（公尺）
     created_at     timestamptz not null default now(),
+    constraint field_records_gps_check    check ((gps_accuracy_m is null
+                                              or (gps_accuracy_m >= 0 and gps_accuracy_m <= 1000))
+                                              and (gps_distance_m is null
+                                              or (gps_distance_m >= 0 and gps_distance_m <= 100000))),
     constraint field_records_observer_len check (char_length(observer) between 1 and 60),
     constraint field_records_note_len     check (coalesce(char_length(site_note), 0) <= 600
                                               and coalesce(char_length(damage_note), 0) <= 600),
