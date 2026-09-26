@@ -70,6 +70,8 @@ if route_code:
     stops = len(json.loads(detail).get('stops') or [])
     cases.append((f'book-{route_code}', f'http://localhost:{PORT}/#/card?mode=book&route={route_code}', stops + 1))
 cases.append(('form-66', f'http://localhost:{PORT}/#/card?mode=form&tree=66', 1))
+# 空白考察單（不帶樹號）也要能印成單頁：現場常用這種版本
+cases.append(('form-blank', f'http://localhost:{PORT}/#/card?mode=form', 1))
 # 優先保育名單：方法頁 1 頁 ＋ 每頁 26 列（與 public/js/card.js 的 PRIORITY_PAGE_ROWS 一致）
 PRIO_ROWS_PER_PAGE = 40
 PRIO_LIMIT = 50
@@ -108,6 +110,15 @@ for name, url, expect in cases:
     missing = [w for w in want if w not in joined]
     if missing:
         ok = False
+    # 頁數與用紙也必須是硬性條件：這支腳本以前只把「缺關鍵字」算失敗，
+    # 於是印出「✗ form-66：3 頁（預期 1）」時摘要仍說「全部通過」——
+    # 驗證工具自己說謊比沒有驗證更危險，這裡一律計入失敗。
+    if len(pages) != expect:
+        ok = False
+        fails.append(f'{name}：{len(pages)} 頁（預期 {expect}）')
+    if not a4:
+        ok = False
+        fails.append(f'{name}：不是 A4（{sorted(sizes)}）')
     print(f"{'✓' if ok else '✗'} {name}：{len(pages)} 頁（預期 {expect}）、A4={a4}、{size_mb:.0f} KB、尺寸={sorted(sizes)}")
     print(f"     用紙尺寸(pt)：{pages[0]['w']}×{pages[0]['h']}　文字長度：{len(joined)}")
     if missing:

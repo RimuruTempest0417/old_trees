@@ -79,6 +79,12 @@ export const api = {
   monitoring: (params) => request('/monitoring', params),
   envChem: (params) => request('/env-chem', params),
   fieldRecords: (params) => request('/field-records', params),
+  // 現場照片上傳：只接受前端壓縮過的 data URL（見 public/js/field.js 的 compressImage）
+  uploadPhoto: (body) => request('/photo', {}, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  }),
   saveFieldRecord: (body) => request('/field-records', {}, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

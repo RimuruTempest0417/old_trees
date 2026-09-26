@@ -12,6 +12,7 @@
  *   node scripts/cdp-check.mjs <url> --wait "<片段>" [--wait "<片段>"…]
  *        [--timeout 20000] [--width 1440] [--height 2200]
  *        [--selector "#chem-body"] [--screenshot <檔案>] [--dump <文字檔>] [--json]
+ *        [--eval "<JS 運算式>"]   ← 等畫面定案後在頁面裡求值，結果以 JSON 印出（驗 DOM 狀態用）
  * 離開碼：0 全部等到、1 有片段沒出現、2 執行錯誤。
  */
 import fs from 'node:fs';
@@ -27,7 +28,7 @@ if (!url) {
   console.error('用法：node scripts/cdp-check.mjs <url> --wait "<片段>" [--screenshot file.png]');
   process.exit(2);
 }
-const opt = { wait: [], timeout: 20000, width: 1440, height: 2200, selector: null, screenshot: null, json: false, dump: null };
+const opt = { wait: [], timeout: 20000, width: 1440, height: 2200, selector: null, screenshot: null, json: false, dump: null, eval: null };
 for (let i = 1; i < argv.length; i += 1) {
   const a = argv[i];
   if (a === '--wait') opt.wait.push(argv[++i]);
@@ -38,6 +39,7 @@ for (let i = 1; i < argv.length; i += 1) {
   else if (a === '--screenshot') opt.screenshot = argv[++i];
   else if (a === '--json') opt.json = true;
   else if (a === '--dump') opt.dump = argv[++i];
+  else if (a === '--eval') opt.eval = argv[++i];
   else { console.error(`未知參數：${a}`); process.exit(2); }
 }
 
@@ -139,11 +141,23 @@ async function main() {
     fs.writeFileSync(opt.dump, text, 'utf8');
   }
 
+  // --eval：把頁面「跑完之後」的真實 DOM 狀態取回來（例如勾選欄有幾格、input 有哪些屬性），
+  // 這是文字比對做不到的部分（文字只看得到標籤，看不到 type／capture／name）。
+  let evalResult;
+  if (opt.eval) {
+    const r = await send('Runtime.evaluate', { expression: opt.eval, returnByValue: true, awaitPromise: true });
+    evalResult = r?.result?.value;
+    if (r?.exceptionDetails) {
+      errors.push(`--eval 例外：${r.exceptionDetails.exception?.description || r.exceptionDetails.text}`);
+    }
+  }
+
   if (opt.json) {
-    console.log(JSON.stringify({ missing, errors, chars: text.length }));
+    console.log(JSON.stringify({ missing, errors, chars: text.length, eval: evalResult ?? null }));
   } else {
     for (const w of opt.wait) console.log(text.includes(w) ? `  ✓ 有：${w}` : `  ✗ 沒有：${w}`);
     console.log(`  畫面文字 ${text.length} 字${opt.screenshot ? `，截圖 ${opt.screenshot}` : ''}`);
+    if (opt.eval) console.log(`  --eval 結果：${JSON.stringify(evalResult)}`);
     if (errors.length) {
       console.log(`  ⚠ 頁面有 ${errors.length} 個 JS 錯誤：`);
       for (const e of errors.slice(0, 5)) console.log(`    - ${String(e).split('\n')[0]}`);

@@ -176,6 +176,12 @@ export function fieldFormHtml(tree, opts = {}) {
     ['健康狀況（健康／一般／需關注／瀕危）', '', '樹齡分級（一級／二級／三級／不分級）', ''],
   ].map(([a, b, c, d]) => `<tr><th>${esc(a)}</th><td>${esc(b)}</td><th>${esc(c)}</th><td>${esc(d)}</td></tr>`).join('');
   const checks = (model ? model.checks : checkItems({})).map((c) => `<li><span class="box"></span>${esc(c.label)}</li>`).join('');
+  // v0.13.0：紙本考察單與線上表單用同一組選項（樹皮狀況／周邊環境／水泥覆蓋範圍），
+  // 現場可以先在紙上勾，回教室再照著勾進平台，兩邊對得起來。
+  const box = (label) => `<li><span class="box"></span>${esc(label)}</li>`;
+  const barkBoxes = ['剝落', '黴斑', '白色鹽類結晶', '無明顯異常'].map(box).join('');
+  const surBoxes = ['鄰近馬路', '鄰近建築物', '排水口', '水泥覆蓋', '裸露土壤', '其他'].map(box).join('');
+  const coverBoxes = ['無', '少量（少於三分之一）', '約一半', '大部分（超過三分之二）', '幾乎全部覆蓋'].map(box).join('');
   const inner = `
     <header class="card-head">
       <div>
@@ -193,6 +199,14 @@ export function fieldFormHtml(tree, opts = {}) {
         <ul class="card-checklist">${checks}</ul>
       </div>
       <div class="card-col-right">
+        <h3>樹皮狀況（可多選）</h3>
+        <ul class="card-checklist card-check-inline" style="--cols:2">${barkBoxes}</ul>
+        <h3>周邊環境（可多選）</h3>
+        <ul class="card-checklist card-check-inline" style="--cols:2">${surBoxes}</ul>
+        <h3>樹穴水泥覆蓋範圍</h3>
+        <ul class="card-checklist card-check-inline" style="--cols:3">${coverBoxes}</ul>
+        <h3>現場照片（請註明編號或貼上）</h3>
+        <div class="sketch-area card-photo-area"></div>
         <div class="card-note">
           <h3>記錄說明</h3>
           <ol>

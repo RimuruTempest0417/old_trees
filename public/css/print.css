@@ -91,6 +91,19 @@
   margin-top: .15rem; flex: none;
 }
 .card-checklist em { font-style: normal; color: #6b7280; font-size: 7.5pt; }
+/* v0.13.0：考察單的結構化勾選欄（樹皮狀況／周邊環境並排、水泥覆蓋範圍單列橫排） */
+/* A4 考察單只能一頁：樹皮狀況與周邊環境並排、每格再橫向展開，讓 15 個勾選格壓在幾行內 */
+.card-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 5mm; }
+.card-check-grid h3 { margin: .2rem 0 .12rem; }
+.card-checklist.card-check-inline {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), auto);
+  justify-content: start;
+  column-gap: 4mm;
+  row-gap: .1rem;
+}
+.card-checklist.card-check-inline li { margin-bottom: 0; }
+.card-photo-area { height: 15mm; border-style: dashed; }
 
 .card-note { border: 1px solid #cbd5e1; border-left: 3px solid #0f766e; padding: .45rem .6rem; font-size: 8.5pt; }
 .card-note h3 { margin-top: 0; border: 0; }

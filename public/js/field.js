@@ -5,13 +5,38 @@
  *   1. 資料庫（Supabase）連線時 → 紀錄直接寫入 field_records 表，人人可見。
  *   2. 示範模式（未連線）→ API 回報 writable:false，改存本機 localStorage，
  *      並在畫面上明確標示「尚未寫入資料庫」，不讓使用者誤以為已上傳。
- *   3. 未來要接手機拍照上傳、GPS 自動定位、QR 掃描帶入樹號，介面已留位。
+ *   3. v0.13.0 起：現場照片可在表單直接選（手機相機）→ 前端壓縮 → 上傳到
+ *      Supabase Storage（bucket: field-photos）；示範模式則暫存在這台裝置並明示。
+ *   4. 樹皮狀況與周邊環境已做成勾選欄位（v0.13.0），現場不用再靠文字描述硬撐。
+ *
+ * 【重要】BARK／SURROUND／COVERS 三份清單必須與 lib/repo.js 的
+ * FIELD_BARK／FIELD_SURROUND／FIELD_CONCRETE_COVER 以及 supabase/schema.sql 的
+ * CHECK 限制條件完全一致（tests/field.test.js 會比對三邊）。
  */
 import { api } from './api.js';
 import { esc, num, errDetail, toast, downloadCsv } from './ui.js';
 
 const LS_KEY = 'macau-heritage-trees.field-records.v1';
 const HEALTHS = ['健康', '一般', '瀕危'];
+
+// 與 lib/repo.js 的 FIELD_BARK／FIELD_SURROUND／FIELD_CONCRETE_COVER 同步
+const BARK = [
+  ['剝落', '樹皮剝落（片狀或塊狀掉落）'],
+  ['黴斑', '黴斑（黑／灰黴或藻類附著）'],
+  ['白色鹽類結晶', '白色鹽類結晶（樹皮或樹穴表面結霜狀）'],
+  ['無明顯異常', '以上皆無'],
+];
+const SURROUND = [
+  ['鄰近馬路', '鄰近馬路（車流、廢氣、震動）'],
+  ['鄰近建築物', '鄰近建築物（遮陰、施工、排水）'],
+  ['排水口', '排水口（逕流集中、長期潮濕）'],
+  ['水泥覆蓋', '水泥／鋪面覆蓋（樹穴被硬鋪面封住）'],
+  ['裸露土壤', '裸露土壤（樹穴無覆蓋，易壓實）'],
+  ['其他', '其他（寫在下方立地環境欄）'],
+];
+const COVERS = ['無', '少量（少於三分之一）', '約一半', '大部分（超過三分之二）', '幾乎全部覆蓋'];
+const MAX_PHOTOS = 3;
+const PHOTO_MAX_EDGE = 1280;
 
 function today() {
   const d = new Date();
@@ -40,6 +65,66 @@ function saveLocal(list) {
 
 const localRecord = (r) => ({ ...r, local_id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, local: true });
 
+const fmtBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/**
+ * 把相片壓到適合上傳的大小：長邊上限 1280、JPEG 品質 0.72。
+ * 目的不只是省流量——Vercel 的請求上限與 Supabase Storage 的檔案上限都很小，
+ * 直接原圖上傳（手機一張 3–5 MB）就會失敗，所以一律在前端先壓。
+ * 回傳 data URL（後端 /api/photo 只接受 data URL，並且會再驗尺寸與型別）。
+ */
+function compressImage(file, maxEdge = PHOTO_MAX_EDGE, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxEdge / Math.max(img.width || 1, img.height || 1));
+      const w = Math.max(1, Math.round((img.width || 1) * scale));
+      const h = Math.max(1, Math.round((img.height || 1) * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      try {
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch {
+        reject(new Error('這個圖片無法轉存為 JPEG'));
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('瀏覽器讀不出這個圖片檔（iPhone 的 HEIC 請把相機格式設為「最相容」，或先轉成 JPEG）'));
+    };
+    img.src = url;
+  });
+}
+
+const chip = (text, cls = 'badge-fair') => `<span class="badge ${cls}">${esc(text)}</span>`;
+
+function barkHtml(r) {
+  const list = Array.isArray(r.bark_conditions) ? r.bark_conditions : [];
+  if (!list.length) return '—';
+  return list.map((b) => chip(b, b === '無明顯異常' ? 'badge-good' : b === '剝落' ? 'badge-bad' : 'badge-fair')).join(' ');
+}
+
+function surroundHtml(r) {
+  const list = Array.isArray(r.surround_items) ? r.surround_items : [];
+  const parts = list.map((s) => chip(s, s === '裸露土壤' ? 'badge-good' : 'badge-fair'));
+  if (r.concrete_cover) parts.push(`<span class="tiny muted">水泥覆蓋：${esc(r.concrete_cover)}</span>`);
+  return parts.length ? parts.join(' ') : '—';
+}
+
+function photosHtml(r) {
+  const urls = Array.isArray(r.photo_urls) ? r.photo_urls.filter(Boolean) : [];
+  const out = urls.map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener" title="開啟第 ${i + 1} 張照片">
+      <img class="field-thumb" src="${esc(u)}" alt="現場照片 ${i + 1}" loading="lazy"></a>`);
+  if (r.photo_url) {
+    out.push(`<a class="tiny" href="${esc(r.photo_url)}" target="_blank" rel="noopener">外部連結</a>`);
+  }
+  return out.length ? `<div class="field-thumbs">${out.join('')}</div>` : '—';
+}
+
 function rowHtml(r) {
   const metrics = [
     r.height_m != null ? `高 ${num(r.height_m, 2)} m` : null,
@@ -52,8 +137,11 @@ function rowHtml(r) {
       <td class="nowrap">${esc(r.observed_on || '—')}</td>
       <td>${esc(r.observer || '')}</td>
       <td>${r.health ? `<span class="badge ${r.health === '健康' ? 'badge-good' : r.health === '一般' ? 'badge-fair' : 'badge-bad'}">${esc(r.health)}</span>` : '—'}</td>
+      <td class="tiny">${barkHtml(r)}</td>
+      <td class="tiny">${surroundHtml(r)}</td>
       <td class="tiny">${esc(metrics || '—')}</td>
       <td class="tiny">${esc(r.site_note || '—')}${r.damage_note ? `<br><span class="muted">異常：${esc(r.damage_note)}</span>` : ''}</td>
+      <td>${photosHtml(r)}</td>
       <td class="tiny">${r.local ? '<span class="badge badge-fair" title="僅存在這台裝置的瀏覽器">本機</span>' : '<span class="badge badge-good">資料庫</span>'}</td>
       <td>${r.local ? `<button class="btn btn-sm" data-del="${esc(r.local_id)}">刪除</button>` : ''}</td>
     </tr>`;
@@ -65,7 +153,7 @@ export async function render(section, params = new URLSearchParams()) {
   section.innerHTML = `
     <div class="page-head">
       <h1>實地考察</h1>
-      <p>帶著手機或紙本走到樹下，把「現場看到的」記下來：樹況、立地環境、病蟲害與人為干擾。
+      <p>帶著手機或紙本走到樹下，把「現場看到的」記下來：樹況、立地環境、病蟲害與人為干擾，並拍下環境特徵照片。
       這裡是本站為實地考察預留的空間——官方名錄的資料不會被覆寫，考察紀錄另存於 <code>field_records</code> 表。</p>
     </div>
     <div id="field-notice"></div>
@@ -95,6 +183,33 @@ export async function render(section, params = new URLSearchParams()) {
               ${HEALTHS.map((h) => `<option value="${h}">${h}</option>`).join('')}
             </select>
           </label>
+
+          <fieldset class="check-field">
+            <legend class="small">樹皮狀況（可多選）</legend>
+            <div class="check-grid">
+              ${BARK.map(([val, label]) => `<label class="check-item">
+                <input type="checkbox" name="bark_conditions" value="${esc(val)}">
+                <span>${esc(label)}</span>
+              </label>`).join('')}
+            </div>
+          </fieldset>
+
+          <fieldset class="check-field">
+            <legend class="small">周邊環境（可多選）</legend>
+            <div class="check-grid">
+              ${SURROUND.map(([val, label]) => `<label class="check-item">
+                <input type="checkbox" name="surround_items" value="${esc(val)}">
+                <span>${esc(label)}</span>
+              </label>`).join('')}
+            </div>
+            <label class="small" style="margin-top:.4rem">樹穴水泥覆蓋範圍
+              <select name="concrete_cover">
+                <option value="">— 未判斷 —</option>
+                ${COVERS.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}
+              </select>
+            </label>
+          </fieldset>
+
           <div class="row">
             <label class="small" style="flex:1">樹高（公尺）
               <input type="number" name="height_m" step="0.1" min="0" max="100" placeholder="目測或測距">
@@ -112,7 +227,14 @@ export async function render(section, params = new URLSearchParams()) {
           <label class="small">病蟲害／人為損傷（枯枝、樹皮剝落、刻字、堆物…）
             <textarea name="damage_note" rows="2" maxlength="600"></textarea>
           </label>
-          <label class="small">現場照片網址（規劃中：之後可直接上傳手機相片）
+
+          <label class="small">現場照片（最多 ${MAX_PHOTOS} 張；手機可直接拍照，會先壓縮再上傳）
+            <input type="file" id="f-photos" accept="image/*" capture="environment" multiple>
+          </label>
+          <div id="f-photo-preview" class="field-thumbs" aria-live="polite"></div>
+          <p class="tiny muted" id="f-photo-note">照片請拍到能反映環境特徵的部位：樹皮異常處、樹穴鋪面與水泥覆蓋範圍、鄰近馬路／建築物／排水口（保持距離拍攝，勿踩踏樹根）。</p>
+
+          <label class="small">外部照片網址（選填，例如已上傳到相簿或雲端硬碟）
             <input type="url" name="photo_url" placeholder="https://…" maxlength="500">
           </label>
           <div class="row">
@@ -134,11 +256,16 @@ export async function render(section, params = new URLSearchParams()) {
       <div class="card">
         <h2>現場要記錄什麼（檢查清單）</h2>
         <ul class="small">
-          <li><strong>樹木本體</strong>：樹冠是否完整、有無枯梢枯枝、主幹裂縫或空洞、樹皮剝落、真菌子實體。</li>
+          <li><strong>樹皮狀況</strong>：剝落（片狀或塊狀掉落）、黴斑（黑／灰黴或藻類附著）、
+            白色鹽類結晶（鹽霜狀，常出現在水泥鋪面旁）——表單已做成勾選欄，直接勾。</li>
+          <li><strong>周邊環境</strong>：鄰近馬路、建築物、排水口、樹穴水泥覆蓋範圍、裸露土壤 ——同樣是勾選欄；
+            水泥覆蓋範圍另分「無／少量／約一半／大部分／幾乎全部」五級。</li>
+          <li><strong>樹木本體</strong>：樹冠是否完整、有無枯梢枯枝、主幹裂縫或空洞、真菌子實體。</li>
           <li><strong>根部與立地</strong>：樹穴是否被鋪面封死、土壤是否壓實或積水、有無堆放物料、周邊是否施工。</li>
           <li><strong>人為干擾</strong>：刻字、攀爬、晾曬、綁掛物、香燭與焚燒痕跡。</li>
           <li><strong>生物</strong>：藤蔓纏繞、白蟻蟻路、昆蟲啃食痕、樹洞是否有鳥巢或蜂巢（勿靠近）。</li>
-          <li><strong>環境數據</strong>：目測樹高與胸徑（離地 1.3 m 處周長 ÷ π 可得胸徑）。</li>
+          <li><strong>環境數據</strong>：目測樹高與胸徑（離地 1.3 m 處周長 ÷ π 可得胸徑）；座標可一鍵填入。</li>
+          <li><strong>照片</strong>：至少一張能同時看到樹幹與周邊環境的全景，其餘拍異常部位特寫。</li>
         </ul>
         <h3>安全與禮儀</h3>
         <ul class="small">
@@ -162,7 +289,8 @@ export async function render(section, params = new URLSearchParams()) {
           <thead>
             <tr>
               <th>古樹編號</th><th>觀察日期</th><th>記錄者</th><th>健康狀況</th>
-              <th>現場量測</th><th>觀察重點</th><th>儲存位置</th><th></th>
+              <th>樹皮狀況</th><th>周邊環境</th><th>現場量測</th><th>觀察重點</th>
+              <th>照片</th><th>儲存位置</th><th></th>
             </tr>
           </thead>
           <tbody id="field-rows"></tbody>
@@ -183,16 +311,17 @@ export async function render(section, params = new URLSearchParams()) {
           市政署自然網歷次快照與這裡的考察紀錄接成的同一株時間序列；胸徑／樹高明顯減少或現場看到健康惡化會標「需確認」，
           官方值變動只標「官方資料更新」。</li>
         <li><strong>A4 紙本考察單</strong>：到<a href="#/card?mode=form">列印分頁</a>的「實地考察紀錄單」，
-          可帶入某一株的基本資料（含二維碼與量測表格），現場沒有網路也能寫。</li>
+          可帶入某一株的基本資料（含二維碼、樹皮狀況與周邊環境的勾選格），現場沒有網路也能寫。</li>
+        <li><strong>手機拍照上傳（v0.13.0）</strong>：表單的「現場照片」直接選相片或開相機 → 前端壓縮（長邊 1280）→
+          存進 Supabase Storage 的 <code>field-photos</code>；清單可直接看縮圖。示範模式會暫存在這台裝置並明白標示。</li>
+        <li><strong>觀察項目結構化（v0.13.0）</strong>：<strong>樹皮狀況</strong>（剝落／黴斑／白色鹽類結晶／無明顯異常）與
+          <strong>周邊環境</strong>（鄰近馬路／建築物／排水口／水泥覆蓋／裸露土壤／其他）已是勾選欄位，
+          另有水泥覆蓋範圍五級；每一筆都可匯出 CSV 加進報告表格，也可直接對照紙本考察單。</li>
       </ul>
       <h3>還在規劃中</h3>
       <ul class="small">
-        <li><strong>手機拍照上傳</strong>：表單直接選相片 → 壓縮 → 存 Supabase Storage，紀錄就不用再貼外部網址。</li>
-        <li><strong>GPS 自動定位</strong>：目前已可一鍵填入座標；下一步是記錄誤差半徑並自動比對最近的古樹，避免記錯編號。</li>
+        <li><strong>GPS 誤差半徑比對</strong>：目前已可一鍵填入座標；下一步是記錄誤差半徑並自動比對最近的古樹，避免記錯編號。</li>
         <li><strong>多人協作與審核</strong>：教師／巡查員帳號可覆核學生紀錄，保留修改歷程（需 Supabase Auth）。</li>
-        <li><strong>觀察項目結構化</strong>：把題目要求的<strong>樹皮狀況</strong>（剝落、黴斑、白色鹽類結晶）與
-          <strong>周邊環境</strong>（鄰近馬路、建築物、排水口、水泥覆蓋範圍）做成勾選欄位；
-          目前是在「立地環境」與「病蟲害／人為損傷」兩個文字欄裡記錄。</li>
       </ul>
     </div>`;
 
@@ -201,10 +330,13 @@ export async function render(section, params = new URLSearchParams()) {
   const countEl = $('#field-count');
   const sourceEl = $('#field-source');
   const statusEl = $('#field-status');
+  const photoNoteEl = $('#f-photo-note');
+  const PHOTO_TIP = photoNoteEl.textContent;
 
   let serverRecords = [];
   let writable = false;
   let localList = loadLocal();
+  let pending = [];        // 待上傳照片：{ name, dataUrl, bytes }
 
   // 從地圖帶來的古樹編號：順便顯示樹種與官方樹高，方便現場核對
   async function showTreeInfo(no) {
@@ -224,13 +356,31 @@ export async function render(section, params = new URLSearchParams()) {
     countEl.textContent = num(all.length);
     rowsEl.innerHTML = all.length
       ? all.map(rowHtml).join('')
-      : '<tr><td colspan="8" class="muted small">尚無紀錄。這一區就是留給實地考察的空間——走一趟，把第一筆記錄下來。</td></tr>';
+      : '<tr><td colspan="11" class="muted small">尚無紀錄。這一區就是留給實地考察的空間——走一趟，把第一筆記錄下來。</td></tr>';
     rowsEl.querySelectorAll('button[data-del]').forEach((b) => b.addEventListener('click', () => {
       localList = localList.filter((r) => r.local_id !== b.dataset.del);
       saveLocal(localList);
       renderRows();
       toast('已刪除本機紀錄');
     }));
+  }
+
+  function renderPhotos() {
+    const box = $('#f-photo-preview');
+    box.innerHTML = pending.map((p, i) => `
+      <span class="field-thumb-wrap">
+        <img class="field-thumb" src="${esc(p.dataUrl)}" alt="${esc(p.name)}">
+        <button type="button" class="btn btn-sm" data-photo-del="${i}" title="移除這張照片">✕</button>
+        <span class="tiny muted">${fmtBytes(p.bytes)}</span>
+      </span>`).join('');
+    box.querySelectorAll('button[data-photo-del]').forEach((b) => b.addEventListener('click', () => {
+      pending.splice(Number(b.dataset.photoDel), 1);
+      renderPhotos();
+    }));
+    const total = pending.reduce((s, p) => s + p.bytes, 0);
+    photoNoteEl.textContent = pending.length
+      ? `${PHOTO_TIP}（已選 ${pending.length} 張，合計約 ${fmtBytes(total)}）`
+      : PHOTO_TIP;
   }
 
   async function loadServer() {
@@ -242,10 +392,10 @@ export async function render(section, params = new URLSearchParams()) {
         ? ''
         : `<div class="notice"><strong>尚未連接資料庫：</strong>${esc(res.note || '')}
            於部署環境設定資料庫連線的環境變數後（見 README〈部署〉一節），
-           考察紀錄就會寫入 <code>field_records</code> 表（見 README）。</div>`;
+           考察紀錄就會寫入 <code>field_records</code> 表（含照片上傳到 Storage）。</div>`;
       sourceEl.textContent = writable
-        ? '紀錄來源：Supabase 資料庫（field_records 表）'
-        : '紀錄來源：示範模式（未連接資料庫）＋ 這台裝置的瀏覽器暫存';
+        ? '紀錄來源：Supabase 資料庫（field_records 表）；照片存於 Storage 的 field-photos bucket'
+        : '紀錄來源：示範模式（未連接資料庫）＋ 這台裝置的瀏覽器暫存（照片也只留在這台裝置）';
     } catch (err) {
       serverRecords = [];
       writable = false;
@@ -257,6 +407,26 @@ export async function render(section, params = new URLSearchParams()) {
 
   $('#f-tree').addEventListener('change', (e) => showTreeInfo(e.target.value.trim()));
   if (prefillTree) showTreeInfo(prefillTree);
+
+  $('#f-photos').addEventListener('change', async (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';
+    if (!files.length) return;
+    for (const file of files) {
+      if (pending.length >= MAX_PHOTOS) { toast(`最多 ${MAX_PHOTOS} 張照片`); break; }
+      if (!file.type.startsWith('image/')) { photoNoteEl.textContent = `「${file.name}」不是圖片檔，已略過。`; continue; }
+      photoNoteEl.textContent = `壓縮「${file.name}」中…`;
+      try {
+        const dataUrl = await compressImage(file);
+        const bytes = Math.round((dataUrl.length - dataUrl.indexOf(',') - 1) * 0.75);
+        pending.push({ name: file.name || '現場照片.jpg', dataUrl, bytes });
+        renderPhotos();
+      } catch (err) {
+        photoNoteEl.textContent = errDetail(err);
+      }
+    }
+    renderPhotos();
+  });
 
   $('#field-locate').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('此瀏覽器不支援定位'); return; }
@@ -271,38 +441,100 @@ export async function render(section, params = new URLSearchParams()) {
     );
   });
 
+  async function uploadPending(treeNo) {
+    const paths = [];
+    const localPhotos = [];
+    let warn = '';
+    for (const ph of pending) {
+      try {
+        const up = await api.uploadPhoto({ data_url: ph.dataUrl, tree_no: treeNo || null });
+        if (up && up.stored && up.path) paths.push(up.path);
+        else { localPhotos.push(ph.dataUrl); warn = warn || (up && up.note) || ''; }
+      } catch (err) {
+        localPhotos.push(ph.dataUrl);
+        warn = warn || errDetail(err);
+      }
+    }
+    return { paths, localPhotos, warn };
+  }
+
   $('#field-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form = new FormData(e.target);
-    const body = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v).trim()]));
+    const formEl = e.target;
+    const fd = new FormData(formEl);
+    const body = {};
+    for (const [k, v] of fd.entries()) {
+      if (k === 'bark_conditions' || k === 'surround_items') continue;   // 勾選清單另外處理
+      body[k] = String(v).trim();
+    }
+    body.bark_conditions = fd.getAll('bark_conditions').map(String);
+    body.surround_items = fd.getAll('surround_items').map(String);
     if (!body.observer) { statusEl.textContent = '請先填寫記錄者。'; return; }
     if (!body.observed_on) body.observed_on = today();
-    statusEl.textContent = '儲存中…';
+    if (body.bark_conditions.includes('無明顯異常') && body.bark_conditions.length > 1) {
+      body.bark_conditions = body.bark_conditions.filter((b) => b !== '無明顯異常');
+    }
+
+    const saveBtn = $('#field-save');
+    saveBtn.disabled = true;
     try {
-      const res = await api.saveFieldRecord(body);
+      let photos = { paths: [], localPhotos: [], warn: '' };
+      if (pending.length) {
+        statusEl.textContent = `上傳 ${pending.length} 張照片…`;
+        photos = await uploadPending(body.tree_no);
+        body.photo_paths = photos.paths;
+      }
+      statusEl.textContent = '儲存中…';
+      let res;
+      try {
+        res = await api.saveFieldRecord(body);
+      } catch (err) {
+        throw Object.assign(err, { localPhotos: photos.localPhotos, photoWarn: photos.warn });
+      }
       if (res.stored && res.record) {
         serverRecords = [res.record, ...serverRecords];
-        renderRows();
-        e.target.reset();
+        localList = localList.concat([]);  // 保留本機清單不動
+        const notUploaded = photos.localPhotos.length + (photos.warn ? 1 : 0);
+        statusEl.textContent = notUploaded
+          ? `已寫入資料庫；但 ${photos.localPhotos.length} 張照片未上傳（${photos.warn || '示範模式'}），只留在這台裝置。`
+          : '已寫入資料庫。';
+        formEl.reset();
         section.querySelector('input[name="observed_on"]').value = today();
-        statusEl.textContent = '已寫入資料庫。';
         $('#f-tree-info').textContent = '';
+        pending = [];
+        renderPhotos();
+        renderRows();
         toast('考察紀錄已儲存');
         return;
       }
-      throw Object.assign(new Error(res.note || '未寫入資料庫'), { demo: true });
+      throw Object.assign(new Error(res.note || '未寫入資料庫'), { demo: true, localPhotos: photos.localPhotos, photoWarn: photos.warn });
     } catch (err) {
       // 示範模式或連線失敗：改存本機，並明確告知
-      const rec = localRecord({ ...body, observed_on: body.observed_on || today() });
+      const rec = localRecord({
+        ...body,
+        observed_on: body.observed_on || today(),
+        photo_urls: err.localPhotos || [],
+      });
       localList = [rec, ...localList];
-      const okLocal = saveLocal(localList);
-      renderRows();
-      e.target.reset();
+      let okLocal = saveLocal(localList);
+      if (!okLocal && rec.photo_urls.length) {
+        // 瀏覽器暫存空間不足：先放棄照片、留住紀錄文字，並講清楚
+        rec.photo_urls = [];
+        okLocal = saveLocal(localList);
+        statusEl.textContent = '本機暫存空間不足，照片沒有存進瀏覽器（紀錄文字已存，建議先匯出 CSV）。';
+      } else {
+        statusEl.textContent = okLocal
+          ? `已暫存在本機瀏覽器（${err.demo ? '示範模式未連接資料庫' : esc(errDetail(err))}${rec.photo_urls.length ? `；${rec.photo_urls.length} 張照片只留在這台裝置` : ''}）。`
+          : '無法寫入本機暫存，請確認瀏覽器未封鎖儲存空間。';
+      }
+      formEl.reset();
       section.querySelector('input[name="observed_on"]').value = today();
-      statusEl.textContent = okLocal
-        ? `已暫存在本機瀏覽器（${err.demo ? '示範模式未連接資料庫' : esc(errDetail(err))}）。`
-        : '無法寫入本機暫存，請確認瀏覽器未封鎖儲存空間。';
+      pending = [];
+      renderPhotos();
+      renderRows();
       toast(okLocal ? '已暫存於本機瀏覽器' : '儲存失敗');
+    } finally {
+      saveBtn.disabled = false;
     }
   });
 
@@ -312,13 +544,19 @@ export async function render(section, params = new URLSearchParams()) {
     downloadCsv('古樹實地考察紀錄.csv', all.map((r) => ({
       古樹編號: r.tree_no || '', 觀察日期: r.observed_on || '', 記錄者: r.observer || '',
       天氣: r.weather || '', 健康狀況: r.health || '',
+      樹皮狀況: (Array.isArray(r.bark_conditions) ? r.bark_conditions : []).join('、'),
+      周邊環境: (Array.isArray(r.surround_items) ? r.surround_items : []).join('、'),
+      水泥覆蓋範圍: r.concrete_cover || '',
       樹高公尺: r.height_m ?? '', 胸徑公分: r.diameter_cm ?? '', 冠幅公尺: r.crown_m ?? '',
       立地環境: r.site_note || '', 病蟲害與損傷: r.damage_note || '',
-      現場照片: r.photo_url || '', 緯度: r.lat ?? '', 經度: r.lon ?? '',
+      照片張數: (Array.isArray(r.photo_urls) ? r.photo_urls.length : 0) + (r.photo_url ? 1 : 0),
+      照片網址: [ ...(Array.isArray(r.photo_urls) ? r.photo_urls : []), r.photo_url || '' ].filter(Boolean).join(' '),
+      緯度: r.lat ?? '', 經度: r.lon ?? '',
       儲存位置: r.local ? '本機瀏覽器' : 'Supabase 資料庫',
     })));
   });
 
+  renderPhotos();
   await loadServer();
   return { destroy: () => {} };
 }

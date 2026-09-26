@@ -168,16 +168,164 @@ test('預留空間已分成「已上線／規劃中」，做完的事不得再�
   assert.ok(iLive > 0 && iTodo > iLive, '找不到「已上線／規劃中」兩段');
 
   const live = field.slice(iLive, iTodo);
-  // 已完成的三項都要有真的可以點的入口，不是只有文字
+  // 已完成的五項都要有真的可以點的入口或真的能用的欄位，不是只有文字
   assert.match(live, /#\/qr\?mode=field/, 'QR 分頁入口');
   assert.match(live, /#\/monitoring/, '監測分頁入口');
   assert.match(live, /#\/card\?mode=form/, '列印考察單入口');
+  assert.match(live, /手機拍照上傳（v0\.13\.0）/, '拍照上傳已完成，應列在已上線');
+  assert.match(live, /觀察項目結構化（v0\.13\.0）/, '結構化觀察欄位已完成，應列在已上線');
 
   const pending = field.slice(iTodo);
   for (const done of ['QR 掃描帶入樹號', '與官方巡查比對', '列印版考察單']) {
     assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);
   }
-  for (const todo of ['手機拍照上傳', 'GPS 自動定位', '多人協作與審核', '觀察項目結構化']) {
+  // v0.13.0 做完的兩項不得再掛在待辦
+  for (const done of ['手機拍照上傳', '觀察項目結構化']) {
+    assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);
+  }
+  for (const todo of ['GPS 誤差半徑比對', '多人協作與審核']) {
     assert.ok(pending.includes(todo), `規劃中清單缺少「${todo}」`);
   }
+});
+
+test('結構化觀察欄位：三份清單（前端／後端／資料庫）完全一致', () => {
+  // 同一個選項清單寫在三處（避免前端送得出、資料庫卻擋掉），用測試綁在一起
+  const field = read('public/js/field.js');
+  const repo = read('lib/repo.js');
+  const sql = read('supabase/schema.sql');
+  // 前端有兩種寫法：[值, 說明] 成對陣列（勾選欄要顯示白話說明）與純值陣列（下拉選單）→ 都只取值；後端是純值陣列
+  const frontVals = (src) => src.split('\n').flatMap((line) => {
+    const quoted = [...line.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // 一行以 [ 開頭者＝[值, 說明] 成對寫法，只取第一個字串（值）
+    return /^\s*\[/.test(line) ? quoted.slice(0, 1) : quoted;
+  });
+  const backVals = (src) => [...src.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+
+  const frontBark = field.slice(field.indexOf('const BARK = ['), field.indexOf('const SURROUND = ['));
+  const repoBark = repo.slice(repo.indexOf('export const FIELD_BARK'), repo.indexOf('export const FIELD_SURROUND'));
+  const repoSur = repo.slice(repo.indexOf('export const FIELD_SURROUND'), repo.indexOf('export const FIELD_CONCRETE_COVER'));
+  const repoCover = repo.slice(repo.indexOf('export const FIELD_CONCRETE_COVER'), repo.indexOf('export const PHOTO_BUCKET'));
+  const frontSur = field.slice(field.indexOf('const SURROUND = ['), field.indexOf('const COVERS = '));
+  const frontCover = field.slice(field.indexOf('const COVERS = '), field.indexOf('const MAX_PHOTOS'));
+
+  for (const [name, front, back, expected] of [
+    ['樹皮狀況', frontBark, repoBark, 4],
+    ['周邊環境', frontSur, repoSur, 6],
+    ['水泥覆蓋範圍', frontCover, repoCover, 5],
+  ]) {
+    const f = frontVals(front);
+    const b = backVals(back);
+    // 兩邊都要真的抓到清單（改壞了、被刪掉了要紅燈，而不是空陣列默默通過）
+    assert.equal(f.length, expected, `${name}：前端清單應有 ${expected} 項，實際 ${f.length} 項`);
+    assert.equal(b.length, expected, `${name}：後端清單應有 ${expected} 項，實際 ${b.length} 項`);
+    const missing = f.filter((v) => !b.includes(v));
+    assert.deepEqual(missing, [], `${name}：後端 lib/repo.js 缺少 ${missing.join('、')}`);
+  }
+
+  // 資料庫端的 CHECK 限制條件要含同一組值（樹皮狀況與水泥覆蓋範圍逐字比對）
+  for (const v of ['剝落', '黴斑', '白色鹽類結晶', '無明顯異常']) {
+    assert.ok(sql.includes(`'${v}'`), `schema.sql 的 CHECK 缺少樹皮狀況值「${v}」`);
+  }
+  for (const v of ['鄰近馬路', '鄰近建築物', '排水口', '水泥覆蓋', '裸露土壤', '其他']) {
+    assert.ok(sql.includes(`'${v}'`), `schema.sql 的 CHECK 缺少周邊環境值「${v}」`);
+  }
+  for (const v of ['無', '少量（少於三分之一）', '約一半', '大部分（超過三分之二）', '幾乎全部覆蓋']) {
+    assert.ok(sql.includes(`'${v}'`), `schema.sql 的 CHECK 缺少水泥覆蓋範圍值「${v}」`);
+  }
+  // 紙本考察單要能對照（同一組勾選格印得出來）
+  const card = read('public/js/card.js');
+  for (const v of ['剝落', '黴斑', '白色鹽類結晶']) {
+    assert.ok(card.includes(v), `A4 考察單缺少樹皮狀況勾選格「${v}」`);
+  }
+  for (const v of ['鄰近馬路', '排水口', '幾乎全部覆蓋']) {
+    assert.ok(card.includes(v), `A4 考察單缺少周邊環境／水泥覆蓋勾選格「${v}」`);
+  }
+});
+
+test('POST /api/field-records 接受結構化觀察欄位；非法值回 400 並列出允許值', async () => {
+  const good = await post({
+    observer: '高三甲 1 號', bark_conditions: ['剝落', '黴斑'],
+    surround_items: ['鄰近馬路', '排水口'], concrete_cover: '約一半',
+  });
+  assert.equal(good.status, 200);
+
+  const bad = await post({ observer: '甲', bark_conditions: ['樹皮爛掉'] });
+  assert.equal(bad.status, 400);
+  assert.match(JSON.stringify(bad.json), /樹皮狀況只接受/);
+  assert.match(JSON.stringify(bad.json), /白色鹽類結晶/, '錯誤訊息要列出允許值，學生才知道怎麼改');
+
+  const badCover = await post({ observer: '甲', concrete_cover: '很多' });
+  assert.equal(badCover.status, 400);
+});
+
+test('POST /api/photo：只接受 POST；示範模式不假裝上傳成功', async () => {
+  const notAllowed = await get(base, '/api/photo');
+  assert.equal(notAllowed.status, 405, '照片上傳只開放 POST');
+
+  const res = await get(base, '/api/photo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data_url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==', tree_no: '1060' }),
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.stored, false, '示範模式不得回 stored:true');
+  assert.equal(res.json.path, null);
+  assert.equal(res.json.url, null);
+  assert.match(res.json.note, /示範模式/);
+});
+
+test('前端：結構化勾選欄位、前端壓縮與拍照上傳都已接上', () => {
+  const field = read('public/js/field.js');
+  for (const sel of ['name="bark_conditions"', 'name="surround_items"', 'name="concrete_cover"']) {
+    assert.ok(field.includes(sel), `表單缺少 ${sel}`);
+  }
+  // 勾選清單要用 getAll 收集，否則只會送出一項
+  assert.match(field, /fd\.getAll\('bark_conditions'\)/);
+  assert.match(field, /fd\.getAll\('surround_items'\)/);
+  // 「以上皆無」與其他項目互斥（前端要先過濾）
+  assert.match(field, /無明顯異常[^\n]*filter|filter[^\n]*無明顯異常|includes\('無明顯異常'\)/);
+  // 拍照上傳：相機、前端壓縮、上傳端點、張數上限
+  assert.match(field, /capture="environment"/);
+  assert.match(field, /canvas\.toDataURL\('image\/jpeg'/);
+  assert.match(field, /api\.uploadPhoto\(/);
+  assert.match(field, /MAX_PHOTOS = 3/);
+  assert.match(field, /PHOTO_MAX_EDGE = 1280/, '照片要先在前端縮到長邊 1280 再上傳');
+  // 本機暫存爆掉時要有處理，不能默默失敗
+  assert.match(field, /本機暫存空間不足/);
+  // CSV 要含新欄位，報告表格直接可用
+  for (const col of ['樹皮狀況', '周邊環境', '水泥覆蓋範圍', '照片張數']) {
+    assert.ok(field.includes(col), `CSV 匯出缺少欄位「${col}」`);
+  }
+  const api = read('public/js/api.js');
+  assert.match(api, /uploadPhoto:/);
+  assert.match(api, /request\('\/photo'/);
+  const css = read('public/css/style.css');
+  assert.match(css, /\.field-thumb\b/, '縮圖樣式');
+  assert.match(css, /\.check-grid\b/, '勾選格樣式');
+});
+
+test('A4 考察單：新的勾選格放在右欄並橫向展開（單頁限制的版面約束）', () => {
+  // 這條不是吹毛求疵：一開始把 15 個勾選格放在左欄，A4 立刻從 1 頁變 3 頁
+  // （左欄是 60mm 窄欄，勾選格被擠成多行）。改成右欄 + 橫向展開後量到 233mm、PDF 回到 1 頁。
+  // 所以用測試把「放在右欄、用 card-check-inline」綁住，避免以後又被搬回去。
+  const card = read('public/js/card.js');
+  const iForm = card.indexOf('export function fieldFormHtml');
+  const iRight = card.indexOf('card-col-right', iForm);   // 必須從考察單那段開始找（檔案卡也有右欄）
+  assert.ok(iForm > 0 && iRight > iForm, '找不到考察單的 card-col-right');
+  const rightCol = card.slice(iRight, card.indexOf('card-foot', iRight));
+  for (const label of ['樹皮狀況（可多選）', '周邊環境（可多選）', '樹穴水泥覆蓋範圍', '現場照片（請註明編號或貼上）']) {
+    assert.ok(rightCol.includes(label), `「${label}」應在右欄（左欄只有 60mm 寬，會把 A4 撐成多頁）`);
+  }
+  assert.match(rightCol, /card-check-inline/);
+  const print = read('public/css/print.css');
+  assert.match(print, /\.card-checklist\.card-check-inline/);
+  assert.match(print, /--cols/);
+  // 驗證工具本身也要硬起來：頁數不符必須算失敗（曾出現印 ✗ 卻說「全部通過」）
+  const pdf = read('scripts/card-pdf.py');
+  assert.match(pdf, /if len\(pages\) != expect:/);
+  assert.match(pdf, /fails\.append\(f'\{name\}：\{len\(pages\)\} 頁（預期 \{expect\}）'\)/);
+  // 空白考察單也要驗（現場常用），不能只驗帶樹號的
+  assert.match(pdf, /'form-blank'/);
+  // repo 不得出現重複檔（patch 工具曾多寫一份 supabase/schema 2.sql，測試撈不到）
+  assert.match(read('tests/ui.test.js'), /不得出現「重複檔」/);
 });

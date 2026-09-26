@@ -65,12 +65,28 @@ for table, body in blocks:
 FALLBACK = {'geo_precision': "'approx'", 'grade': "'不分級'", 'health': "'一般'", 'category': "'管護技術'"}
 checks = []
 for table, body in blocks:
-    for m in re.finditer(r'check\s*\(\s*(\w+)\s+in\s*\(([^)]+)\)', body, re.S):
+    cols_of = {name for name, _ in next((c for t, c in tables if t == table), [])}
+    # (1) 純量欄位：check (col in ('a','b',…))
+    # 允許 `check (col is null or col in (…))` 這種「可空欄位」寫法
+    NULLABLE = r'(?:\w+\s+is\s+null\s+or\s+)?'
+    for m in re.finditer(r'check\s*\(\s*' + NULLABLE + r'(\w+)\s+in\s*\(([^)]+)\)', body, re.S):
         col, values = m.group(1), ' '.join(m.group(2).split())
-        if not any(name == col for name, _ in next(c for t, c in tables if t == table)):
+        if col not in cols_of:
             continue
-        checks.append((table, col, f'{col} in ({values})',
-                       FALLBACK.get(col, values.split(',')[0].strip()), values))
+        fallback = FALLBACK.get(col, values.split(',')[0].strip())
+        checks.append((table, col, f'{col} in ({values})', f'{table}_{col}_check',
+                       f'update public.{table} set {col} = {fallback}\n'
+                       f'      where {col} is not null and {col} not in ({values});'))
+    # (2) 陣列欄位：check (col <@ array['a','b']::text[])
+    #     陣列的「正規化」不能整欄覆蓋（會弄丟學生填的內容），改成只留下合法元素。
+    for m in re.finditer(r'check\s*\(\s*' + NULLABLE + r'(\w+)\s+<\@\s*(array\[[^\]]+\]::text\[\])', body, re.S):
+        col, arr = m.group(1), ' '.join(m.group(2).split())
+        if col not in cols_of:
+            continue
+        checks.append((table, col, f'{col} <@ {arr}', f'{table}_{col}_check',
+                       f'update public.{table} set {col} = coalesce((select array_agg(e) from unnest({col}) e '
+                       f"where e = any({arr})), '{{}}')\n"
+                       f'      where {col} is not null and not ({col} <@ {arr});'))
 assert checks, '沒有從 schema.sql 推導出任何 CHECK 限制條件'
 # 舊版資料庫的限制條件「允許值」可能與新版不同（例：sites.geo_precision 早期不含 'official'），
 # 只判斷「限制條件是否存在」是不夠的——必須先移除再重建，否則 seed 會撞
@@ -78,11 +94,9 @@ assert checks, '沒有從 schema.sql 推導出任何 CHECK 限制條件'
 # 重建前先把超出新允許值的既有資料正規化，否則 add constraint 會驗證失敗。
 # to_regclass 守衛讓本段在「全新資料庫（表還沒建）」時直接跳過。
 check_sql = ['do $$ begin']
-for table, col, expr, fallback, values in checks:
-    cname = f'{table}_{col}_check'
+for table, col, expr, cname, normalize_sql in checks:
     check_sql.append(f"""  if to_regclass('public.{table}') is not null then
-    update public.{table} set {col} = {fallback}
-      where {col} is not null and {col} not in ({values});
+    {normalize_sql}
     alter table public.{table} drop constraint if exists {cname};
     alter table public.{table} add constraint {cname} check ({expr});
   end if;""")

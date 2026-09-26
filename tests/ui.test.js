@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const html = readFileSync(`${ROOT}public/index.html`, 'utf8');
@@ -200,4 +201,21 @@ test('網站上看不到「作業」字眼（會讓老師誤會的措辭不得�
   const chem = readFileSync(`${ROOT}public/js/chemistry.js`, 'utf8');
   assert.match(chem, /<strong>本頁沒有的東西<\/strong>/);
   assert.ok(!/本頁沒有的東西（/.test(chem), '誠實卡標題不得再加括號說明');
+});
+
+test('repo 裡不得出現「重複檔」（`schema 2.sql` 這類檔案不會被測試撈到）', () => {
+  // 2026-09-26 實際踩到：patch 工具在某些情況下會多寫一份「xxx 2.js／xxx 2.sql」，
+  // 而 glob（tests/*.test.js、supabase/schema.sql）只會撈到原本那個檔名，
+  // 於是測試全綠、檔案卻多一份（甚至可能是舊版本）。這裡直接掃描整棵樹。
+  const found = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (['node_modules', '.git', '.vercel', 'dist', 'coverage'].includes(e.name)) continue;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/ \d+\.[a-z]+$/i.test(e.name)) found.push(path.relative(ROOT, full));
+    }
+  };
+  walk(ROOT);
+  assert.deepEqual(found, [], `發現重複檔（請確認內容後刪除）：${found.join('、')}`);
 });

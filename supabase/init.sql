@@ -137,6 +137,10 @@ alter table if exists public.field_records        add column if not exists crown
 alter table if exists public.field_records        add column if not exists site_note            text;
 alter table if exists public.field_records        add column if not exists damage_note          text;
 alter table if exists public.field_records        add column if not exists photo_url            text;
+alter table if exists public.field_records        add column if not exists bark_conditions      text[] default '{}';
+alter table if exists public.field_records        add column if not exists surround_items       text[] default '{}';
+alter table if exists public.field_records        add column if not exists concrete_cover       text;
+alter table if exists public.field_records        add column if not exists photo_paths          text[] default '{}';
 alter table if exists public.field_records        add column if not exists lat                  numeric(9,6);
 alter table if exists public.field_records        add column if not exists lon                  numeric(9,6);
 alter table if exists public.field_records        add column if not exists created_at           timestamptz default now();
@@ -171,6 +175,24 @@ do $$ begin
       where health is not null and health not in ('健康', '一般', '瀕危');
     alter table public.field_records drop constraint if exists field_records_health_check;
     alter table public.field_records add constraint field_records_health_check check (health in ('健康', '一般', '瀕危'));
+  end if;
+  if to_regclass('public.field_records') is not null then
+    update public.field_records set concrete_cover = '無'
+      where concrete_cover is not null and concrete_cover not in ('無','少量（少於三分之一）','約一半','大部分（超過三分之二）','幾乎全部覆蓋');
+    alter table public.field_records drop constraint if exists field_records_concrete_cover_check;
+    alter table public.field_records add constraint field_records_concrete_cover_check check (concrete_cover in ('無','少量（少於三分之一）','約一半','大部分（超過三分之二）','幾乎全部覆蓋'));
+  end if;
+  if to_regclass('public.field_records') is not null then
+    update public.field_records set bark_conditions = coalesce((select array_agg(e) from unnest(bark_conditions) e where e = any(array['剝落','黴斑','白色鹽類結晶','無明顯異常']::text[])), '{}')
+      where bark_conditions is not null and not (bark_conditions <@ array['剝落','黴斑','白色鹽類結晶','無明顯異常']::text[]);
+    alter table public.field_records drop constraint if exists field_records_bark_conditions_check;
+    alter table public.field_records add constraint field_records_bark_conditions_check check (bark_conditions <@ array['剝落','黴斑','白色鹽類結晶','無明顯異常']::text[]);
+  end if;
+  if to_regclass('public.field_records') is not null then
+    update public.field_records set surround_items = coalesce((select array_agg(e) from unnest(surround_items) e where e = any(array['鄰近馬路','鄰近建築物','排水口','水泥覆蓋','裸露土壤','其他']::text[])), '{}')
+      where surround_items is not null and not (surround_items <@ array['鄰近馬路','鄰近建築物','排水口','水泥覆蓋','裸露土壤','其他']::text[]);
+    alter table public.field_records drop constraint if exists field_records_surround_items_check;
+    alter table public.field_records add constraint field_records_surround_items_check check (surround_items <@ array['鄰近馬路','鄰近建築物','排水口','水泥覆蓋','裸露土壤','其他']::text[]);
   end if;
 end $$;
 
@@ -554,16 +576,31 @@ create table if not exists public.field_records (
     crown_m        numeric(5,2),                          -- 冠幅（公尺）
     site_note      text,                                  -- 立地環境（樹穴、鋪面、積水…）
     damage_note    text,                                  -- 病蟲害、枯枝、人為損傷
-    photo_url      text,                                  -- 現場照片網址
+    photo_url      text,                                  -- 現場照片網址（外部連結）
+    -- 結構化觀察欄位（v0.13.0）：作業要求的樹皮狀況與周邊環境，用勾選而不是只寫在文字欄
+    bark_conditions text[] default '{}',                  -- 樹皮狀況：剝落／黴斑／白色鹽類結晶／無明顯異常
+    surround_items  text[] default '{}',                  -- 周邊環境：鄰近馬路／建築物／排水口／水泥覆蓋…
+    concrete_cover  text,                                 -- 水泥覆蓋範圍（質性分級）
+    photo_paths     text[] default '{}',                  -- 上傳到 Supabase Storage 的照片路徑
     lat            numeric(9,6),
     lon            numeric(9,6),
     created_at     timestamptz not null default now(),
     constraint field_records_observer_len check (char_length(observer) between 1 and 60),
     constraint field_records_note_len     check (coalesce(char_length(site_note), 0) <= 600
-                                              and coalesce(char_length(damage_note), 0) <= 600)
+                                              and coalesce(char_length(damage_note), 0) <= 600),
+    constraint field_records_bark_check   check (bark_conditions is null
+                                              or bark_conditions <@ array['剝落','黴斑','白色鹽類結晶','無明顯異常']::text[]),
+    constraint field_records_surround_check check (surround_items is null
+                                              or surround_items <@ array['鄰近馬路','鄰近建築物','排水口','水泥覆蓋','裸露土壤','其他']::text[]),
+    constraint field_records_cover_check  check (concrete_cover is null
+                                              or concrete_cover in ('無','少量（少於三分之一）','約一半','大部分（超過三分之二）','幾乎全部覆蓋'))
 );
 comment on table public.field_records is '實地考察紀錄（學生／公眾現場觀察，與官方名錄分開存放）';
 comment on column public.field_records.tree_no is '對應古樹編號；允許留空以記錄「疑似古樹」或名錄外個體';
+comment on column public.field_records.bark_conditions is '樹皮狀況（可多選）：剝落／黴斑／白色鹽類結晶／無明顯異常';
+comment on column public.field_records.surround_items is '周邊環境（可多選）：鄰近馬路／鄰近建築物／排水口／水泥覆蓋／裸露土壤／其他';
+comment on column public.field_records.concrete_cover is '樹穴水泥覆蓋範圍（質性分級）';
+comment on column public.field_records.photo_paths is '上傳到 Supabase Storage（bucket: field-photos）的照片路徑';
 
 create index if not exists idx_field_records_observed on public.field_records (observed_on desc, created_at desc);
 create index if not exists idx_field_records_tree on public.field_records (tree_no);
@@ -610,6 +647,20 @@ grant execute on all functions in schema public to anon, authenticated;
 -- 實地考察紀錄的寫入一律經由 Serverless Function（使用 service_role），
 -- 因此不開放 anon 直接 insert／update／delete；日後若改為前端直寫，
 -- 應改以 Supabase Auth 登入 + 具 auth.uid() 的政策取代，而非放寬 anon。
+
+-- ---------------------------------------------------------------------------
+-- 10. 實地考察照片的儲存空間（v0.13.0）
+-- ---------------------------------------------------------------------------
+-- 現場照片由 Serverless Function（service_role）上傳到 Storage，前端只讀公開網址，
+-- 因此**不需要** storage.objects 的寫入政策；bucket 設為 public 讓 <img> 直接讀取。
+-- 以 information_schema 守衛：本機的 PGlite 沒有 storage 這個 schema，會整段跳過。
+do $$ begin
+    if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+        insert into storage.buckets (id, name, public)
+        values ('field-photos', 'field-photos', true)
+        on conflict (id) do update set public = true;
+    end if;
+end $$;
 
 -- 由 scripts/build_seed.py 自動產生，請勿手動編輯。
 -- 匯入順序：堂區 → 物種 → 地點 → 古樹 → 路綫 → 科普 → 時間線

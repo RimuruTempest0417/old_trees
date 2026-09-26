@@ -30,6 +30,8 @@
 14. [疑難排解（部署後常見狀況）](#十四疑難排解部署後常見狀況)
 15. [資料來源與授權](#十五資料來源與授權)
 16. [監測時間序列](#十六監測時間序列)
+17. [化學視角](#十七化學視角)
+18. [實地考察：結構化觀察與照片上傳](#十八實地考察結構化觀察與照片上傳)
 
 ---
 
@@ -43,7 +45,7 @@
 | **地圖查詢** | 658 株古樹地圖（叢集標記、顏色代表健康狀況）；以堂區／品種／分級／健康／樹齡區間／關鍵字篩選；地圖任意點擊設定中心做**半徑搜尋**；點擊標記看單株詳情（含相片、同地點鄰居），並可直接為該株新增實地考察紀錄 |
 | **路綫推薦** | 5 條精選路綫（列表顯示站數、距離、步行時間），或以堂區／品種／主題即時生成自訂路綫；地圖繪製路徑與編號站點，並提供 Google Maps 導航連結 |
 | **數據分析** | 描述統計、5 個數學模型擬合比較（線性／對數／冪律／飽和指數／含品種啞變數迴歸）、ANOVA、卡方檢定、存續預測曲線、可下載的分析資料 CSV；**每張分析圖皆附一段「小結」說明** |
-| **實地考察** | 現場記錄表單（古樹編號、觀察日期、記錄者、天氣、健康狀況、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、照片、座標一鍵定位）、紀錄清單與 CSV 匯出、現場檢查清單與安全提醒；頁面下方分「**這一區現在就能做的事（已上線）**」（QR 掃描帶入樹號、與官方值比對的時間序列、A4 紙本考察單，各附入口）與「**還在規劃中**」（拍照上傳、GPS 誤差比對、多人協作審核、觀察項目結構化）。紀錄存於 `field_records` 表，官方名錄不會被覆寫 |
+| **實地考察** | 現場記錄表單（古樹編號、觀察日期、記錄者、天氣、健康狀況、**樹皮狀況勾選**〈剝落／黴斑／白色鹽類結晶／無明顯異常〉、**周邊環境勾選**〈鄰近馬路／建築物／排水口／水泥覆蓋／裸露土壤／其他〉、**樹穴水泥覆蓋範圍五級**、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、**現場照片（手機拍照 → 前端壓縮 → 上傳 Storage）**、座標一鍵定位）、紀錄清單（含照片縮圖）與 CSV 匯出（含結構化欄位）、現場檢查清單與安全提醒；頁面下方分「**這一區現在就能做的事（已上線）**」（QR 掃描帶入樹號、與官方值比對的時間序列、A4 紙本考察單、**手機拍照上傳**、**觀察項目結構化**）與「**還在規劃中**」（GPS 誤差半徑比對、多人協作審核）。紀錄存於 `field_records` 表、照片存於 Storage（`field-photos` bucket），官方名錄不會被覆寫 |
 | **監測** | 把「《名錄》官方版本值 → 市政署自然網歷次快照 → 師生實地考察紀錄」接成**每一株的時間序列**：觀測點表、逐次差異（胸徑／樹高／健康狀況／官方分級）、線性趨勢（每年變化量與 R²）、異常與複查提醒（胸徑減少 ≥ 0.5 公分、樹高減少 ≥ 0.2 公尺、超過 730 天未複查）；官方值變動標示為「官方資料更新」而非異常。可切換「有變動／需確認／有考察紀錄／全部」，並匯出 CSV 與複製摘要 |
 | **QR 碼** | 為 658 株古樹各產生一個二維碼：可選「掃描後開啟古樹詳情」或「實地考察表單」、依堂區／關鍵字／排序篩選、可下載單張 SVG；列印時自動三欄排版，適合做樹上掛牌或考察任務卡（編碼用 qrcode-generator，MIT） |
 | **優先保育** | 以**樹齡、健康狀況、官方級別、樹種稀有度、區位風險**五項、合計 100 分為 658 株排序，列出名次、分數、**分數段落（純閱讀用：75 分以上／60–74／45–59／45 分以下，不是級別）**與每一株的逐項配分與理由；健康與分級兩欄一律是市政署官方值；可依**官方分級／官方健康狀況**／堂區／關鍵字篩選、匯出 CSV、複製摘要，並可列印成 A4 名單（每頁 40 列）。分數是相對排序工具，不是官方認定 |
@@ -51,8 +53,9 @@
 | **化學視角** | **作業要求 F** 的網站化呈現：官方**空氣污染物年均濃度**（六站 × 六污染物，2024/2025 對照、官方年平均標準達標判定）、**空氣質量水平日數**（2025 年六站 ＋ 2006–2025 荷蘭園站趨勢）、**降雨酸鹼度官方歷史值**，以及酸雨／土壤酸化／水泥與鋪面的**化學式與出處**；另外把「區域空氣背景 × 官方健康狀況」並列（附平均樹齡，說明相關不等於因果），並誠實列出**本頁沒有的數據**（無官方逐點土壤理化與礦物成分數據集） |
 | **保育科普** | 12 篇繁體中文專題文章（含 KaTeX 數學式）、立法時間線、每篇附參考來源 |
 
-> **實地考察紀錄的儲存方式**：連接 Supabase 時寫入 `field_records` 資料表（所有人可見）；
-> 未連接資料庫（示範模式）時，畫面會明確標示「只暫存在這台裝置的瀏覽器」，不假裝已寫入資料庫。
+> **實地考察紀錄的儲存方式**：連接 Supabase 時寫入 `field_records` 資料表（所有人可見），現場照片由伺服器端
+> 上傳到 Storage 的 `field-photos` bucket（bucket 由 `supabase/init.sql` 建立，公開唯讀、寫入一律經 `service_role`）；
+> 未連接資料庫（示範模式）時，畫面會明確標示「只暫存在這台裝置的瀏覽器」，照片也只留在該裝置，**不假裝已寫入或已上傳**。
 
 ### 相片
 
@@ -175,7 +178,7 @@ macau-heritage-trees/
 ├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed／make_icons）、開發伺服器、驗證腳本（Node：check-syntax／vendor／build-sw／gen-data-meta／qr-roundtrip；Python：card-check／card-pdf／pwa-check／qr-decode／ui-audit）
 ├── source-data/            原始 CSV 與 docx
 ├── .github/workflows/      每日自動擷取官方名錄（refresh-official-data.yml）
-└── tests/                  18 組測試（統計／SQL／API／路由／安全／機密／官方資料／官方值優先／前端／實地考察／優先保育／監測時間序列／**化學視角與環境數據**／二維碼／列印／Supabase 查詢形狀／離線 PWA）
+└── tests/                  20 組測試（統計／SQL／API／路由／安全／機密／官方資料／官方值優先／前端／實地考察／**考察照片上傳與結構化欄位**／優先保育／監測時間序列／化學視角與環境數據／二維碼／列印／Supabase 查詢形狀／離線 PWA）
 ```
 
 ---
@@ -193,9 +196,9 @@ macau-heritage-trees/
 | `sites` | 古樹所在地點（127 個），含座標、歷史與故事 |
 | `trees` | 古樹個體清單（658 筆）：樹齡、樹高、健康狀況、分級、座標 |
 | `routes` | 精選路綫（5 條） |
-| `conservation_topics` | 保育科普文章（11 篇） |
+| `conservation_topics` | 保育科普文章（12 篇，含「化學視角」分類） |
 | `timeline_events` | 立法與名錄時間線（9 個事件） |
-| `field_records` | **實地考察紀錄**（預留給現場記錄）：古樹編號、觀察日期、記錄者、天氣、健康狀況、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、照片、座標、建立時間 |
+| `field_records` | **實地考察紀錄**：古樹編號、觀察日期、記錄者、天氣、健康狀況、**樹皮狀況（陣列）**、**周邊環境（陣列）**、**水泥覆蓋範圍**、樹高／胸徑／冠幅、立地環境、病蟲害與損傷、外部照片網址、**Storage 照片路徑（陣列）**、座標、建立時間 |
 
 索引：`parish_code / species_id / site_id / health / grade / age_years / (lat, lon)`、`field_records(observed_on)`。
 
@@ -241,13 +244,26 @@ macau-heritage-trees/
 | `GET /api/field-records` | 實地考察紀錄清單；`limit` 可選（上限 500）；回傳 `writable` 旗標說明是否已連接資料庫 |
 | `GET /api/env-chem` | **化學視角（作業要求 F）** 的官方環境數據；參數 `block=air｜acid｜materials`（只取一段）、`matrix=<污染物>`（各站該污染物年均矩陣）、`region=<堂區>`（該區域官方監測站背景值，未知堂區回 404）、`year`（僅官方有資料的年份，否則 400）、`trees=1`（附上「區域 × 官方健康狀況」對照）。回傳 `doc`（官方出處、數值、機制與化學式、**來源索引**）、`hash`（資料內容雜湊，便於核對版本）、`stations`。**數值一律官方原值：不換算、不內插、不平均**，官方查不到的（例如 2000 年後的降雨 pH、逐點土壤理化）一律標明「找不到」而不填空 |
 | `GET /api/monitoring` | **監測時間序列**；`tree=<編號>` 回單株完整序列（觀測點、逐次差異、趨勢、異常；找不到回 404）、`only=changed｜attention｜field` 篩選、`limit`（預設 50，`0`／`all=1` 為全部）、`rows=1` 附上每株變動摘要；回傳 `summary`（快照數與期間、官方變動株數、已有考察紀錄株數、需確認株數）、`method`（三個來源與規則）、`snapshots`、`data`（官方資料履歷）。**不含任何自訂級別**；官方值變動標為資訊而非異常 |
-| `POST /api/field-records` | 新增一筆實地考察紀錄（JSON body）；欄位驗證不過回 `400`，示範模式回 `stored: false` 並附說明 |
+| `POST /api/field-records` | 新增一筆實地考察紀錄（JSON body）；欄位驗證不過回 `400`（結構化欄位會列出允許值），示範模式回 `stored: false` 並附說明 |
+| `POST /api/photo` | **現場照片上傳**：body `{ data_url, tree_no? }`，只接受 JPEG／PNG／WebP 的 data URL（前端已壓縮至長邊 1280、≤3 MB，過大回 `413`）。成功回 `{ stored: true, path, url }`（Storage 公開網址）；示範模式回 `stored: false` 並說明照片只留在本機；儲存空間不存在時回 `503` 並提示重跑 `init.sql`。只接受 `POST`（其他方法回 `405`） |
 
 ### 實地考察紀錄欄位
 
 `tree_no`（古樹編號，可空）、`observed_on`（`YYYY-MM-DD`）、`observer`（必填，≤60 字）、`weather`（≤20 字）、
 `health`（僅接受「健康」「一般」「瀕危」）、`height_m`（0–100）、`diameter_cm`（0–1000）、`crown_m`（0–100）、
 `site_note`／`damage_note`（≤600 字）、`photo_url`、`lat`／`lon`。超出長度一律截斷、非數值一律視為未填。
+
+**結構化觀察欄位（v0.13.0）**——同一組選項寫在三處（前端勾選欄、`lib/repo.js` 常數、`supabase/schema.sql` 的 CHECK），
+`tests/field.test.js` 會比對三邊是否一致，前端送得出、資料庫就不會擋掉：
+
+| 欄位 | 型別 | 允許值 |
+| --- | --- | --- |
+| `bark_conditions` | `text[]` | 剝落／黴斑／白色鹽類結晶／無明顯異常（可多選；勾「無明顯異常」時前端會自動取消其他項） |
+| `surround_items` | `text[]` | 鄰近馬路／鄰近建築物／排水口／水泥覆蓋／裸露土壤／其他（可多選） |
+| `concrete_cover` | `text` | 無／少量（少於三分之一）／約一半／大部分（超過三分之二）／幾乎全部覆蓋 |
+| `photo_paths` | `text[]` | Storage 相對路徑（伺服器產生）；`../`、絕對路徑與外部網址一律濾掉，API 另回 `photo_urls` 公開網址 |
+
+違反允許值時回 `400` 並列出可接受的値（不靜默丟掉學生填的內容）；重複值會去重，逗號或頓號分隔的字串也會被接受。
 
 ---
 
@@ -327,7 +343,7 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 ## 八、連接 Supabase
 
 1. 在 [Supabase](https://supabase.com) 建立專案。
-2. 打開 **SQL Editor → New query**，貼上 **`supabase/init.sql`**（`schema.sql` ＋ `seed.sql` 的合併檔，1609 行）並按 **Run**——
+2. 打開 **SQL Editor → New query**，貼上 **`supabase/init.sql`**（`schema.sql` ＋ `seed.sql` 的合併檔，由 `npm run build:init` 產生）並按 **Run**——
    一次就會建立 7 張表、3 個檢視表、6 個 RPC、RLS 政策，並匯入 658 筆古樹。
    （若偏好分開執行，也可先跑 `supabase/schema.sql` 再跑 `supabase/seed.sql`。）
 3. 到 **Project Settings → API** 取得 `Project URL` 與 `service_role` 金鑰。
@@ -347,6 +363,11 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 > 目前版本的 `schema.sql`／`init.sql` 開頭已有一段**版本升級**（`alter table if exists … add column if not exists …`，
 > 共 8 張表、89 個欄位），會就地補齊缺少的欄位並保留預設值，可安全重複執行。
 > 直接把最新 `supabase/init.sql` 重新貼上執行即可，**不需要**刪表重建，實地考察紀錄也不會遺失。
+>
+> v0.13.0 起 `init.sql` 也會一併建立 Storage 的 `field-photos` bucket（公開唯讀），
+> 現場照片就是上傳到那裡；**舊版的資料庫一定要再跑一次**，否則照片上傳會回
+> 「儲存空間（field-photos）還不存在」。這一段以 `information_schema` 守衛，只有在真的 Supabase
+> 環境（有 `storage` schema）才會執行，本機測試用的 PGlite 會自動跳過。
 
 > **金鑰安全**：`.env`、`.env.local` 已列入 `.gitignore`；前端程式碼不含任何 Supabase 端點或金鑰（由 `tests/api-security.test.js` 自動驗證）。
 >
@@ -392,7 +413,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 18 組測試，共 277 項
+npm test               # 20 組測試，共 289 項
 npm run verify         # check ＋ test
 ```
 
@@ -409,8 +430,9 @@ npm run verify         # check ＋ test
 | `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 17 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql、**胸徑／胸圍 658/658 官方值**、**多主幹取最大胸徑那支且逐支保留**、**官方資料履歷（`lib/data-meta.js`）雜湊必須與 `data/` 同步** | 12 |
-| `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級、**胸徑胸圍不得自行換算**、**空路綫必須顯示訊息而不是拋錯**、**介面不得出現「作業」字眼**（網站不是寫給評分者看的，措辭一旦洩漏來源就會讓老師誤會） | 21 |
-| `tests/field.test.js` | 實地考察：API 清單與新增、輸入驗證（必填、健康值、數值範圍、長度截斷）、`schema.sql`／`init.sql` 含 `field_records`、前端分頁與地圖入口串接；**「已上線／規劃中」兩段不得把做完的事留在待辦**（三項已完成各須有可點入口） | 11 |
+| `tests/ui.test.js` | 裝置適配（viewport／theme-color／深色模式／手機斷點／觸控目標／輸入框 16 px／列印樣式），並守住**表格內插陣列必須 `join`**（否則會出現一整排逗號）、圖表小結數量與模態框層級、**胸徑胸圍不得自行換算**、**空路綫必須顯示訊息而不是拋錯**、**介面不得出現「作業」字眼**（網站不是寫給評分者看的，措辭一旦洩漏來源就會讓老師誤會）、**repo 不得出現重複檔**（`schema 2.sql` 這類檔案測試撈不到，會讓「測試全綠」變成假象） | 22 |
+| `tests/field.test.js` | 實地考察：API 清單與新增、輸入驗證（必填、健康值、數值範圍、長度截斷）、結構化欄位（合法值保留、非法值回 400 並列允許值）、`schema.sql`／`init.sql` 含 `field_records`、前端分頁與地圖入口串接；**「已上線／規劃中」兩段不得把做完的事留在待辦**；**三份選項清單（前端／後端／資料庫 CHECK）一致性**；**A4 考察單的版面約束**（新勾選格必須在右欄並橫向展開，否則單頁會被撐成三頁）；`/api/photo` 只接受 POST、示範模式不假裝上傳成功 | 16 |
+| `tests/field-photo.test.js` | 考察照片上傳（攔截 fetch 驗形狀）：上傳路徑必須在 `field-photos` bucket、帶 service_role 授權與 `x-upsert:false`、body 是圖片位元組、回傳公開網址；非圖片 data URL／超過 3 MB／bucket 不存在（訊息要指出重跑 `init.sql`）各有明確錯誤；結構化欄位寫入形狀與 `photo_paths` 清洗；`listFieldRecords` 會把路徑轉成可顯示網址 | 6 |
 | `tests/qr.test.js` | 二維碼：標準尺寸公式、三個定位圖案、時序圖案、靜區、決定性、資料過大時明確報錯、URL 產生器（絕對網址／特殊字元編碼）、SVG 與下載檔格式、**658 株全部試算一次** | 11 |
 | `tests/priority.test.js` | **優先保育名單**：五項權重合計 100、各項門檻與分數刻度邊界（75／60／45）、缺值必須中性計分（`Number(null)===0` 的陷阱）、名次規則可重現、**分級鐵律**（程式與介面不得出現 S／A／B／C 級或 `tier` 欄位；官方分級與健康狀況以外的值不得進入名單；官方分佈必須與來源檔一致）、**KPI 株數必須數字相加**（`num(1)+num(6)` 會變 "16"）、官方分級／健康狀況篩選、方法說明必含分級政策與「冠幅未列入」「非官方認定」「分數段落不是級別」、**以真實 658 筆資料評分**（515 年一級瀕危株必須在前 3 名）、`/api/priority` 實跑、前端與列印串接、**內插陣列必須 join** 的靜態守門、列印頁數＝2＋名單分頁 | 24 |
 | `tests/monitoring.test.js` | **監測時間序列**：序列組成（《名錄》版本無日期、視為最早；排序正確）、**缺值不得內插或用平均補值**（只比較兩邊都有值的欄位）、趨勢擬合邊界（點數不足／跨距 < 30 天只說明原因、給得出每年變化量與 R²）、異常規則（胸徑減少 ≥ 0.5 公分、樹高減少 ≥ 0.2 公尺、實地看到的健康惡化列「需確認」；官方值變動只列資訊）、複查提醒（> 730 天）、**真實資料**（#1132 官方分級三級→不分級；全站變動株數必須等於名錄與官方現行值的差異株）、**官方快照產生器 `--check`**、`/api/monitoring` 實跑（含 404 與**回應契約：`changes` 必須是陣列**——曾誤改成筆數，前端 `.map` 直接 TypeError 讓整頁掛掉）、分頁接線與 Service Worker 預載；**官方樹齡更新**（#619 155→115 年列為官方資料更新而非異常） | 18 |
@@ -470,6 +492,10 @@ node scripts/dev-server.mjs 3463 &
 node scripts/cdp-check.mjs "http://127.0.0.1:3463/#/chemistry" \
   --wait "17.3" --wait "降雨酸鹼度" --dump /tmp/chem.txt --screenshot /tmp/chem.png
 node scripts/cdp-check.mjs "http://127.0.0.1:3463/#/map?tree=619" --wait "環境背景"
+
+# 也可以把「跑完之後」的 DOM 狀態取回來（文字比對看不到的屬性，例如 type／capture／name）
+node scripts/cdp-check.mjs "http://127.0.0.1:3463/#/field" --wait "樹皮狀況" \
+  --eval "document.querySelectorAll('input[name=bark_conditions]').length"
 ```
 
 > 支援 `--wait`（可重複）、`--selector`、`--dump`（把畫面文字存檔）、`--screenshot`、`--timeout`、`--json`。
@@ -602,6 +628,12 @@ npm run refresh:official  # 重抓官方名錄 → 重建種子檔／快照／�
 抓了新資料卻忘了更新履歷（或反過來）都會讓 `npm test` 紅燈。
 
 ## 十四、疑難排解（部署後常見狀況）
+
+### 症狀：實地考察的照片上傳失敗，說「儲存空間（field-photos）還不存在」
+
+**原因**：資料庫還沒跑過 v0.13.0 以上的 `init.sql`，`storage.buckets` 裡沒有 `field-photos`。
+**解法**：到 Supabase → SQL Editor 貼上最新 `supabase/init.sql` 全文並 Run（可重複執行）。
+紀錄本身仍會存進資料庫，只有照片不會上傳；示範模式下照片則一律只留在該裝置，這是刻意設計。
 
 ### 症狀：某些分頁出現「伺服器處理請求時發生錯誤」，實地考察頁寫「無法連線 API」
 
@@ -788,7 +820,7 @@ Vercel 專案的 **Deployment Protection** 開啟了（`Vercel Authentication`�
 
 ---
 
-## 十三、化學視角（作業要求 F）
+## 十七、化學視角
 
 作業第 3 點 F 要求「針對 A–D 選一點做化學視角分析補充（土壤酸鹼、礦物成分差異影響物種分佈；
 市區水泥滲出物改變土壤化學環境；合適土壤化學條件對保育的影響）」。本站把它做成一個分頁，
@@ -836,6 +868,53 @@ node scripts/cdp-check.mjs "http://127.0.0.1:3463/#/chemistry" --wait "17.3"
 
 ---
 
+
+## 十八、實地考察：結構化觀察與照片上傳
+
+官方的現場觀察要求寫得很具體（**樹皮剝落／黴斑／白色鹽類結晶**、**鄰近馬路／建築物／排水口／水泥覆蓋範圍**、
+**拍攝可反映環境特徵的照片**），如果只靠兩個自由文字欄，這些資訊沒辦法統計、也沒辦法和其他株比較。
+v0.13.0 把它做成勾選欄位與真正的照片上傳：
+
+### 18.1 勾選欄位（三處同一份清單）
+
+| 位置 | 內容 |
+| --- | --- |
+| 前端 | `public/js/field.js` 的 `BARK`／`SURROUND`／`COVERS`（勾選格附白話說明） |
+| 後端 | `lib/repo.js` 的 `FIELD_BARK`／`FIELD_SURROUND`／`FIELD_CONCRETE_COVER`（驗證與正規化） |
+| 資料庫 | `supabase/schema.sql` 的 `field_records_bark_conditions_check` 等三個 CHECK（陣列用 `<@` 比對） |
+
+`tests/field.test.js` 逐項比對三邊；`npm run build:init` 產生的升級段落也會替舊資料庫補上這三個 CHECK，
+而且**陣列欄位只刪掉非法元素、不會整欄覆蓋**（學生填的內容不會被清掉）。
+
+### 18.2 照片：前端壓縮 → 伺服器上傳 → Storage
+
+1. 表單的「現場照片」用 `<input type="file" accept="image/*" capture="environment" multiple>`（手機直接開相機，最多 3 張）。
+2. 選檔後在瀏覽器用 canvas 壓成**長邊 1280、JPEG 品質 0.72**（手機原圖 3–5 MB，不壓一定失敗）。
+3. 送出時逐張打 `POST /api/photo`（body 是 data URL）；伺服器端再驗型別、解 base64、限 3 MB，
+   用 `service_role` 上傳到 Storage 的 `field-photos/<日期>/<樹號>-<時間>-<隨機>.jpg`，回公開網址。
+4. 資料庫只存路徑（`photo_paths`），讀取時由 `photoPublicUrl()` 組成網址一併回傳（`photo_urls`），
+   前端清單直接顯示縮圖；`../`、絕對路徑與外部網址一律在驗證層被濾掉。
+
+**示範模式（未連接 Supabase）**：照片不上傳，改存本機瀏覽器並在畫面明示「只留在這台裝置」；
+真的存不下（localStorage 額度）時會放棄照片、留住紀錄文字，並告訴使用者先匯出 CSV —— 不會默默失敗。
+
+### 18.3 A4 考察單的一頁限制
+
+紙本考察單加了 15 個勾選格之後，A4 從 1 頁變成 3 頁（左欄只有 60mm，勾選格被擠成多行）。
+修法是把勾選格放到右欄並用 `.card-checklist.card-check-inline` 橫向展開，量到 `card-body` 233mm／
+可用 268mm，PDF 回到 **1 頁**。`scripts/card-pdf.py` 現在把「頁數不符」與「非 A4」都算失敗
+（以前只檢查關鍵字，會出現印出 `✗ form-66：3 頁` 卻摘要說「全部通過」的情形），並加驗空白考察單。
+
+### 18.4 怎麼驗
+
+```bash
+node --test tests/field.test.js tests/field-photo.test.js   # 22 項
+python3 scripts/card-pdf.py <port>                          # A4 頁數／尺寸／文字抽取
+node scripts/cdp-check.mjs "http://127.0.0.1:3466/#/field" --wait "樹皮狀況" \
+  --eval "document.querySelectorAll('input[name=bark_conditions]').length"   # → 4
+```
+
+---
 
 ## 授權
 

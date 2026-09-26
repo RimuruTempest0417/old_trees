@@ -596,6 +596,37 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
 .qr-url { word-break: break-all; text-align: center; }
 .qr-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
 
+/* =============================================================
+   實地考察：結構化觀察欄位與現場照片（v0.13.0）
+   ============================================================= */
+.check-field {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: .5rem .7rem .6rem;
+  margin: 0;
+}
+.check-field legend { padding: 0 .3rem; font-weight: 600; color: var(--ink-soft); }
+/* 勾選格：自動排版，手機是單欄、桌機是兩欄，字不會擠成一團 */
+.check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: .3rem .9rem; }
+.check-item { display: flex; gap: .45rem; align-items: flex-start; font-size: .85rem; line-height: 1.35; }
+.check-item input[type="checkbox"] {
+  margin-top: .18rem; width: 1rem; height: 1rem; flex: none; accent-color: var(--green-600);
+}
+
+/* 現場照片縮圖（表單預覽與紀錄清單共用） */
+.field-thumbs { display: flex; flex-wrap: wrap; gap: .55rem; align-items: flex-start; }
+.field-thumb-wrap { position: relative; display: inline-flex; flex-direction: column; gap: .15rem; align-items: center; }
+.field-thumb {
+  width: 96px; height: 96px; object-fit: cover; display: block;
+  border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--paper);
+}
+.field-thumb-wrap .btn-sm { position: absolute; top: -6px; right: -6px; padding: 0 .35rem; line-height: 1.5; }
+
+@media print {
+  .check-field { break-inside: avoid; }
+  .field-thumbs { display: none !important; }
+}
+
 /* 列印二維碼標籤：白底黑碼、三欄排列、不要陰影與按鈕 */
 @media print {
   .qr-controls, .qr-toolbar, .qr-label-actions, #qr-sheet + *, .skip-link { display: none !important; }
