@@ -178,3 +178,26 @@ test('前端會依 /api/health 的 schema 結果顯示「資料庫需要升級�
   assert.match(src, /資料庫需要升級/);
   assert.match(src, /healthRaw\(\)/, '必須用寬容版讀 health，否則 ok:false 會被當成失敗而看不到提示');
 });
+
+test('describeDbFailure：訊息要指出「缺的是欄位還是資料表」與正確的名字', () => {
+  // 2026-09-26 線上實測（v0.13.0 部署後）：Supabase 對「資料表缺少新欄位」回的是
+  //   PGRST204：Could not find the 'bark_conditions' column of 'field_records' in the schema cache
+  // 而舊版程式把它講成「資料庫結構是舊版：缺少欄位 of」——原因是只認 `column "X"` 這種寫法，
+  // 於是抓到關鍵字後面的 "of"；另外「先判資料表」也會把缺欄位誤判成缺資料表
+  // （訊息裡同時有「relation … does not exist」）。這兩個坑一起用測試鎖住。
+  const cases = [
+    [{ code: 'PGRST204', message: "Could not find the 'bark_conditions' column of 'field_records' in the schema cache" }, '欄位', 'bark_conditions'],
+    [{ code: '42703', message: 'column "bark_conditions" of relation "field_records" does not exist' }, '欄位', 'bark_conditions'],
+    [{ code: '42703', message: 'column "official_no" does not exist' }, '欄位', 'official_no'],
+    [{ code: '42P01', message: 'relation "public.field_records" does not exist' }, '資料表', 'field_records'],
+    [{ code: 'PGRST205', message: "Could not find the table 'public.field_records' in the schema cache" }, '資料表', 'field_records'],
+    [{ code: '42883', message: 'function public.rpc_find_trees(integer) does not exist' }, '資料庫函式', 'rpc_find_trees'],
+  ];
+  for (const [err, what, name] of cases) {
+    const d = describeDbFailure(err);
+    assert.equal(d.code, 'db_schema_outdated', `${name}：應歸為結構問題`);
+    assert.ok(d.message.includes(what), `${name}：訊息應說明缺的是「${what}」，實際：${d.message}`);
+    assert.ok(d.message.includes(name), `${name}：訊息應指出名字，實際：${d.message}`);
+    assert.ok(!/缺少\S*\s(?:of|in|on)\b/.test(d.message), `${name}：不得出現「缺少 of」這類抓錯的名字（${d.message}）`);
+  }
+});
