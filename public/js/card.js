@@ -469,6 +469,119 @@ export function routeOptionsHtml(routes = [], wanted = '') {
   return opts.join('') || '<option value="">（尚無路綫）</option>';
 }
 
+/* ── A4 政策方案摘要（mode=policy） ─────────────────────
+   把 #/policy 的內容壓成可交給老師的紙本：第 1 頁總覽與方法，之後每個方向一頁
+   （政策依據 + 具體行動），最後一頁來源索引。所有內容與網頁共用同一份資料，
+   因此紙本與線上不會講不一樣的話。 */
+export function policySheetHtml(d = {}, opts = {}) {
+  const s = d.summary || {};
+  const stamp = opts.date || new Date().toLocaleString('zh-TW', { hour12: false });
+  const head = (title, sub) => `
+    <header class="card-head">
+      <div>
+        <p class="card-kicker">澳門古樹保育研究平台</p>
+        <h2>${esc(title)}</h2>
+        ${sub ? `<p class="card-sub">${esc(sub)}</p>` : ''}
+      </div>
+      <div class="card-meta"><p>${esc(stamp)}</p><p class="tiny">資料雜湊 ${esc(s.hash || d.hash || '')}</p></div>
+    </header>`;
+
+  // 為什麼一個方向要拆成兩頁：政策依據與具體行動的內文都很長，塞在同一張 A4 一定會溢出
+  // （實測：一頁放一個方向會變成 13 頁）。拆成「政策依據」與「具體行動」兩頁後，
+  // 每個方向都是固定的兩頁，紙本頁數可預期，也方便老師抽換其中一頁。
+  // 紙本是「摘要」而不是全文：內文過長會把 A4 撐成兩頁（實測 16 頁），
+  // 因此列印時把長句截短並標上刪節號；完整內容留在網頁版與 API。
+  const clip = (t, n) => {
+    const str = String(t == null ? '' : t).trim();
+    return str.length > n ? `${str.slice(0, n - 1)}…` : str;
+  };
+
+  const pages = [];
+  pages.push(`<article class="card-page card-policy">
+    ${head('政策型設計方案', '城市綠化 ／ 環保節能 ／ 文旅文創')}
+    <div class="card-body">
+      <p class="small">本方案把澳門古樹保育接上現行政策與法規，分成三個方向，每個方向寫出政策依據、
+      具體行動（負責單位、期程、成功指標）與優先順序的理由。全部數字與條文均附官方出處，
+      官方查不到的一律列在最後一頁的「本頁沒有的東西」。</p>
+      <table class="card-table">
+        <thead><tr><th>方向</th><th>目標</th><th>政策依據</th><th>行動</th></tr></thead>
+        <tbody>
+          ${d.directions.map((x) => `<tr>
+            <th scope="row">${esc(x.name)}</th>
+            <td>${esc(clip(x.goal, 58))}</td>
+            <td>${x.policies.length} 條</td>
+            <td>${x.actions.length} 項</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <h3>這份方案的方法</h3>
+      <p class="small"><strong>範圍</strong>：${esc((s.method || {}).scope || '')}</p>
+      <p class="small"><strong>誠實原則</strong>：${esc((s.method || {}).honesty || '')}</p>
+      <p class="small"><strong>優先順序怎麼來</strong>：${esc((s.method || {}).data || '')}</p>
+      <p class="small">本方案共 政策依據 ${s.policy_count || 0} 條、具體行動 ${s.action_count || 0} 項、
+      官方來源 ${s.source_count || 0} 個；紙本共 9 頁（總覽 1 頁、每個方向 2 頁、來源索引 1 頁、已知缺口 1 頁）。</p>
+    </div>
+  </article>`);
+
+  for (const dir of d.directions) {
+    pages.push(`<article class="card-page card-policy">
+      ${head(dir.name + '：政策依據', dir.goal)}
+      <div class="card-body">
+        <p class="small">${esc(clip(dir.why, 150))}</p>
+        <table class="card-table small">
+          <thead><tr><th>政策／法規</th><th>主管</th><th>與古樹相關的內容</th><th>可引用數字</th></tr></thead>
+          <tbody>${dir.policies.map((p) => `<tr>
+            <th scope="row">${esc(clip(p.name, 46))}${p.year ? `<br><span class="tiny">${esc(clip(p.year, 26))}</span>` : ''}</th>
+            <td>${esc(p.dept || '—')}</td>
+            <td>${esc(clip(p.key, 96))}</td>
+            <td>${esc(p.numbers || '－')}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <p class="tiny">以上條文與數字均取自官方文件，出處見最後一頁的來源索引。</p>
+      </div>
+    </article>`);
+
+    pages.push(`<article class="card-page card-policy">
+      ${head(dir.name + '：具體行動', '誰負責、做什麼、在哪裡、怎麼算成功、期程與成本概念')}
+      <div class="card-body">
+        <table class="card-table small">
+          <thead><tr><th>編號</th><th>行動與做法</th><th>負責／期程</th><th>成功指標</th></tr></thead>
+          <tbody>${dir.actions.map((a) => `<tr>
+            <th scope="row">${esc(a.id)}<br><span class="tiny">${esc(a.title)}</span></th>
+            <td>${esc(clip(a.what, 132))}<br><span class="tiny">合作：${esc(clip(a.partners, 34))}；地點：${esc(clip(a.where, 34))}；成本：${esc(clip(a.cost, 30))}</span></td>
+            <td>${esc(a.who || '')}<br><span class="tiny">${esc(a.term || '')}</span></td>
+            <td>${esc(clip(a.kpi, 78))}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <h3>為什麼先做這幾項（以本站資料排優先順序）</h3>
+        <ul class="small">${dir.evidence.map((e) => `<li><strong>${esc(e.label)}</strong>：${esc(clip(e.value, 68))}</li>`).join('')}</ul>
+      </div>
+    </article>`);
+  }
+
+  // 來源索引與缺口各自一頁：實測兩者放同一張 A4 會多出 66mm（358mm ＞ 292mm），
+  // 列印時就會被切成兩張紙，頁數變得不可預期。
+  pages.push(`<article class="card-page card-policy">
+    ${head('官方來源索引', '每一項政策與數字都可回溯到官方文件')}
+    <div class="card-body">
+      <ol class="small card-src">${(d.sources || []).map((x) => `<li>${esc(x.publisher)}《${esc(x.title)}》${x.date ? `（${esc(x.date)}）` : ''}<br><span class="tiny">${esc(x.url)}</span></li>`).join('')}</ol>
+    </div>
+  </article>`);
+
+  pages.push(`<article class="card-page card-policy">
+    ${head('本頁沒有的東西', '官方查不到的一律寫在這裡，不臆造')}
+    <div class="card-body">
+      <ul class="small">${(d.gaps || []).map((g) => `<li><strong>${esc(g.title)}</strong>：${esc(clip(g.detail, 140))}</li>`).join('')}</ul>
+    </div>
+  </article>`);
+
+  const total = pages.length;
+  return {
+    html: pages.map((p, n) => p.replace('</article>', `<footer class="card-foot">第 ${n + 1} 頁／共 ${total} 頁｜澳門古樹保育研究平台｜資料為公開資訊，引用請標明官方出處</footer></article>`)).join(''),
+    pages,
+  };
+}
+
 /* ── 畫面（列印分頁） ─────────────────────────────────── */
 
 const stamp = () => new Date().toLocaleString('zh-TW', { hour12: false });
@@ -488,6 +601,7 @@ export async function render(section, params = new URLSearchParams()) {
         <button type="button" class="seg-btn${mode === 'form' ? ' active' : ''}" data-mode="form">實地考察單</button>
         <button type="button" class="seg-btn${mode === 'book' ? ' active' : ''}" data-mode="book">路綫資料冊</button>
         <button type="button" class="seg-btn${mode === 'priority' ? ' active' : ''}" data-mode="priority">優先保育名單</button>
+        <button type="button" class="seg-btn${mode === 'policy' ? ' active' : ''}" data-mode="policy">政策方案摘要</button>
       </div>
       <label class="field" data-only="card"><span>古樹編號</span><input type="number" min="1" id="c-no" value="${esc(params.get('tree') || '66')}"></label>
       <label class="field" data-only="form"><span>帶入古樹編號（可留空＝空白表）</span><input type="number" min="1" id="f-no" value="${esc(params.get('tree') || '')}"></label>
@@ -546,6 +660,12 @@ export async function render(section, params = new URLSearchParams()) {
         const tree = no ? (await api.tree(no)).tree : null;
         sheet.innerHTML = fieldFormHtml(tree, { base, date: stamp() });
         hint.textContent = tree ? `已產生 1 頁考察單（已帶入編號 ${no} 的基本資料）。` : '已產生 1 頁空白考察單（未帶入任何古樹）。';
+      } else if (mode2 === 'policy') {
+        // 與 #/policy 共用同一份資料（api.policy），紙本與線上不會講不一樣的話
+        const data = await api.policy({ all: 1 });
+        const sheetOut = policySheetHtml(data, { date: stamp() });
+        sheet.innerHTML = sheetOut.html;
+        hint.textContent = `已產生 ${sheetOut.pages.length} 頁（總覽 1 頁＋方向 3 頁＋來源與缺口 1 頁）。列印對話框請選 A4、勾選「背景圖形」。`;
       } else if (mode2 === 'priority') {
         const limit = section.querySelector('#p-limit2').value;
         const grade = section.querySelector('#p-grade2').value;
@@ -578,4 +698,4 @@ export async function render(section, params = new URLSearchParams()) {
   await build();
 }
 
-export default { render, cardModel, cardHtml, fieldFormHtml, routeBookHtml, priorityListHtml, schematicMapSvg, checkItems, projectXY };
+export default { render, cardModel, cardHtml, fieldFormHtml, routeBookHtml, priorityListHtml, policySheetHtml, schematicMapSvg, checkItems, projectXY };

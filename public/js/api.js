@@ -78,6 +78,7 @@ export const api = {
   priority: (params) => request('/priority', params),
   monitoring: (params) => request('/monitoring', params),
   envChem: (params) => request('/env-chem', params),
+  policy: (params) => request('/policy', params),
   fieldRecords: (params) => request('/field-records', params),
   // 現場照片上傳：只接受前端壓縮過的 data URL（見 public/js/field.js 的 compressImage）
   uploadPhoto: (body) => request('/photo', {}, {

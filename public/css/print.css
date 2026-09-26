@@ -112,6 +112,19 @@
 .sketch-area { height: 38mm; border: 1px dashed #94a3b8; }
 
 .card-foot { margin-top: .7rem; border-top: 1px solid #cbd5e1; padding-top: .28rem; font-size: 7pt; color: #4b5563; }
+
+/* 政策方案摘要（mode=policy）：單欄、表格字小一點，好讓一頁放得下一個方向 */
+.card-policy .card-body { grid-template-columns: 1fr; gap: 0; }
+.card-policy .card-head { align-items: flex-start; }
+.card-policy .card-meta { text-align: right; font-size: 7pt; color: #4b5563; margin: 0; }
+.card-policy .card-meta p { margin: 0; }
+.card-policy h3 { margin: .5rem 0 .2rem; font-size: 10pt; }
+.card-policy .card-table { font-size: 7.8pt; }
+.card-policy .card-table th, .card-policy .card-table td { padding: .12rem .22rem; }
+.card-policy .card-table.small { font-size: 7.4pt; }
+.card-policy .card-src { padding-left: 5mm; font-size: 6.8pt; margin: .2rem 0; }
+.card-policy .card-src li { margin-bottom: 1mm; }
+.card-policy .card-src .tiny { font-size: 6.2pt; word-break: break-all; }
 .card-foot p { margin: .1rem 0; }
 
 /* ── 路綫資料冊 ──────────────────────────────────────────── */

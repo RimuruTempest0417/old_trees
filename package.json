@@ -34,9 +34,10 @@
     "pwa:check": "python3 scripts/pwa-check.py",
     "verify": "npm run check && npm test",
     "vendor": "node scripts/vendor.mjs",
-    "build:data": "python3 scripts/content.py && python3 scripts/build_seed.py && node scripts/gen-init-sql.mjs && node scripts/gen-env-chem.mjs",
+    "build:data": "python3 scripts/content.py && python3 scripts/build_seed.py && node scripts/gen-init-sql.mjs && node scripts/gen-env-chem.mjs && node scripts/gen-policy.mjs",
     "build:init": "node scripts/gen-init-sql.mjs",
     "build:env": "node scripts/gen-env-chem.mjs",
+    "build:policy": "node scripts/gen-policy.mjs",
     "build:observations": "node scripts/snapshot-observations.mjs",
     "build:data-meta": "node scripts/gen-data-meta.mjs",
     "refresh:official": "python3 scripts/fetch_iam.py --no-images && npm run build:data && npm run build:data-meta && node scripts/build-sw.mjs"

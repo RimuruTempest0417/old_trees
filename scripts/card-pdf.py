@@ -77,6 +77,8 @@ PRIO_ROWS_PER_PAGE = 40
 PRIO_LIMIT = 50
 cases.append(('prio-50', f'http://localhost:{PORT}/#/card?mode=priority&limit={PRIO_LIMIT}',
               2 + -(-PRIO_LIMIT // PRIO_ROWS_PER_PAGE)))
+# 政策方案摘要：總覽 1 頁 ＋ 三個方向各 1 頁 ＋ 來源與缺口 1 頁 ＝ 5 頁
+cases.append(('policy', f'http://localhost:{PORT}/#/card?mode=policy', 9))
 
 fails = []
 for name, url, expect in cases:
@@ -94,17 +96,24 @@ for name, url, expect in cases:
     #   1. 中文常逐字定位 → 抽出「官 方 未 提 供」（中間插入空白）
     #   2. Chrome 子集字型會把部分中文字對應到康熙部首／連字（方→⽅、高→⾼、fi→ﬁ）
     # → 用 NFKC 正規化並去掉空白後再比對關鍵字。
-    joined = unicodedata.normalize('NFKC', re.sub(r'\s+', '', ' '.join(p['text'] for p in pages)))
+    # PDF 文字抽取的第三個坑：CJK 部首補充區（U+2E80–U+2EFF）沒有相容分解，NFKC 也救不回來
+    # （Chrome 會把「西」抽成「⻄」、把「民」抽成「⺠」，於是「本頁沒有的東西」永遠比對不到）。
+    # 這裡只補我們文件中真的出現過的字，並在註解留下原因。
+    RADICAL_FIX = str.maketrans({'⻄': '西', '⺠': '民'})
+    joined = unicodedata.normalize('NFKC', re.sub(r'\s+', '', ' '.join(p['text'] for p in pages))).translate(RADICAL_FIX)
     key = {'card-66': ['古樹檔案卡', '華潤楠', '官方未提供'],
            'form-66': ['實地考察紀錄單', '現場量測'],
            'book': ['路綫資料冊', '非等比地圖'],
-           'prio': ['澳門古樹優先保育名單', '評分方法', '使用限制', '非官方文件']}
+           'prio': ['澳門古樹優先保育名單', '評分方法', '使用限制', '非官方文件'],
+           'policy': ['政策型設計方案', '城市綠化', '具體行動', '本頁沒有的東西', '官方來源']}
     if name.startswith('card'):
         want = key['card-66']
     elif name.startswith('form'):
         want = key['form-66']
     elif name.startswith('prio'):
         want = key['prio']
+    elif name.startswith('policy'):
+        want = key['policy']
     else:
         want = key['book']
     missing = [w for w in want if w not in joined]

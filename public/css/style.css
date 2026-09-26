@@ -637,3 +637,68 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
   .qr-label figcaption .small { font-size: 8pt; }
   .card { border: none !important; padding: 0 !important; }
 }
+
+/* =============================================================
+   共用狀態色與政策方案（#/policy）
+   -------------------------------------------------------------
+   2026-09-26 補：.stat-row／.stat／.tone-*／.src-link 這幾組類別
+   原本只有程式碼在用（化學視角的 KPI 與「超出標準」紅色），樣式表裡
+   從來沒有定義，等於那些狀態色在畫面上完全沒有效果。這裡一次補齊，
+   並讓政策方案頁沿用同一套。
+   ============================================================= */
+.stat-row {
+  display: grid; gap: 1rem; margin-bottom: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.stat {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: .8rem .95rem; box-shadow: var(--shadow);
+}
+.stat-label { font-size: .8rem; color: var(--ink-mute); }
+.stat-value { font-size: 1.7rem; font-weight: 700; color: var(--link); line-height: 1.15; }
+.stat-unit { font-size: .82rem; font-weight: 600; color: var(--ink-mute); margin-left: .12rem; }
+
+/* 狀態色：用 --link 之外的三個色票，深淺色模式都有足夠對比 */
+.tone-good { color: var(--green-700); font-weight: 600; }
+.tone-warn { color: var(--amber-600); font-weight: 600; }
+.tone-danger { color: var(--red-600); font-weight: 600; }
+@media (prefers-color-scheme: dark) {
+  .tone-good { color: #7fe3aa; }
+  .tone-warn { color: #f5c05b; }
+  .tone-danger { color: #ff9d9d; }
+}
+
+/* 深色模式下 --green-900 在深底上對比不足（既有的 KPI 數字因此偏暗），改用 --link */
+.kpi .kpi-value { color: var(--link); }
+
+.src-link { color: var(--link); text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
+.src-list { padding-left: 1.2rem; }
+.src-list li { margin-bottom: .3rem; }
+
+.policy-direction { margin-bottom: 1rem; }
+.policy-direction > h2 { border-bottom: 2px solid var(--green-100); padding-bottom: .3rem; }
+.policy-direction .lead { font-size: .98rem; color: var(--ink-soft); margin-bottom: .6rem; }
+.policy-actions { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.policy-action { background: var(--paper); border: 1px solid var(--line); box-shadow: none; margin: 0; }
+.policy-action h3 { margin-top: 0; }
+
+/* 兩欄式的「項目：內容」小表（政策方案的每項行動） */
+.kv { width: 100%; border-collapse: collapse; margin: .5rem 0 .3rem; }
+.kv th, .kv td { vertical-align: top; text-align: left; padding: .28rem .5rem .28rem 0; border: 0; }
+.kv th {
+  width: 6.5rem; color: var(--ink-mute); font-weight: 600; font-size: .8rem; white-space: nowrap;
+}
+.kv td { font-size: .87rem; }
+
+.tag {
+  display: inline-block; padding: .05rem .4rem; border-radius: 999px; font-size: .74rem;
+  font-weight: 700; background: var(--green-100); color: var(--green-900); margin-right: .3rem;
+}
+
+@media print {
+  /* 政策方案列印：行動卡不要被切成兩頁、狀態色轉成純黑以免灰階糊掉 */
+  .policy-action, .policy-direction { break-inside: avoid; }
+  .stat-row { grid-template-columns: repeat(4, 1fr) !important; gap: 3mm; }
+  .tag { background: transparent; border: 1px solid #999; }
+}
+
