@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { gpsVerdict, GPS_MATCH_RADIUS_M, GPS_ACCURACY_LIMIT_M, haversine } from '../lib/geo.js';
-import { normalizeFieldRecord, GPS_LIMITS } from '../lib/repo.js';
+import { normalizeFieldRecord, GPS_LIMITS, SCHEMA_PROBES } from '../lib/repo.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
@@ -148,6 +148,17 @@ test('官方查不到座標時不能假裝比對成功（誠實原則）', () =>
   // 距離一律四捨五入到公尺，不假裝有小數點精度
   const d = gpsVerdict({ ...TREE, lat: north(123.6), lon: TREE.treeLon, accuracy: 5 });
   assert.equal(d.distance_m, Math.round(haversine(TREE.treeLat, TREE.treeLon, north(123.6), TREE.treeLon)));
+});
+
+test('健康檢查的探測欄位要涵蓋前端會寫入的欄位（資料庫沒升級要在健康檢查就看得出來）', () => {
+  // 學生在樹下按儲存才發現資料庫沒升級是最糟的情況：健康檢查就要看得出來，
+  // 頁首的「資料庫需要升級」橫幅才會提前出現並說明重跑 init.sql。
+  const probe = SCHEMA_PROBES.find((p) => p.table === 'field_records');
+  assert.ok(probe, '找不到 field_records 的探測項');
+  for (const col of ['bark_conditions', 'surround_items', 'concrete_cover', 'photo_paths',
+    'gps_accuracy_m', 'gps_distance_m']) {
+    assert.ok(probe.columns.includes(col), `健康檢查沒有探測 ${col}`);
+  }
 });
 
 test('紙本考察單也留有位置比對欄位（現場沒網路時照樣能用）', () => {
