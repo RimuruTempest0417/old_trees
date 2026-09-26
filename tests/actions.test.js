@@ -315,6 +315,8 @@ test('列印每頁列數在程式與驗證腳本裡一致（改了一邊、另�
   assert.match(py, /ACTION_SAMPLE_ROWS = 6\b/, '代表株數量也要與 actionsSheetHtml 一致');
   const card = read('public/js/card.js');
   assert.match(card, /members\.slice\(0, opts\.sampleRows \|\| 6\)/, 'card.js 的代表株數量應為 6');
+  // 提示文字也要用同一組常數：曾出現「每頁 40 列」的殘留字樣（實際是 32 列）
+  assert.ok(card.includes('每頁 ${ACTION_PAGE_ROWS} 列'), '列印提示要用 ACTION_PAGE_ROWS');
 });
 
 test('README 記下了每一條建議行動（新增規則時文件要跟著補）', () => {

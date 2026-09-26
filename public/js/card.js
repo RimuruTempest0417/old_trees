@@ -769,7 +769,7 @@ export async function render(section, params = new URLSearchParams()) {
         const data = await api.priority({ all: 'actions' });
         const out = actionsSheetHtml(data, { date: stamp() });
         sheet.innerHTML = out.html;
-        hint.textContent = `已產生 ${out.pages.length} 頁（總表 1 頁 ＋ 逐株 ${out.pages.length - 1} 頁，每頁 ${PRIORITY_PAGE_ROWS} 列）。列印對話框請選 A4、勾選「背景圖形」。`;
+        hint.textContent = `已產生 ${out.pages.length} 頁（總表 1 頁 ＋ 逐株 ${out.pages.length - 1} 頁，每頁 ${ACTION_PAGE_ROWS} 列）。列印對話框請選 A4、勾選「背景圖形」。`;
       } else if (mode2 === 'priority') {
         const limit = section.querySelector('#p-limit2').value;
         const grade = section.querySelector('#p-grade2').value;
