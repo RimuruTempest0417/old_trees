@@ -37,6 +37,7 @@
 21. [優先保育行動建議](#二十一優先保育行動建議把名單變成工作清單)
 22. [科普數據導讀](#二十二科普數據導讀用同一份官方資料讀文章)
 23. [App 圖示與 PWA 安裝外觀](#二十三app-圖示與-pwa-安裝外觀)
+24. [數學科報告（Word）](#二十四數學科報告word)
 
 ---
 
@@ -374,6 +375,9 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 | `qr-roundtrip.mjs` | 產生二維碼 SVG 並用無頭 Chrome 轉成 PNG（輸出到 `.qr-check/`） | `npm run qr:verify` 的第一步 |
 | `qr-decode.py` | 用 OpenCV 解碼上一步產生的 PNG，證明「真的掃得出來」 | `npm run qr:verify` 的第二步 |
 | `card-pdf.py` | 產生列印 PDF 並檢查頁數、A4 尺寸、關鍵文字（可只跑單一模式） | 改動列印版面後 |
+| `report_stats.py` | 數學科報告用的統計核心（純標準庫實作的 t／F／χ²／常態分布、最小平方、ANOVA、卡方） | 產生數學科報告時；改統計方法時 |
+| `report-charts.mjs` | 把統計結果畫成報告用 PNG（Chart.js ＋ 無頭 Chrome，六張圖） | `report-math.py` 會自動呼叫 |
+| `report-math.py` | 產生數學科報告（Word .docx）：算統計 → 畫圖 → 組文件 | `npm run report:math` |
 | `pwa-check.py` | 關掉伺服器後驗證離線仍可開啟（Service Worker 真的接管） | 改動 Service Worker 後 |
 | `cdp-check.mjs` | 以 CDP 等指定字串出現才輸出，並印出 JS 錯誤（可模擬定位、截圖） | 驗前端功能（`--geo` 可模擬手機定位） |
 | `ui-audit.sh` | 12 分頁 × 5 寬度 × 深淺色的裝置適配稽核（120 項） | 改動前端樣式後 |
@@ -1176,6 +1180,27 @@ API：`GET /api/conservation?guides=1`（全部導讀與指標）、`GET /api/co
   圖示會由 `scripts/build-sw.mjs` 一併納入 PWA 預載清單。
 - **忘了重跑產生器會被測到**：`node scripts/build-icons.mjs --check` 比對 `icon.svg` 的雜湊與
   `icon-meta.json` 記錄的雜湊（`npm test` 會跑）。
+
+---
+
+## 二十四、數學科報告（Word）
+
+學期作業的「數學科」部分是對官方資料做統計分析與建模，報告本身由程式產生，不是手抄數字：
+
+- **產生方式**：`npm run report:math`（＝`python3 scripts/report-math.py`）
+  1. 讀 `data/snapshot.json`，一律取官方現行值（`official_*`）；
+  2. `scripts/report_stats.py` 算敘述統計、相關、六個單變量模型、ANOVA、卡方、存活投影（純標準庫，沒有 numpy／scipy）；
+  3. `scripts/report-charts.mjs` 用 Chart.js ＋ 無頭 Chrome 畫六張圖；
+  4. python-docx 組裝成 `.docx`（封面、12 節、17 張表、6 張圖、參考資料、附錄）。
+- **產出**：`高二丙 15、4、29、28（數學科）.docx`（預設放在專案上層目錄，可用 `--out` 改路徑）。
+  需要 `pip install python-docx`；圖表需要 Google Chrome（無頭模式）。只想改文字時加 `--no-charts` 沿用上次的圖。
+- **報告裡的數字要能被檢查**：每一個 p 值、R²、χ² 都寫得出公式，也都有對應的程式段；
+  報告附錄 B 附上可重現指令，並列出「本報告（Python）」與「平台網站（`lib/analysis.js`，JavaScript）」
+  兩套互不引用的實作的對照表——同一份官方資料，兩邊算到小數第三位以上一致。
+- **幾個刻意的選擇**（方法論上都寫在報告裡）：
+  - 缺值不內插、不用平均補值：官方冠幅只有 67／658 株有值，統計就只用這 67 筆並標明 n；
+  - 模型競賽要淘汰「連平均數都不如」的模型：冪函數與指數模型的 R² 為負值，報告直接寫出淘汰理由；
+  - 二次模型顯著但會外推成「負冠幅」，因此圖只畫在觀測範圍內，並在正文說明外推的界線；
 
 ---
 

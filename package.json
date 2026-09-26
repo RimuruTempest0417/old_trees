@@ -41,7 +41,8 @@
     "build:observations": "node scripts/snapshot-observations.mjs",
     "build:data-meta": "node scripts/gen-data-meta.mjs",
     "refresh:official": "python3 scripts/fetch_iam.py --no-images && npm run build:data && npm run build:data-meta && node scripts/build-sw.mjs",
-    "build:icons": "node scripts/build-icons.mjs"
+    "build:icons": "node scripts/build-icons.mjs",
+    "report:math": "python3 scripts/report-math.py"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4"
