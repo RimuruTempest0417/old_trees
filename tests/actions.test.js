@@ -316,3 +316,12 @@ test('列印每頁列數在程式與驗證腳本裡一致（改了一邊、另�
   const card = read('public/js/card.js');
   assert.match(card, /members\.slice\(0, opts\.sampleRows \|\| 6\)/, 'card.js 的代表株數量應為 6');
 });
+
+test('README 記下了每一條建議行動（新增規則時文件要跟著補）', () => {
+  // 比對「行動名稱的前 8 個字」而不是整句：README 是給人看的，敘述可以不同，
+  // 但不能有某一條行動只活在程式碼裡、文件完全沒提（老師看的就是 README）。
+  const readme = read('README.md');
+  for (const r of ACTION_RULES) {
+    assert.ok(readme.includes(r.label.slice(0, 8)), `README 沒有寫到行動：${r.label}`);
+  }
+});

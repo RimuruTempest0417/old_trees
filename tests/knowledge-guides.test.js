@@ -185,3 +185,15 @@ test('導讀用到的樣式類別都有定義', () => {
     assert.ok(css.includes(cls), `${cls} 沒有樣式定義`);
   }
 });
+
+test('README 的導讀條數與實際一致（文件數字最容易改版後忘了同步）', () => {
+  const total = guides.reduce((a, g) => a + g.items.length, 0);
+  assert.ok(total >= 36, `導讀總數偏少：${total}`);
+  const readme = read('README.md');
+  assert.ok(readme.includes(`${total} 條`), `README 沒有寫出實際的導讀條數（${total} 條）`);
+});
+
+test('GUIDES 的文章數與 README 寫的一致', () => {
+  const readme = read('README.md');
+  assert.ok(readme.includes(`${GUIDES.length} 篇文章`), 'README 的文章數與 GUIDES 不一致');
+});
