@@ -1,0 +1,23 @@
+{
+  "source": "public/icons/icon.svg",
+  "source_sha256": "7045fae36a305ebaf45f9ae4765f6ba836f89fa4472278771818742afaf732c6",
+  "master_px": 1024,
+  "renderer": "headless Chrome + sips",
+  "icons": [
+    {
+      "file": "apple-touch-icon.png",
+      "size": 180,
+      "bytes": 27471
+    },
+    {
+      "file": "icon-192.png",
+      "size": 192,
+      "bytes": 30490
+    },
+    {
+      "file": "icon-512.png",
+      "size": 512,
+      "bytes": 167606
+    }
+  ]
+}

@@ -34,6 +34,9 @@
 18. [實地考察：結構化觀察與照片上傳](#十八實地考察結構化觀察與照片上傳)
 19. [政策方案（政策型設計方案）](#十九政策方案政策型設計方案)
 20. [GPS 誤差半徑比對](#二十gps-誤差半徑比對)
+21. [優先保育行動建議](#二十一優先保育行動建議把名單變成工作清單)
+22. [科普數據導讀](#二十二科普數據導讀用同一份官方資料讀文章)
+23. [App 圖示與 PWA 安裝外觀](#二十三app-圖示與-pwa-安裝外觀)
 
 ---
 
@@ -180,10 +183,10 @@ macau-heritage-trees/
 │   └── init.sql            schema.sql ＋ seed.sql 合併檔（一鍵初始化）
 ├── data/                   建置產物（snapshot.json、iam_trees.json、conservation.json、species.json…）
 │   └── observations/       官方觀測快照（每次官方名錄內容變更存一份，監測時間序列的來源）
-├── scripts/                資料處理（Python：fetch_iam／geocode／content／build_seed／make_icons）、開發伺服器、驗證腳本（Node：check-syntax／vendor／build-sw／gen-data-meta／qr-roundtrip；Python：card-check／card-pdf／pwa-check／qr-decode／ui-audit）
+├── scripts/                開發伺服器、資料重建（Python：fetch_iam／geocode／content／build_seed／gen_upgrade_sql）、產生器（Node：build-sw／build-icons／vendor／gen-data-meta／gen-env-chem／gen-policy／gen-init-sql／snapshot-observations）、驗證（cdp-check／ui-audit.sh／card-pdf.py／pwa-check.py／qr-roundtrip／qr-decode）、發佈（make-release.sh）
 ├── source-data/            原始 CSV 與 docx
 ├── .github/workflows/      每日自動擷取官方名錄（refresh-official-data.yml）
-└── tests/                  24 組測試（統計／SQL／API／路由／安全／機密／官方資料／官方值優先／前端／實地考察／考察照片上傳與結構化欄位／GPS 誤差半徑比對／優先保育／**優先保育行動建議**／監測時間序列／化學視角與環境數據／政策方案／**科普數據導讀**／二維碼／列印／Supabase 查詢形狀／離線 PWA）
+└── tests/                  25 組測試（統計／SQL／API／路由／安全／機密／官方資料／官方值優先／前端／實地考察／考察照片上傳與結構化欄位／GPS 誤差半徑比對／優先保育／**優先保育行動建議**／監測時間序列／化學視角與環境數據／政策方案／**科普數據導讀**／二維碼／列印／Supabase 查詢形狀／離線 PWA）
 ```
 
 ---
@@ -344,6 +347,38 @@ node  scripts/vendor.mjs            # 複製前端第三方函式庫到 public/v
 | `--no-images` | 只更新資料，不下載照片 |
 | `--recompress` | 依目前設定重新壓縮既有照片（換縮圖尺寸時用） |
 
+### 全部腳本（`scripts/`）
+
+一次性重建腳本只在下表所述的時機執行，日常開發與部署不需要它們。**新增腳本要一起補在這張表**（`tests/repo-hygiene.test.js` 會檢查）。
+
+| 腳本 | 做什麼 | 什麼時候用 |
+| --- | --- | --- |
+| `dev-server.mjs` | 本機開發伺服器（模擬 Vercel：靜態檔 ＋ Functions） | `npm run dev` |
+| `check-syntax.mjs` | 對所有 JS 檔做 `node --check` 語法檢查 | `npm run check`（`npm run verify` 會一起跑） |
+| `build-sw.mjs` | 掃描實際檔案產生 `sw.js` 預載清單（含 `--check`） | 前端檔案增減後；`npm test` 會驗 |
+| `build-icons.mjs` | 由 `public/icons/icon.svg` 產生 iOS／Android 圖示（含 `--check`） | 改圖示後；`npm test` 會驗 |
+| `vendor.mjs` | 把前端第三方函式庫複製到 `public/vendor/` 並附加授權標頭 | 昇版 Leaflet／Chart.js／marked 等時 |
+| `fetch_iam.py` | 抓市政署自然網官方古樹資料與官方照片（658 筆，具續傳） | 重建 `data/`、要更新官方資料時 |
+| `content.py` | 產生科普文章與時間線內容 | 重建 `data/` |
+| `build_seed.py` | 產生 `supabase/seed.sql` 與 `data/snapshot.json` | 重建 `data/` |
+| `geocode.py` | 以 OSM Nominatim 對《名錄》地點做地理編碼（附快取） | 官方資料出現新地點時（補座標） |
+| `fetch_site_photos.py` | 為每個古樹**地點**抓一張實地相片（`public/photos/sites/`） | 有新的地點時 |
+| `fetch_species.py` | 查 Wikidata 取得每個品種的學名與相片（含授權標示） | 有新品種時 |
+| `fix_species_photos.py` | 上一支的第二輪：幫品種挑「真的能用的那張相片」 | 與 `fetch_species.py` 搭配 |
+| `gen-data-meta.mjs` | 產生官方資料履歷（`lib/data-meta.js`，附內容雜湊） | `data/` 更新後；`npm test` 會驗 |
+| `gen-env-chem.mjs` | 由 `data/env_chem.json` 產生前端用的 `data/env-chem-data.js` | 改環境數據後；`npm test` 會驗 |
+| `gen-policy.mjs` | 由 `data/policy.json` 產生 `data/policy-data.js` | 改政策方案後；`npm test` 會驗 |
+| `gen-init-sql.mjs` | 合併 `schema.sql` ＋ `seed.sql` 成 `supabase/init.sql`（含 `--check`） | 改資料庫結構後；`npm test` 會驗 |
+| `gen_upgrade_sql.py` | 產生舊版資料庫的就地升級語句（缺欄位／缺表／舊 CHECK） | 改資料庫結構後（與上一支一起） |
+| `snapshot-observations.mjs` | 把官方資料現況存成一份帶日期的快照，供監測時間序列比對（含 `--check`） | 官方資料有變動時；`npm test` 會驗 |
+| `qr-roundtrip.mjs` | 產生二維碼 SVG 並用無頭 Chrome 轉成 PNG（輸出到 `.qr-check/`） | `npm run qr:verify` 的第一步 |
+| `qr-decode.py` | 用 OpenCV 解碼上一步產生的 PNG，證明「真的掃得出來」 | `npm run qr:verify` 的第二步 |
+| `card-pdf.py` | 產生列印 PDF 並檢查頁數、A4 尺寸、關鍵文字（可只跑單一模式） | 改動列印版面後 |
+| `pwa-check.py` | 關掉伺服器後驗證離線仍可開啟（Service Worker 真的接管） | 改動 Service Worker 後 |
+| `cdp-check.mjs` | 以 CDP 等指定字串出現才輸出，並印出 JS 錯誤（可模擬定位、截圖） | 驗前端功能（`--geo` 可模擬手機定位） |
+| `ui-audit.sh` | 12 分頁 × 5 寬度 × 深淺色的裝置適配稽核（120 項） | 改動前端樣式後 |
+| `make-release.sh` | 用 GitHub API 建立 Release（本機沒有 `gh`） | 每次發佈版本時 |
+
 ---
 
 ## 八、連接 Supabase
@@ -419,7 +454,7 @@ GitHub 倉庫推送後，Vercel 亦會自動部署每次 commit。
 
 ```bash
 npm run check          # node --check：對所有 JS 檔執行語法檢查
-npm test               # 24 組測試，共 359 項
+npm test               # 25 組測試，共 369 項
 npm run verify         # check ＋ test
 ```
 
@@ -430,11 +465,12 @@ npm run verify         # check ＋ test
 | `tests/sql.test.js` | **以 PGlite（PostgreSQL 16 WASM）實跑 `schema.sql` ＋ `seed.sql` ＋ `init.sql`**，驗證檢視表、RPC、RLS 政策、一鍵初始化檔、**舊版資料庫就地升級**（缺欄位／缺表／舊 CHECK 跑一次即可補齊；重新初始化種子資料不會清掉實地考察紀錄）、**官方胸徑／胸圍入庫與多主幹株數**，以及**健康檢查探測清單與綱要一致**（逐一在真資料庫上執行探測查詢，避免誤報「資料庫需要升級」） | 33 |
 | `tests/api.test.js` | 啟動真實伺服器打 13 個端點，對照 CSV 直接計算的結果，檢查內部一致性（含 `/api/tree?no=` 與路徑形式一致、**官方胸徑／胸圍**、**主題路綫一定要產生停靠站**） | 16 |
 | `tests/supabase-path.test.js` | **Supabase 模式的查詢形狀**：以假的 `fetch` 攔截 PostgREST 請求，驗證 `allTrees()` 送出的欄位含座標（線上事故：曾誤用只回散佈圖欄位的 `rpc_scatter`，候選古樹全被濾掉，路綫推薦回 `route: null`）；**官方值優先也要在 Supabase 模式成立**（查詢必須取 `official_grade`／`official_health`；用官方分級／健康狀況篩選時，SQL 端不得再帶該條件，改由 JS 以顯示值篩選，否則會漏掉 #1132 這種名錄值與官方現行值不同的株；**`getTree()` 也必須走正常化**——Supabase 分支曾繞過 `normalizeTreeRow()`，導致線上單株詳情仍顯示《名錄》舊分級，而本機示範模式測不到）；**樹齡**：查詢要取 `official_age_years`，且年齡區間條件不得交給 SQL（否則用 115–120 年會漏掉 DB 寫 155 年的 #619） | 6 |
-| `tests/pwa.test.js` | **離線 PWA**：manifest 欄位與圖示尺寸（實際讀 PNG 標頭比對）、`sw.js` 預載清單與實際檔案同步（重跑產生器必須無差異，且逐一以 HTTP 確認 200）、`index.html` 引用的每個本機資源都在預載清單內、只處理 GET、`/api/health` 不快取、照片與圖磚有上限、離線狀態文案（含「伺服器連不上但裝置有網路」的情況）、伺服器以正確 MIME 提供 `sw.js`／manifest | 16 |
+| `tests/pwa.test.js` | **離線 PWA**：manifest 欄位、**圖示尺寸與來源 SVG 同步**（實際讀 PNG 標頭比對、`build-icons --check` 抓「改了 icon.svg 忘了重跑產生器」、外環半徑必須留在 Android 圓形裁切的安全區內）、`sw.js` 預載清單與實際檔案同步（重跑產生器必須無差異，且逐一以 HTTP 確認 200）、`index.html` 引用的每個本機資源都在預載清單內、只處理 GET、`/api/health` 不快取、照片與圖磚有上限、離線狀態文案（含「伺服器連不上但裝置有網路」的情況）、伺服器以正確 MIME 提供 `sw.js`／manifest | 17 |
 | `tests/api-security.test.js` | API 安全測試（見下） | 12 |
 | `tests/router.test.js` | **路由結構守門**：`api/` 只能有一個 Serverless Function（Vercel Hobby 上限 12）、路由表與 `lib/routes/` 一致、動態參數與 404 行為、單段落＋查詢參數形式、**前端不得出現多段落呼叫**、`vercel.json` 的 rewrite；**每個路由 id 都必須能以字面字串載入模組**（線上唯一入口走 `loadRoute()`，本機 dev-server 會用 `opts.handler` 繞過，曾因此讓 `/api/priority` 上線即 500）、**不傳 handler 也要能分派** | 9 |
 | `tests/diagnostics.test.js` | **錯誤診斷**：資料庫錯誤分類（缺資料表／欄位／函式／權限／連線；**PostgREST 與 PostgreSQL 兩種訊息寫法都要指出正確的欄位／表名**——曾把「缺少欄位 bark_conditions」講成「缺少欄位 of」，也曾把缺欄位誤判成缺資料表）、`errText` 不會產生 `[object Object]`、public 5xx 才原樣回傳訊息、`/api/health` 的結構自我檢查、前端所有錯誤顯示都經過 `errText` | 18 |
 | `tests/secrets.test.js` | 機密掃描：掃描所有 git 追蹤檔案，出現 JWT 形式金鑰、真實 Supabase 網址或未忽略的 `.env` 即失敗 | 3 |
+| `tests/repo-hygiene.test.js` | **倉庫整潔**：版控不得有瀏覽器設定檔、暫存頁、日誌或系統檔（曾把 484 檔／7.7 MB 的無頭 Chrome 設定檔 commit 進來）、單檔不得超過 1.5 MB、`scripts/` 不得有孤兒腳本（沒被 README／package.json／workflow／其他腳本提到）、`scripts/` 每個檔案都要在 README 的腳本表裡、`.gitignore` 必須擋住會再長回來的目錄 | 5 |
 | `tests/gps.test.js` | **GPS 誤差半徑比對**：判定規則（≤30 公尺相符、>30 公尺「可能不是這一株」、精度差於 ±50 公尺只能說「僅供參考」、官方無座標則「無法比對」）、邊界值（30／31、50／51）、**前後端門檻與球面距離公式必須一致**（前端不能 import 後端的 `lib/`，是刻意的複製）、三處一致（前端欄位名／後端值域／資料庫 CHECK）、後端驗證超界會擋下並說出範圍、前端接線（`enableHighAccuracy`、精度與距離寫進表單、CSV 兩欄、紀錄列「位置比對」欄）、**健康檢查必須探測前端會寫入的欄位**（資料庫沒升級要在健康檢查就看得出來）、紙本考察單留有位置比對欄位 | 12 |
 | `tests/policy.test.js` | **政策方案（政策型設計方案）**：產生檔與 `data/policy.json` 同步（`--check`）、三個方向齊全且各有 ≥3 條政策與 ≥3 項行動、**每一條政策與行動都要有官方出處或政策依據**（引用了不存在的來源即失敗）、來源索引每筆都要有標題／發布者／https 網址、行動欄位完整（做什麼／誰負責／在哪裡／成功指標／期程／成本）且**指標必須可核對**（含數字或頻率用詞）、**誠實原則**（必須寫出「官方沒有城市樹木降溫與逐株碳匯數字」兩個缺口、引用國際研究時必須標明不是澳門實測、不得出現「澳門樹木降溫 X 度」這類無來源數字）、方案內容不得出現「作業」二字、API 契約（未知方向 404、`all=1`／`gaps=1`、POST 回 405）、前端接線（分頁／VIEWS／TITLES／稽核清單）、**列印模式與網頁共用同一份資料**、以及**用到的樣式類別必須真的存在**（`.stat-row`／`.tone-danger` 這類只有程式碼在用、樣式表沒定義的情況要擋下來） | 18 |
 | `tests/iam.test.js` | 市政署官方資料整合：658 筆對上、座標全部 official、照片檔存在不破圖、官方欄位已進快照與 seed.sql、**胸徑／胸圍 658/658 官方值**、**多主幹取最大胸徑那支且逐支保留**、**官方資料履歷（`lib/data-meta.js`）雜湊必須與 `data/` 同步** | 12 |
@@ -461,7 +497,11 @@ npm run verify         # check ＋ test
 
 ### 前端渲染驗證
 
-`scripts/verify-ui.sh <port>` 以無頭 Chrome 抓取五個分頁渲染後的 DOM，確認 JavaScript 真的執行、圖表與地圖標記真的產生（而非只檢查原始碼）。實測結果：總覽 5 張圖表、地圖 658 個標記、分析頁 5 張圖表。
+`scripts/ui-audit.sh <port>` 以無頭 Chrome 逐頁抓取**渲染後**的 DOM（不是原始碼），量測 12 個分頁 × 5 種視窗寬度 × 深淺色共 120 種組合的：
+水平溢出、觸控目標大小、輸入框字級（iOS 需 ≥16 px 才不會自動放大）、地圖是否最先載入、分頁列是否可橫向滑動，
+並逐一檢查是否有 JS 例外。**實測 120/120 通過**。
+
+要確認「某段文字真的出現」時用 `scripts/cdp-check.mjs`（見下一節）：它會等到字串出現才輸出，避免把載入中的畫面當成結果。
 
 ### 列印模組驗證（不是「看起來可以印」）
 
@@ -469,9 +509,9 @@ npm run verify         # check ＋ test
 
 ```bash
 node scripts/dev-server.mjs 3370 &
-python3 scripts/card-check.py 3370   # 三種模式的 DOM 檢查（頁數、二維碼、欄位）
 pip install pypdf                     # 需要 pypdf 讀 PDF
 python3 scripts/card-pdf.py 3370      # 產生 PDF 並檢查頁數／A4 尺寸／關鍵文字
+python3 scripts/card-pdf.py 3370 /tmp/card actions   # 只跑單一模式（第三個參數是關鍵字）
 ```
 
 實測：單株檔案卡 1 頁、考察單 1 頁、路綫資料冊 11 頁（封面＋10 站），紙張尺寸全部為 A4，且每頁文字都抽得出來（代表不是空白頁）。
@@ -507,9 +547,9 @@ node scripts/cdp-check.mjs "http://127.0.0.1:3463/#/field" --wait "樹皮狀況"
 ```
 
 > 支援 `--wait`（可重複）、`--selector`、`--dump`（把畫面文字存檔）、`--screenshot`、`--timeout`、`--json`。
-> 另有 `scripts/dom-grep.sh`（同概念的精簡版）與 `scripts/shot.sh`（只截圖）。
+> 另有 `--geo 緯度,經度[,精度]`（模擬手機定位，驗 GPS 比對判定）與 `--eval`（把頁面算出來的數字取回來）。
 
-`scripts/ui-audit.sh <port>` 是**裝置適配稽核**：在 360／390／414／834／1440 px 與深淺色共 50 組組合下，量測頁面橫向溢出、元素溢出、觸控目標高度、文字輸入框字級、統計卡欄數、地圖是否排到最前、頁籤是否改為橫向滑動。因為無頭 Chrome 的視窗寬度下限約 500 px，量測在**同源 iframe** 內進行（寬度才真正可控）：
+`scripts/ui-audit.sh <port>` 是**裝置適配稽核**：在 360／390／414／834／1440 px 與深淺色共 120 組組合下（12 個分頁 × 5 寬度 × 深淺色），量測頁面橫向溢出、元素溢出、觸控目標高度、文字輸入框字級、統計卡欄數、地圖是否排到最前、頁籤是否改為橫向滑動。因為無頭 Chrome 的視窗寬度下限約 500 px，量測在**同源 iframe** 內進行（寬度才真正可控）：
 
 ```bash
 node scripts/dev-server.mjs 3351 &
@@ -1110,6 +1150,32 @@ API：`GET /api/priority`（附 `actions` 與每株 `advice`）、`GET /api/prio
 - 沒有官方數據的主題（例如 2000 年後沒有公開的降雨 pH 年值）維持寫成缺口，不用鄰近地區數字代替。
 
 API：`GET /api/conservation?guides=1`（全部導讀與指標）、`GET /api/conservation?slug=…`（單篇附該篇導讀）。
+
+---
+
+## 二十三、App 圖示與 PWA 安裝外觀
+
+手機把網站「加入主畫面」之後，看到的是圖示，不是網頁——所以圖示要有單一可重現的來源，
+不能是某次手工流程留下的產物。
+
+- **單一來源**：`public/icons/icon.svg`（老樹剪影 ＋ 名錄印記的金色環，深綠底）。
+- **產生器**：`npm run build:icons`（`scripts/build-icons.mjs`）用無頭 Chrome 把 SVG 以 1024×1024
+  渲染成母圖，再用 macOS 內建 `sips` 縮成各尺寸；**不需要任何 npm 相依**。
+- **產出三個尺寸**，各有各的用途：
+
+  | 檔案 | 尺寸 | 誰在用 |
+  | --- | --- | --- |
+  | `apple-touch-icon.png` | 180×180 | iOS 加入主畫面（iOS **不讀** manifest，只認這個檔名與 `<link rel="apple-touch-icon">`） |
+  | `icon-192.png` | 192×192 | Android／桌面瀏覽器安裝提示 |
+  | `icon-512.png` | 512×512 | Android 安裝與啟動畫面；manifest 標成 `any maskable` |
+
+- **一張圖同時滿足 maskable**：Android 會把圖示裁成圓形，內容必須落在中央 80% 的安全區內。
+  本站的構圖（最外緣＝金環半徑 358／1024）本來就在安全區內，因此不需要再做一張專用的 maskable 圖
+  （少一個檔案、也少一個要同步的地方）；`tests/pwa.test.js` 會守住「外環不得超出安全區」。
+- **favicon** 用同一個 SVG（`<link rel="icon" type="image/svg+xml">`），並保留 PNG 後備；
+  圖示會由 `scripts/build-sw.mjs` 一併納入 PWA 預載清單。
+- **忘了重跑產生器會被測到**：`node scripts/build-icons.mjs --check` 比對 `icon.svg` 的雜湊與
+  `icon-meta.json` 記錄的雜湊（`npm test` 會跑）。
 
 ---
 

@@ -43,7 +43,7 @@ export function summaryText(data) {
 }
 
 /** 行動清單的列印網址（v0.16.0）：兩頁 A4，總表＋前 40 株的逐株建議。 */
-export function actionsPrintHref() {
+function actionsPrintHref() {
   return '#/card?mode=actions';
 }
 
@@ -73,7 +73,7 @@ export function actionsText(data) {
 }
 
 /** 以目前條件產生列印用網址。 */
-export function printHref(state) {
+function printHref(state) {
   const q = new URLSearchParams({ mode: 'priority' });
   if (state.limit) q.set('limit', String(state.limit));
   if (state.grade) q.set('grade', state.grade);

@@ -162,7 +162,6 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
 
 .grid { display: grid; gap: 1rem; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .split { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; align-items: start; }
 @media (max-width: 940px) { .split { grid-template-columns: minmax(0, 1fr); } }
@@ -193,8 +192,6 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
 .tiny { font-size: .76rem; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .nowrap { white-space: nowrap; }
-.center { text-align: center; }
-.right { text-align: right; }
 .stack { display: flex; flex-direction: column; gap: .5rem; }
 .row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .row-tight { display: flex; align-items: center; gap: .3rem; }
@@ -375,11 +372,6 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
   border-radius: 50%; animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.skeleton {
-  background: linear-gradient(90deg, var(--line) 25%, color-mix(in srgb, var(--line) 40%, transparent) 50%, var(--line) 75%);
-  background-size: 200% 100%; animation: shimmer 1.3s infinite; border-radius: 6px; height: 1rem;
-}
-@keyframes shimmer { to { background-position: -200% 0; } }
 
 .notice {
   border-left: 4px solid var(--amber-600); background: color-mix(in srgb, var(--amber-100) 70%, transparent);
@@ -413,7 +405,6 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .summary > strong:first-child { display: block; margin-bottom: .15rem; color: var(--link); }
-.summary.note { border-left-color: var(--blue-600); background: color-mix(in srgb, var(--blue-100) 55%, transparent); }
 
 /* ── 頁尾 ─────────────────────────────────────────────────── */
 .site-footer {
@@ -504,7 +495,7 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
 
   .card { padding: .9rem .95rem; }
   .grid, .split, .map-layout { gap: .8rem; }
-  .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .grid-2 { grid-template-columns: minmax(0, 1fr); }
   .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
   .kpi .kpi-value { font-size: 1.5rem; }
 

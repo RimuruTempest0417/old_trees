@@ -84,7 +84,7 @@ function pointsTable(points) {
 }
 
 /** 趨勢文字：不足兩點就誠實說「無法擬合」與原因。 */
-export function trendText(t) {
+function trendText(t) {
   if (!t) return '可量測的時間點不足兩個（需要同一欄位在兩個不同日期的觀測），無法擬合趨勢。';
   if (t.slope === null) return `無法擬合：${t.reason || '資料不足'}（現有 ${num(t.n)} 個可量測時間點、跨距 ${num(t.span_days)} 天）。`;
   const dir = t.slope > 0 ? '增加' : (t.slope < 0 ? '減少' : '持平');

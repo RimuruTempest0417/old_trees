@@ -382,7 +382,7 @@ test('列印：每頁自成 A4、頁數＝方法頁 ＋ 名單分頁、欄位齊
 
 test('列印樣式：優先保育名單用到的類別都有定義', () => {
   const css = read('public/css/print.css');
-  for (const cls of ['.card-cols', '.card-table.prio', '.card-head.compact', '.card-sub']) {
+  for (const cls of ['.card-table.prio', '.card-head.compact', '.card-sub']) {
     assert.ok(css.includes(cls), `print.css 缺少 ${cls}`);
   }
 });

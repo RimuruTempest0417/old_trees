@@ -6,7 +6,7 @@ import {
 import { barChart, doughnut, destroyAll, HEALTH_COLORS, GRADE_COLORS, PALETTE } from './charts.js';
 
 /** 官方資料擷取時間：ISO 字串轉成看得懂的澳門時間（拿不到就說「未知」）。 */
-export function fmtFetched(iso) {
+function fmtFetched(iso) {
   if (!iso) return '（本次部署未提供）';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return String(iso);

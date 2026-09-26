@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="澳門古樹保育研究平台">
+  <title>澳門古樹保育研究平台</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d6242"/>
+      <stop offset="0.5" stop-color="#12482f"/>
+      <stop offset="1" stop-color="#092b1c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.42" cy="0.3" r="0.66">
+      <stop offset="0" stop-color="#3f9a63" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#3f9a63" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#f7e3b4"/>
+      <stop offset="0.5" stop-color="#dcb069"/>
+      <stop offset="1" stop-color="#b0813a"/>
+    </linearGradient>
+    <!-- 樹冠用「使用者座標」漸層：整片樹冠共用一道光，才不會每個圓各自漸層（看起來像一顆顆泡泡） -->
+    <linearGradient id="crown" gradientUnits="userSpaceOnUse" x1="352" y1="196" x2="690" y2="600">
+      <stop offset="0" stop-color="#93e6ad"/>
+      <stop offset="0.45" stop-color="#46a86c"/>
+      <stop offset="1" stop-color="#1a673d"/>
+    </linearGradient>
+    <linearGradient id="trunk" gradientUnits="userSpaceOnUse" x1="474" y1="560" x2="560" y2="770">
+      <stop offset="0" stop-color="#c68e50"/>
+      <stop offset="0.55" stop-color="#9a6231"/>
+      <stop offset="1" stop-color="#6d3e1c"/>
+    </linearGradient>
+
+    <!-- 樹冠輪廓：多個圓疊成有起伏的老樹冠（同一個 id 供填色與裁切共用） -->
+    <g id="crown-shape">
+      <circle cx="512" cy="388" r="172"/>
+      <circle cx="392" cy="440" r="128"/>
+      <circle cx="632" cy="440" r="128"/>
+      <circle cx="448" cy="322" r="118"/>
+      <circle cx="578" cy="322" r="118"/>
+      <circle cx="512" cy="302" r="112"/>
+    </g>
+    <clipPath id="crown-clip"><use href="#crown-shape"/></clipPath>
+  </defs>
+
+  <!-- 底：深綠漸層 ＋ 左上柔光 -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- 受保護名錄的印記：一道金色細環（內容全在安全區內，同一張圖可兼作 maskable） -->
+  <circle cx="512" cy="512" r="358" fill="none" stroke="url(#ring)" stroke-width="12" opacity="0.78"/>
+
+  <!-- 樹冠：一片剪影 ＋ 共用漸層；亮面與暗面都裁在剪影內，避免出現「泡泡邊」 -->
+  <use href="#crown-shape" fill="url(#crown)"/>
+  <g clip-path="url(#crown-clip)">
+    <circle cx="428" cy="322" r="215" fill="#c9f2d8" opacity="0.3"/>
+    <circle cx="512" cy="586" r="258" fill="#0f5230" opacity="0.3"/>
+    <ellipse cx="512" cy="676" rx="300" ry="112" fill="#0b4429" opacity="0.22"/>
+  </g>
+
+  <!-- 樹幹與分叉（先畫分叉與樹幹，樹冠疊在上層，只露出樹冠下緣那一段） -->
+  <g stroke="url(#trunk)" stroke-linecap="round" fill="none">
+    <path d="M512 704 L462 574" stroke-width="30"/>
+    <path d="M512 704 L566 574" stroke-width="30"/>
+    <path d="M512 694 L512 592" stroke-width="36"/>
+  </g>
+  <path d="M476 764c-4-42-6-74-4-100 1-17 1-30-2-46h84c-3 16-3 29-2 46 2 26 0 58-4 100z" fill="url(#trunk)"/>
+  <!-- 根盤與接地陰影 -->
+  <ellipse cx="512" cy="770" rx="78" ry="20" fill="url(#trunk)"/>
+  <ellipse cx="512" cy="776" rx="124" ry="20" fill="#06241a" opacity="0.38"/>
+</svg>

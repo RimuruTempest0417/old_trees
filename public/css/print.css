@@ -63,8 +63,6 @@
 
 /* 優先保育名單：封面兩欄 + 名次表（欄位多，字要小一點才不會爆框） */
 .card-sub { font-size: 9pt; color: #334155; margin: .15rem 0 0; }
-.card-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.card-cols h3 { margin-top: .35rem; }
 .card-head.compact { padding-bottom: .3rem; margin-bottom: .4rem; }
 .card-table.prio { font-size: 7.6pt; }
 .card-table.prio th { width: auto; background: #f1f5f9; }
@@ -113,10 +111,7 @@
   margin-top: .15rem; flex: none;
 }
 .card-checklist em { font-style: normal; color: #6b7280; font-size: 7.5pt; }
-/* v0.13.0：考察單的結構化勾選欄（樹皮狀況／周邊環境並排、水泥覆蓋範圍單列橫排） */
-/* A4 考察單只能一頁：樹皮狀況與周邊環境並排、每格再橫向展開，讓 15 個勾選格壓在幾行內 */
-.card-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 5mm; }
-.card-check-grid h3 { margin: .2rem 0 .12rem; }
+/* A4 考察單只能一頁：勾選欄橫向展開，讓 15 個勾選格壓在幾行內 */
 .card-checklist.card-check-inline {
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), auto);
@@ -174,7 +169,7 @@
   body > main { display: block !important; }
   body::before, body::after { display: none !important; }
   .site-header, .site-footer, .skip-link, .card-controls, .card-hint,
-  .view-title, .view-sub, .site-banner, .db-banner { display: none !important; }
+  .view-title, .view-sub { display: none !important; }
   /* 只印 A4 頁面本身：頁首頁尾、示範模式橫幅（main 底下 prepend 的 .notice）、
      其他分頁、以及列印分頁裡的控制列全部排除。
      少了這幾條，橫幅會佔掉第一頁，卡片被擠到第二頁、再多出一張空白頁。 */

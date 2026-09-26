@@ -87,12 +87,6 @@ function publish(patch = {}) {
   renderUi(s);
 }
 
-/** 供測試或其他模組訂閱狀態變化。 */
-export function onStateChange(fn) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-}
-
 function countCached() {
   if (!('caches' in window)) return Promise.resolve(0);
   return caches.keys()
@@ -181,7 +175,7 @@ function messageSw(payload) {
 }
 
 /** 重新載入以套用新版本（給 banner 的按鈕用）。 */
-export function applyUpdate() {
+function applyUpdate() {
   messageSw({ type: 'SKIP_WAITING' });
   window.location.reload();
 }

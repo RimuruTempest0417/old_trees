@@ -77,7 +77,8 @@ test('manifest 圖示：192 與 512 真存在，尺寸與宣告一致，且附 m
   const sizes = manifest.icons.map((i) => i.sizes);
   assert.ok(sizes.includes('192x192'), '缺 192 圖示（安裝提示的最低要求）');
   assert.ok(sizes.includes('512x512'), '缺 512 圖示');
-  assert.ok(manifest.icons.some((i) => i.purpose === 'maskable'), '缺 maskable 圖示（Android 圓形裁切會破圖）');
+  assert.ok(manifest.icons.some((i) => String(i.purpose).includes('maskable')),
+    '缺 maskable 圖示（Android 圓形裁切會破圖）——同一張圖可寫成 "any maskable"');
   for (const icon of manifest.icons) {
     assert.ok(icon.src.startsWith('/'), `圖示 ${icon.src} 必須是站內絕對路徑`);
     const file = pub(icon.src.replace(/^\//, ''));
@@ -92,6 +93,20 @@ test('manifest 圖示：192 與 512 真存在，尺寸與宣告一致，且附 m
 });
 
 // ── 2. service worker ─────────────────────────────────────
+test('App 圖示與來源 SVG 同步（改了 icon.svg 忘了重跑 build-icons 要紅燈）', () => {
+  const out = execFileSync('node', ['scripts/build-icons.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
+  assert.match(out, /已是最新/);
+  // iOS 主畫面用的是 180×180 的 apple-touch-icon，不是 manifest 裡那兩張
+  const { w, h } = pngSize(pub('icons/apple-touch-icon.png'));
+  assert.equal(w, 180);
+  assert.equal(h, 180);
+  // 圖示要留安全區（maskable 圓形裁切）：內容最外緣半徑不得超過 410/1024
+  const svg = fs.readFileSync(pub('icons/icon.svg'), 'utf8');
+  const ring = svg.match(/<circle cx="512" cy="512" r="(\d+)" fill="none"/);
+  assert.ok(ring, '圖示來源應該有一道金色外環（名錄印記）');
+  assert.ok(Number(ring[1]) + 20 <= 410, `外環半徑 ${ring[1]} 太靠邊，Android 圓形裁切會切到`);
+});
+
 test('sw.js：預載清單與實際檔案同步（產生器 --check 必須無差異）', () => {
   const out = execFileSync('node', ['scripts/build-sw.mjs', '--check'], { cwd: ROOT, encoding: 'utf8' });
   assert.match(out, /已是最新/);

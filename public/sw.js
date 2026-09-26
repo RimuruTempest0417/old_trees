@@ -11,7 +11,7 @@
  *
  * 預載清單由 `scripts/build-sw.mjs` 依實際檔案產生，不要手改標記區內的內容。
  */
-const VERSION = 'v0.16.0';
+const VERSION = 'v0.17.0';
 const SHELL_CACHE = `mht-shell-${VERSION}`;
 const DATA_CACHE = `mht-data-${VERSION}`;
 const MEDIA_CACHE = `mht-media-${VERSION}`;
@@ -26,7 +26,7 @@ const PRECACHE = [
   '/icons/apple-touch-icon.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/icons/icon-maskable-512.png',
+  '/icons/icon.svg',
   '/js/analytics.js',
   '/js/api.js',
   '/js/app.js',

@@ -11,7 +11,7 @@ function cssVar(name, fallback) {
   return v || fallback;
 }
 
-export function baseOptions(extra = {}) {
+function baseOptions(extra = {}) {
   const ink = cssVar('--ink', '#18231c');
   const mute = cssVar('--ink-mute', '#7b8a81');
   const line = cssVar('--line', '#dde5de');
@@ -41,11 +41,6 @@ export function baseOptions(extra = {}) {
     },
     ...(extra.root || {}),
   };
-}
-
-export function mount(canvas) {
-  if (canvas._chart) canvas._chart.destroy();
-  return canvas;
 }
 
 export function destroyAll(container) {

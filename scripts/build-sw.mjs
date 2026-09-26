@@ -55,7 +55,7 @@ const precache = [...new Set([
   '/index.html',
   '/offline.html',
   '/manifest.webmanifest',
-  ...list('icons', (f) => f.endsWith('.png')),
+  ...list('icons', (f) => /\.(png|svg)$/.test(f)),
   ...list('css', (f) => f.endsWith('.css')),
   ...fromIndexHtml(),
   ...list('js', (f) => f.endsWith('.js')),
