@@ -161,30 +161,29 @@ test('地圖詳情提供「新增實地考察紀錄」入口並帶入樹號', ()
   assert.match(map, /closeModal\(\)/);
 });
 
-test('預留空間已分成「已上線／規劃中」，做完的事不得再掛在待辦', () => {
+test('頁面下方只保留「還在規劃中」：已上線清單整段移除，但功能不得跟著被刪', () => {
+  // 使用者 2026-09-26 明確要求：實地考察頁面下方不要再顯示
+  //「這一區現在就能做的事（已上線）」那一大段（含導言與五個入口說明）。
   const field = read('public/js/field.js');
-  const iLive = field.indexOf('這一區現在就能做的事');
+  assert.ok(!field.includes('這一區現在就能做的事'), '「這一區現在就能做的事」整段應已移除');
+  assert.ok(!field.includes('原本列在這裡的規劃'), '該段的導言也應移除');
+
+  // 「還在規劃中」保留，且只留下真的還沒做的兩項
   const iTodo = field.indexOf('還在規劃中');
-  assert.ok(iLive > 0 && iTodo > iLive, '找不到「已上線／規劃中」兩段');
-
-  const live = field.slice(iLive, iTodo);
-  // 已完成的五項都要有真的可以點的入口或真的能用的欄位，不是只有文字
-  assert.match(live, /#\/qr\?mode=field/, 'QR 分頁入口');
-  assert.match(live, /#\/monitoring/, '監測分頁入口');
-  assert.match(live, /#\/card\?mode=form/, '列印考察單入口');
-  assert.match(live, /手機拍照上傳（v0\.13\.0）/, '拍照上傳已完成，應列在已上線');
-  assert.match(live, /觀察項目結構化（v0\.13\.0）/, '結構化觀察欄位已完成，應列在已上線');
-
+  assert.ok(iTodo > 0, '找不到「還在規劃中」');
   const pending = field.slice(iTodo);
-  for (const done of ['QR 掃描帶入樹號', '與官方巡查比對', '列印版考察單']) {
-    assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);
-  }
-  // v0.13.0 做完的兩項不得再掛在待辦
-  for (const done of ['手機拍照上傳', '觀察項目結構化']) {
-    assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);
-  }
   for (const todo of ['GPS 誤差半徑比對', '多人協作與審核']) {
     assert.ok(pending.includes(todo), `規劃中清單缺少「${todo}」`);
+  }
+  // 已經做完的事不得再掛在待辦
+  for (const done of ['手機拍照上傳', '觀察項目結構化', 'QR 掃描帶入樹號', '與官方巡查比對', '列印版考察單']) {
+    assert.ok(!pending.includes(done), `「${done}」已經做好，不該留在規劃中`);
+  }
+
+  // 刪說明文字時最容易誤刪功能：這些欄位／呼叫必須還在
+  for (const keep of ['name="bark_conditions"', 'name="surround_items"', 'name="concrete_cover"',
+    'capture="environment"', 'api.uploadPhoto(', 'prefillTree', 'field-csv', 'field-locate']) {
+    assert.ok(field.includes(keep), `移除說明段落時不得誤刪功能：${keep}`);
   }
 });
 

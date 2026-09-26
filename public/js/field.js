@@ -302,23 +302,7 @@ export async function render(section, params = new URLSearchParams()) {
     </div>
 
     <div class="card" style="margin-top:1rem">
-      <h2>這一區現在就能做的事（已上線）</h2>
-      <p class="tiny muted">原本列在這裡的規劃，有一部分已經做好了 —— 直接從下面這幾個入口就能用，不必再等。</p>
-      <ul class="small">
-        <li><strong>掃描二維碼直接帶入樹號</strong>：到<a href="#/qr?mode=field">QR 碼分頁</a>選「實地考察表單」，
-          列印或下載 SVG 帶去現場；手機掃描就會開啟這一株的考察表單，並自動比對樹種、官方樹齡與樹高。</li>
-        <li><strong>與官方值比對時間序列</strong>：到<a href="#/monitoring">監測分頁</a>看《古樹名錄》官方版本值、
-          市政署自然網歷次快照與這裡的考察紀錄接成的同一株時間序列；胸徑／樹高明顯減少或現場看到健康惡化會標「需確認」，
-          官方值變動只標「官方資料更新」。</li>
-        <li><strong>A4 紙本考察單</strong>：到<a href="#/card?mode=form">列印分頁</a>的「實地考察紀錄單」，
-          可帶入某一株的基本資料（含二維碼、樹皮狀況與周邊環境的勾選格），現場沒有網路也能寫。</li>
-        <li><strong>手機拍照上傳（v0.13.0）</strong>：表單的「現場照片」直接選相片或開相機 → 前端壓縮（長邊 1280）→
-          存進 Supabase Storage 的 <code>field-photos</code>；清單可直接看縮圖。示範模式會暫存在這台裝置並明白標示。</li>
-        <li><strong>觀察項目結構化（v0.13.0）</strong>：<strong>樹皮狀況</strong>（剝落／黴斑／白色鹽類結晶／無明顯異常）與
-          <strong>周邊環境</strong>（鄰近馬路／建築物／排水口／水泥覆蓋／裸露土壤／其他）已是勾選欄位，
-          另有水泥覆蓋範圍五級；每一筆都可匯出 CSV 加進報告表格，也可直接對照紙本考察單。</li>
-      </ul>
-      <h3>還在規劃中</h3>
+      <h2>還在規劃中</h2>
       <ul class="small">
         <li><strong>GPS 誤差半徑比對</strong>：目前已可一鍵填入座標；下一步是記錄誤差半徑並自動比對最近的古樹，避免記錯編號。</li>
         <li><strong>多人協作與審核</strong>：教師／巡查員帳號可覆核學生紀錄，保留修改歷程（需 Supabase Auth）。</li>
