@@ -4,6 +4,30 @@ import { esc, num, errDetail, loading, markdown, renderMath } from './ui.js';
 
 let activeSlug = null;
 
+/**
+ * 數據導讀（v0.16.0）：文章開頭的「用本站數據讀懂這篇」。
+ * 數字由後端以同一份官方資料即時計算（跟著官方更新改變），這裡只負責呈現與連結；
+ * 每一項都標示是「官方資料」還是「本站統計」，避免把統計數字誤當官方公布。
+ */
+export function guideBlock(guide) {
+  const items = (guide && guide.items) || [];
+  if (!items.length) return '';
+  return `
+    <div class="card guide-card" style="margin:0 0 .8rem">
+      <div class="row" style="justify-content:space-between;align-items:baseline;gap:.5rem">
+        <strong>用本站數據讀懂這篇</strong>
+        <span class="tiny muted">數字取自官方資料，隨更新改變</span>
+      </div>
+      <ul class="guide-list">
+        ${items.map((it) => `<li>
+          <span class="badge badge-${it.kind === 'official' ? 'good' : 'muted'}">${it.kind === 'official' ? '官方資料' : '本站統計'}</span>
+          <span>${esc(it.text)}</span>
+          ${it.link ? `<a class="src-link" href="${esc(it.link)}">看資料</a>` : ''}
+        </li>`).join('')}
+      </ul>
+    </div>`;
+}
+
 export async function render(section, params) {
   section.innerHTML = `<div class="page-head"><h1>保育科普</h1>
     <p>回答「為什麼要保育古樹」「分佈與歷史」「何時立法」「如何應對未來」等問題，並附可查證的來源。
@@ -63,11 +87,12 @@ export async function render(section, params) {
       b.style.background = b.dataset.slug === slug ? 'var(--green-100)' : '';
     });
     try {
-      const { topic } = await api.conservation({ slug });
+      const { topic, guide } = await api.conservation({ slug });
       box.innerHTML = `
         <div class="tiny muted">${esc(topic.category)}</div>
         <h1 style="font-size:1.45rem">${esc(topic.title)}</h1>
         ${topic.summary ? `<p class="muted">${esc(topic.summary)}</p>` : ''}
+        ${guideBlock(guide)}
         <hr>
         <div id="article-body">${markdown(topic.body_md)}</div>
         ${(topic.sources || []).length ? `

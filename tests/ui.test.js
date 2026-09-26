@@ -219,3 +219,20 @@ test('repo 裡不得出現「重複檔」（`schema 2.sql` 這類檔案不會被
   walk(ROOT);
   assert.deepEqual(found, [], `發現重複檔（請確認內容後刪除）：${found.join('、')}`);
 });
+
+test('動態產生的 badge 類別都在樣式表裡有定義', () => {
+  // 這類字串是程式碼拼出來的（`badge-${tone}`），樣式表漏一個就變成「沒有顏色的徽章」，
+  // 但畫面不會壞、測試也不會紅——v0.16.0 實際就在 monitoring.js／priority.js 各抓到一個
+  // （badge-warn／badge-danger 從未定義）。因此改為掃描所有前端模組，逐一比對樣式表。
+  const jsDir = `${ROOT}public/js`;
+  const cssAll = css + readFileSync(`${ROOT}public/css/print.css`, 'utf8');
+  const used = new Set();
+  for (const f of readdirSync(jsDir)) {
+    if (!f.endsWith('.js') || /\s\d+\.js$/.test(f)) continue;
+    for (const m of readFileSync(path.join(jsDir, f), 'utf8').matchAll(/badge-([a-z]+)/g)) used.add(m[1]);
+  }
+  assert.ok(used.size >= 4, `掃到的 badge 種類過少（${used.size}），掃描規則可能失效`);
+  for (const name of used) {
+    assert.ok(cssAll.includes(`.badge-${name}`), `badge-${name} 沒有任何樣式定義（徽章會沒有顏色）`);
+  }
+});

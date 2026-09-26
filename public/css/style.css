@@ -672,6 +672,16 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
 .kpi .kpi-value { color: var(--link); }
 
 .src-link { color: var(--link); text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
+
+/* 科普「數據導讀」（v0.16.0）：文章開頭的一小段「用本站數據讀懂這篇」 */
+.guide-card { border-left: 4px solid var(--green-700); background: var(--green-100); }
+.guide-list { list-style: none; margin: .5rem 0 0; padding: 0; display: grid; gap: .35rem; }
+.guide-list li { display: flex; align-items: baseline; gap: .45rem; flex-wrap: wrap; font-size: .9rem; line-height: 1.5; }
+.guide-list li > span:nth-child(2) { flex: 1 1 18rem; }
+.guide-list .src-link { margin-left: auto; white-space: nowrap; }
+@media (max-width: 640px) {
+  .guide-list .src-link { margin-left: 0; }
+}
 .src-list { padding-left: 1.2rem; }
 .src-list li { margin-bottom: .3rem; }
 

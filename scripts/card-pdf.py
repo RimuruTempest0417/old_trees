@@ -79,6 +79,29 @@ cases.append(('prio-50', f'http://localhost:{PORT}/#/card?mode=priority&limit={P
               2 + -(-PRIO_LIMIT // PRIO_ROWS_PER_PAGE)))
 # 政策方案摘要：總覽 1 頁 ＋ 三個方向各 1 頁 ＋ 來源與缺口 1 頁 ＝ 5 頁
 cases.append(('policy', f'http://localhost:{PORT}/#/card?mode=policy', 9))
+# 行動清單（v0.16.0）：總表 1 頁 ＋ 逐株每頁 40 列
+# （「立即處理」全部列出：21＋1 株；其餘行動各列代表株，另加「另有 N 株」提示列）
+ACTION_PAGE_ROWS = 32       # 與 public/js/card.js 的 ACTION_PAGE_ROWS 一致
+ACTION_SAMPLE_ROWS = 6      # 非「立即處理」的行動只列代表株（與 actionsSheetHtml 一致）
+action_rows = 0
+try:
+    full = subprocess.run(['curl', '-s', f'http://localhost:{PORT}/api/priority?all=actions'],
+                          capture_output=True, text=True, timeout=60).stdout
+    for act in (json.loads(full).get('actions') or []):
+        n = int(act.get('count') or 0)
+        if act.get('urgency') == '立即處理':
+            action_rows += n
+        else:
+            action_rows += min(n, ACTION_SAMPLE_ROWS) + (1 if n > ACTION_SAMPLE_ROWS else 0)
+except Exception as err:                                     # noqa: BLE001
+    print('取得行動清單失敗：', err)
+cases.append(('actions', f'http://localhost:{PORT}/#/card?mode=actions',
+              1 + -(-action_rows // ACTION_PAGE_ROWS)))
+
+# 只跑指定案例（第三個參數為關鍵字，例如：python3 scripts/card-pdf.py 3475 /tmp/card actions）
+ONLY = sys.argv[3] if len(sys.argv) > 3 else ''
+if ONLY:
+    cases = [c for c in cases if ONLY in c[0]]
 
 fails = []
 for name, url, expect in cases:
@@ -105,7 +128,8 @@ for name, url, expect in cases:
            'form-66': ['實地考察紀錄單', '現場量測'],
            'book': ['路綫資料冊', '非等比地圖'],
            'prio': ['澳門古樹優先保育名單', '評分方法', '使用限制', '非官方文件'],
-           'policy': ['政策型設計方案', '城市綠化', '具體行動', '本頁沒有的東西', '官方來源']}
+           'policy': ['政策型設計方案', '城市綠化', '具體行動', '本頁沒有的東西', '官方來源'],
+           'actions': ['優先保育行動清單', '立即處理', '排入專家複查與搶救復壯評估', '為什麼']}
     if name.startswith('card'):
         want = key['card-66']
     elif name.startswith('form'):
@@ -114,6 +138,8 @@ for name, url, expect in cases:
         want = key['prio']
     elif name.startswith('policy'):
         want = key['policy']
+    elif name.startswith('actions'):
+        want = key['actions']
     else:
         want = key['book']
     missing = [w for w in want if w not in joined]

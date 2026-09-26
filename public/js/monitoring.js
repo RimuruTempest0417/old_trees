@@ -49,8 +49,8 @@ function stepRow(s) {
   if (s.grade_change) bits.push(`<span class="badge badge-muted">分級 ${esc(s.grade_change)}</span>`);
   if (s.age_change) bits.push(`<span class="badge badge-muted">官方樹齡 ${esc(s.age_change)}</span>`);
   if (s.health_change) bits.push(`${healthBadge(s.health_from)} <span class="muted">→</span> ${healthBadge(s.health_to)}`);
-  if (s.diameter_delta !== null && s.diameter_delta !== undefined) bits.push(`<span class="badge ${s.diameter_delta < 0 ? 'badge-warn' : 'badge-good'}">胸徑 ${s.diameter_delta > 0 ? '+' : ''}${esc(s.diameter_delta)} 公分</span>`);
-  if (s.height_delta !== null && s.height_delta !== undefined) bits.push(`<span class="badge ${s.height_delta < 0 ? 'badge-warn' : 'badge-good'}">樹高 ${s.height_delta > 0 ? '+' : ''}${esc(s.height_delta)} 公尺</span>`);
+  if (s.diameter_delta !== null && s.diameter_delta !== undefined) bits.push(`<span class="badge ${s.diameter_delta < 0 ? 'badge-fair' : 'badge-good'}">胸徑 ${s.diameter_delta > 0 ? '+' : ''}${esc(s.diameter_delta)} 公分</span>`);
+  if (s.height_delta !== null && s.height_delta !== undefined) bits.push(`<span class="badge ${s.height_delta < 0 ? 'badge-fair' : 'badge-good'}">樹高 ${s.height_delta > 0 ? '+' : ''}${esc(s.height_delta)} 公尺</span>`);
   if (!bits.length) bits.push('<span class="badge badge-muted">無量測變化</span>');
   return `
     <tr>
@@ -202,7 +202,7 @@ export async function render(section, params) {
                 <td>${esc(r.species || '')}</td>
                 <td>${r.health ? healthBadge(r.health) : '<span class="muted">—</span>'}</td>
                 <td class="small">${arr(r.changes).map((c) => (c.grade ? `分級 ${esc(c.grade)}` : (c.age ? `樹齡 ${esc(c.age)}` : `健康 ${esc(c.health || '')}`))).join('、') || '<span class="muted">—</span>'}</td>
-                <td>${arr(r.anomalies).some((a) => a.level === 'warn') ? '<span class="badge badge-danger">需確認</span>' : '<span class="badge badge-muted">—</span>'}</td>
+                <td>${arr(r.anomalies).some((a) => a.level === 'warn') ? '<span class="badge badge-bad">需確認</span>' : '<span class="badge badge-muted">—</span>'}</td>
                 <td><a href="#/monitoring?tree=${esc(r.tree_no)}">看序列</a></td>
               </tr>`).join('')}
           </tbody>

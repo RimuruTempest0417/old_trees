@@ -18,7 +18,7 @@ import {
 /** 官方分級徽章：顏色只反映官方級別，不代表本平台的任何評等。 */
 export function gradeBadge(grade) {
   const g = String(grade || '').trim();
-  const tone = { 一級: 'danger', 二級: 'warn', 三級: 'good' }[g] || 'muted';
+  const tone = { 一級: 'bad', 二級: 'fair', 三級: 'good' }[g] || 'muted';
   return `<span class="badge badge-${tone}">${esc(g || '官方未列級')}</span>`;
 }
 
@@ -42,6 +42,36 @@ export function summaryText(data) {
   return lines.join('\n');
 }
 
+/** 行動清單的列印網址（v0.16.0）：兩頁 A4，總表＋前 40 株的逐株建議。 */
+export function actionsPrintHref() {
+  return '#/card?mode=actions';
+}
+
+/** 建議時程徽章：立即處理／今年內／持續追蹤。 */
+export function urgencyBadge(urgency) {
+  const tone = { 立即處理: 'bad', 今年內: 'fair', 持續追蹤: 'info' }[String(urgency)] || 'muted';
+  return `<span class="badge badge-${tone}">${esc(urgency || '持續追蹤')}</span>`;
+}
+
+/** 建議行動清單摘要文字（複製到報告用）。 */
+export function actionsText(data) {
+  const acts = data.actions || [];
+  const m = data.actions_method || {};
+  const lines = ['【澳門古樹優先保育行動清單】',
+    `評估範圍：全澳 ${num(data.evaluated)} 株古樹`,
+    `建議時程分級：${(m.urgency_order || []).join('／')}`];
+  acts.forEach((a) => {
+    lines.push('', `${a.label}（${a.urgency}）：共 ${num(a.count)} 株`);
+    lines.push(`  依據：${a.basis}`);
+    if ((a.examples || []).length) {
+      lines.push(`  優先處理：${a.examples.map((e) => `#${e.tree_no} ${e.species}${e.score != null ? `（${num(e.score)} 分）` : ''}`).join('、')}`);
+    }
+  });
+  lines.push('', `說明：${m.disclaimer || ''}`);
+  (m.notes || []).forEach((x) => lines.push(`  - ${x}`));
+  return lines.join('\n');
+}
+
 /** 以目前條件產生列印用網址。 */
 export function printHref(state) {
   const q = new URLSearchParams({ mode: 'priority' });
@@ -61,6 +91,43 @@ export function printHref(state) {
 export function officialListedCount(summary) {
   const by = (summary && summary.by_grade) || {};
   return (Number(by['一級']) || 0) + (Number(by['二級']) || 0);
+}
+
+/**
+ * 建議行動清單卡片（v0.16.0）。
+ * 每一類行動都攤開「要做什麼、幾株、依據什麼、先做哪幾株」，讓清單可以真的拿去分工。
+ * 這裡列出的行動是「巡查與資料整理的優先順序」，不是樹木醫學診斷或施工方案（見 method.disclaimer）。
+ */
+export function actionsCard(data) {
+  const acts = data.actions || [];
+  if (!acts.length) return '';
+  const m = data.actions_method || {};
+  return `
+    <div class="card" id="p-actions" style="margin-top:.9rem">
+      <div class="row" style="justify-content:space-between;align-items:baseline;gap:.6rem">
+        <h2 style="margin:0">建議行動清單</h2>
+        <span class="tiny muted">${num(acts.length)} 類行動・已依建議時程排序</span>
+      </div>
+      <p class="small" style="margin-top:.3rem">每一類行動都由官方資料推導，條件寫在後端規則裡：
+      同一個條件永遠得到同一個建議，也附上「為什麼是這一株」與出處。可以做為分工表，或當作報告裡的建議行動。</p>
+      <div class="grid grid-2" style="gap:.6rem;margin-top:.5rem">
+        ${acts.map((a) => `
+          <div class="card" style="margin:0;background:var(--surface-2,transparent)">
+            <div class="row" style="align-items:baseline;gap:.4rem">
+              ${urgencyBadge(a.urgency)}
+              <strong class="small">${esc(a.label)}</strong>
+              <span class="badge badge-muted">${num(a.count)} 株</span>
+            </div>
+            <p class="tiny muted" style="margin:.3rem 0 0">依據：${esc(a.basis)}</p>
+            ${(a.examples || []).length ? `<p class="tiny" style="margin:.3rem 0 0">優先處理：${a.examples.slice(0, 5).map((e) => `<a href="#/map?tree=${encodeURIComponent(e.tree_no)}">#${esc(e.tree_no)}</a> ${esc(e.species)}${e.score != null ? `（${num(e.score)} 分）` : ''}`).join('、')}${a.count > 5 ? ` 等 ${num(a.count)} 株` : ''}</p>` : ''}
+          </div>`).join('')}
+      </div>
+      <p class="tiny muted" style="margin-top:.5rem">${esc(m.disclaimer || '')}</p>
+      <details style="margin-top:.4rem">
+        <summary class="small"><strong>這份行動清單怎麼來的（點開看）</strong></summary>
+        <ul class="small">${(m.notes || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      </details>
+    </div>`;
 }
 
 export async function render(section, params) {
@@ -142,7 +209,9 @@ export async function render(section, params) {
         <div class="row" style="margin-top:.6rem">
           <button class="btn btn-sm btn-primary" id="p-apply">套用條件</button>
           <a class="btn btn-sm" id="p-print" href="${printHref(st)}">列印名單</a>
+          <a class="btn btn-sm" id="p-print-actions" href="${actionsPrintHref()}">列印行動清單</a>
           <button class="btn btn-sm" id="p-csv">匯出 CSV</button>
+          <button class="btn btn-sm" id="p-csv-actions">匯出建議清單 CSV</button>
           <button class="btn btn-sm" id="p-copy">複製摘要</button>
           <span class="tiny muted">符合條件 ${num(data.count)} 株／共 ${num(data.evaluated)} 株</span>
         </div>
@@ -158,13 +227,15 @@ export async function render(section, params) {
         「健康」欄是官方健康狀況。本站的 0–100 分只是把名單排序，不會改變任何一株的官方分級。
       </div>
 
+      ${actionsCard(data)}
+
       <div class="card" style="margin-top:.9rem">
         <div class="table-wrap">
           <table class="table" id="p-table">
             <thead><tr>
               <th>名次</th><th>古樹</th><th>樹種</th><th>樹齡</th>
               <th>健康（官方）</th><th>分級（官方）</th><th>胸徑</th>
-              <th>區位風險</th><th>分數</th><th>主要理由</th>
+              <th>區位風險</th><th>分數</th><th>主要理由</th><th>建議行動</th>
             </tr></thead>
             <tbody>
               ${rows.map((r) => `
@@ -177,13 +248,16 @@ export async function render(section, params) {
                   <td>${healthBadge(r.health)}</td>
                   <td>${gradeBadge(r.grade)}</td>
                   <td>${r.diameter_cm == null ? '—' : `${num(r.diameter_cm, 2)} cm`}</td>
-                  <td><span class="badge badge-${r.risk_level === 'high' ? 'danger' : (r.risk_level === 'low' ? 'info' : 'muted')}">${esc(({ high: '高', mid: '中', low: '低' })[r.risk_level] || '中')}</span></td>
+                  <td><span class="badge badge-${r.risk_level === 'high' ? 'bad' : (r.risk_level === 'low' ? 'info' : 'muted')}">${esc(({ high: '高', mid: '中', low: '低' })[r.risk_level] || '中')}</span></td>
                   <td><strong>${num(r.score)}</strong></td>
                   <td class="tiny">
                     ${r.reasons.map((x) => esc(x)).join('<br>')}
                     <div class="tiny muted" style="margin-top:.2rem">配分：樹齡 ${num(r.parts.age)}／健康 ${num(r.parts.health)}／分級 ${num(r.parts.grade)}／稀有 ${num(r.parts.rarity)}／區位 ${num(r.parts.risk)}</div>
                   </td>
-                </tr>`).join('') || '<tr><td colspan="10" class="muted">沒有符合條件的古樹，請調整篩選條件。</td></tr>'}
+                  <td class="tiny">
+                    ${(r.advice || []).map((a) => `<div>${urgencyBadge(a.urgency)} ${esc(a.label)}<div class="tiny muted">${esc(a.why)}</div></div>`).join('') || '<span class="muted">—</span>'}
+                  </td>
+                </tr>`).join('') || '<tr><td colspan="11" class="muted">沒有符合條件的古樹，請調整篩選條件。</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -215,7 +289,30 @@ export async function render(section, params) {
       location.hash = `#/priority?${new URLSearchParams({ limit: st.limit, grade: st.grade, health: st.health, parish: st.parish, q: st.q }).toString()}`;
     });
     body.querySelector('#p-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') body.querySelector('#p-apply').click(); });
-    body.querySelector('#p-copy').addEventListener('click', () => copyText(summaryText(data)));
+    body.querySelector('#p-copy').addEventListener('click', () => copyText(actionsText(data) + '\n\n' + summaryText(data)));
+    body.querySelector('#p-copy').textContent = '複製名單與建議';
+    // 建議清單 CSV：完整成員（members）要用 ?all=actions 另外抓，頁面本身只帶代表株
+    body.querySelector('#p-csv-actions').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const full = await api.priority({ all: 'actions' });
+        const rowsOut = [];
+        (full.actions || []).forEach((a) => {
+          (a.members || []).forEach((x) => rowsOut.push({
+            建議行動: a.label, 建議時程: a.urgency, 依據: a.basis,
+            古樹編號: x.tree_no, 樹種: x.species, 堂區: x.parish, 地點: x.loc,
+            樹齡: x.age_years, 官方健康狀況: x.health, 官方分級: x.grade,
+            分數: x.score, 為什麼: x.why,
+          }));
+        });
+        downloadCsv('優先保育行動清單.csv', rowsOut);
+      } catch (err) {
+        toast(`匯出建議清單失敗：${errDetail(err)}`);
+      } finally {
+        btn.disabled = false;
+      }
+    });
     body.querySelector('#p-csv').addEventListener('click', () => downloadCsv('優先保育名單.csv', rows.map((r) => ({
       名次: r.rank, 古樹編號: r.tree_no, 樹種: r.species, 堂區: r.parish, 地點: r.loc,
       樹齡: r.age_years, 官方健康狀況: r.health, 官方分級: r.grade, 胸徑公分: r.diameter_cm,
@@ -223,6 +320,7 @@ export async function render(section, params) {
       分數: r.score, 樹齡配分: r.parts.age, 健康配分: r.parts.health,
       分級配分: r.parts.grade, 稀有配分: r.parts.rarity, 區位配分: r.parts.risk,
       主要理由: r.reasons.join('；'), 緯度: r.lat, 經度: r.lon,
+      建議行動: (r.advice || []).map((a) => `${a.urgency}｜${a.label}`).join('；'),
     }))));
     body.querySelector('#p-print').href = printHref(st);
   }

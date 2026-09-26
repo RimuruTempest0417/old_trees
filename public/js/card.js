@@ -373,7 +373,7 @@ export function priorityListHtml(data = {}, opts = {}) {
   const items = data.items || [];
   const m = data.method || { weights: {}, steps: [], marks: [], caveats: [] };
   const s = data.summary || {};
-  const per = opts.pageRows || PRIORITY_PAGE_ROWS;
+  const per = opts.pageRows || ACTION_PAGE_ROWS;
 
   const methodRows = (m.steps || []).map((x) => `<tr><th>${esc(x.name)}</th><td>${num(x.weight)} 分</td><td>${esc(x.rule)}</td></tr>`).join('');
   // 「分數刻度」只用來說明閱讀分組，刻意不叫「級」——級別一律以官方為準。
@@ -588,6 +588,101 @@ export function policySheetHtml(d = {}, opts = {}) {
 
 const stamp = () => new Date().toLocaleString('zh-TW', { hour12: false });
 
+/**
+ * 行動清單（v0.16.0）：兩段式 A4。
+ *   第 1 頁：行動總表（建議時程／行動／株數／依據）＋方法說明與限制
+ *   之後每頁最多 40 列：先列「立即處理」的全部成員，再列「今年內」「持續追蹤」的代表株
+ * 為什麼不把 658 株全部印出來：一份 600 多列的清單在現場沒人翻，紙本只留要做決定的部分，
+ * 完整名單在網站與 CSV（畫面已標明）。
+ */
+/** 行動清單每頁列數：實測每列約 23px、A4 可用高度約 1010px（扣掉抬頭），
+ *  40 列會溢出約 130px（變成多印一頁）；留安全邊際後取 32 列。 */
+export const ACTION_PAGE_ROWS = 32;
+
+export function actionsSheetHtml(data = {}, opts = {}) {
+  const acts = data.actions || [];
+  const m = data.actions_method || {};
+  const stamp2 = opts.date || new Date().toLocaleString('zh-TW', { hour12: false });
+  const per = opts.pageRows || ACTION_PAGE_ROWS;
+  const clip = (t, n) => {
+    const str = String(t == null ? '' : t).trim();
+    return str.length > n ? `${str.slice(0, n - 1)}…` : str;
+  };
+  const head = (title, sub) => `
+    <header class="card-head">
+      <div>
+        <p class="card-kicker">澳門古樹保育研究平台</p>
+        <h2>${esc(title)}</h2>
+        ${sub ? `<p class="card-sub">${esc(sub)}</p>` : ''}
+      </div>
+      <div class="card-meta"><p>${esc(stamp2)}</p><p class="tiny">評估 ${num(data.evaluated)} 株</p></div>
+    </header>`;
+
+  const pages = [];
+  pages.push(`<article class="card-page card-actions">
+    ${head('優先保育行動清單', '由市政署官方資料推導・依建議時程排序')}
+    <div class="card-body">
+      <p class="small">下表把「誰先做、做什麼、為什麼」寫成一張表：每一類行動都由官方資料推導（條件寫在規則裡），
+      並附上依據與株數。完整成員清單（含每一株的理由）請看網站「優先保育」頁或匯出的 CSV。</p>
+      <table class="card-table action-summary">
+        <thead><tr><th>建議時程</th><th>建議行動與依據</th><th>株數</th></tr></thead>
+        <tbody>
+          ${acts.map((a) => `<tr>
+            <th>${esc(a.urgency)}</th>
+            <td>${esc(a.label)}<div class="tiny">依據：${esc(clip(a.basis, 150))}</div></td>
+            <td>${num(a.count)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <h3>方法與限制</h3>
+      <ul class="card-notes">
+        ${(m.notes || []).map((x) => `<li>${esc(clip(x, 150))}</li>`).join('')}
+        <li>${esc(clip(m.disclaimer || '', 200))}</li>
+      </ul>
+    </div>
+  </article>`);
+
+  // 逐株名單：立即處理的每一株都要有；今年內／持續追蹤只放代表株（避免紙本變成幾十頁）
+  const rows = [];
+  for (const a of acts) {
+    const members = a.members || a.examples || [];
+    const urgent = a.urgency === '立即處理';
+    const use = urgent ? members : members.slice(0, opts.sampleRows || 6);
+    for (const x of use) {
+      rows.push({ ...x, action: a.label, urgency: a.urgency });
+    }
+    if (!urgent && members.length > use.length) {
+      rows.push({ more: `「${a.label}」另有 ${num(members.length - use.length)} 株，完整名單見網站或 CSV 匯出。`, urgency: a.urgency, action: a.label });
+    }
+  }
+  for (let i = 0; i < rows.length; i += per) {
+    const chunk = rows.slice(i, i + per);
+    pages.push(`<article class="card-page card-actions">
+      ${head('優先保育行動清單（逐株）', `第 ${Math.floor(i / per) + 1} 張・共 ${num(rows.length)} 列`)}
+      <div class="card-body">
+        <table class="card-table action-rows">
+          <thead><tr><th>時程</th><th>古樹</th><th>樹種</th><th>樹齡</th><th>官方健康</th><th>官方分級</th><th>分數</th><th>為什麼</th></tr></thead>
+          <tbody>
+            ${chunk.map((x) => (x.more
+    ? `<tr><td colspan="8" class="tiny">${esc(x.more)}</td></tr>`
+    : `<tr>
+      <td class="tiny">${esc(x.urgency)}</td>
+      <td>#${esc(x.tree_no)}</td>
+      <td>${esc(x.species || '')}</td>
+      <td>${num(x.age_years)}</td>
+      <td>${esc(x.health || '—')}</td>
+      <td>${esc(x.grade || '—')}</td>
+      <td>${num(x.score)}</td>
+      <td class="tiny">${esc(clip(x.why, 42))}</td>
+    </tr>`)).join('')}
+          </tbody>
+        </table>
+      </div>
+    </article>`);
+  }
+  return { html: pages.join(''), pages };
+}
+
 export async function render(section, params = new URLSearchParams()) {
   const mode = params.get('mode') || (params.get('route') ? 'book' : (params.get('field') ? 'form' : 'card'));
   const prioLimit = params.get('limit') || '50';
@@ -604,6 +699,7 @@ export async function render(section, params = new URLSearchParams()) {
         <button type="button" class="seg-btn${mode === 'book' ? ' active' : ''}" data-mode="book">路綫資料冊</button>
         <button type="button" class="seg-btn${mode === 'priority' ? ' active' : ''}" data-mode="priority">優先保育名單</button>
         <button type="button" class="seg-btn${mode === 'policy' ? ' active' : ''}" data-mode="policy">政策方案摘要</button>
+        <button type="button" class="seg-btn${mode === 'actions' ? ' active' : ''}" data-mode="actions">行動清單</button>
       </div>
       <label class="field" data-only="card"><span>古樹編號</span><input type="number" min="1" id="c-no" value="${esc(params.get('tree') || '66')}"></label>
       <label class="field" data-only="form"><span>帶入古樹編號（可留空＝空白表）</span><input type="number" min="1" id="f-no" value="${esc(params.get('tree') || '')}"></label>
@@ -668,6 +764,12 @@ export async function render(section, params = new URLSearchParams()) {
         const sheetOut = policySheetHtml(data, { date: stamp() });
         sheet.innerHTML = sheetOut.html;
         hint.textContent = `已產生 ${sheetOut.pages.length} 頁（總覽 1 頁＋方向 3 頁＋來源與缺口 1 頁）。列印對話框請選 A4、勾選「背景圖形」。`;
+      } else if (mode2 === 'actions') {
+        // 行動清單需要完整成員（members），因此用 ?all=actions 抓完整版
+        const data = await api.priority({ all: 'actions' });
+        const out = actionsSheetHtml(data, { date: stamp() });
+        sheet.innerHTML = out.html;
+        hint.textContent = `已產生 ${out.pages.length} 頁（總表 1 頁 ＋ 逐株 ${out.pages.length - 1} 頁，每頁 ${PRIORITY_PAGE_ROWS} 列）。列印對話框請選 A4、勾選「背景圖形」。`;
       } else if (mode2 === 'priority') {
         const limit = section.querySelector('#p-limit2').value;
         const grade = section.querySelector('#p-grade2').value;
@@ -700,4 +802,4 @@ export async function render(section, params = new URLSearchParams()) {
   await build();
 }
 
-export default { render, cardModel, cardHtml, fieldFormHtml, routeBookHtml, priorityListHtml, policySheetHtml, schematicMapSvg, checkItems, projectXY };
+export default { render, cardModel, cardHtml, fieldFormHtml, routeBookHtml, priorityListHtml, policySheetHtml, actionsSheetHtml, schematicMapSvg, checkItems, projectXY };

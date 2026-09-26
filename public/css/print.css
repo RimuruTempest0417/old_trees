@@ -82,6 +82,28 @@
 .card-form td { height: 7.5mm; }
 .card-list th { width: auto; text-align: left; }
 
+/* 行動清單（v0.16.0）
+   注意：.card-body 預設是「60mm ＋ 1fr」兩欄版面，表格若放在窄欄裡會被壓成 227px 寬
+   （實測：每列折成 4 行、整份 12 頁）。行動清單是整頁寬的表格，因此改成單欄。 */
+.card-actions .card-body { grid-template-columns: 1fr; gap: 0; }
+.card-actions .card-table { font-size: 8pt; }
+.card-actions .card-table th, .card-actions .card-table td { padding: .12rem .22rem; }
+.card-actions .card-notes { margin: .2rem 0 0 1rem; padding: 0; font-size: 8pt; }
+.card-actions .card-notes li { margin: .12rem 0; }
+/* 欄寬一律固定：不指定的話，瀏覽器的自動表格版面會把長文字欄（依據／為什麼）
+   壓成「一行兩三個字」，整張表從 3 頁變成 16 頁（v0.16.0 實測）。 */
+.card-actions .card-table.action-summary { table-layout: fixed; }
+.card-actions .card-table.action-summary th:nth-child(1) { width: 15%; }
+.card-actions .card-table.action-summary th:nth-child(3) { width: 10%; }
+.card-actions .card-table.action-rows { table-layout: fixed; }
+.card-actions .card-table.action-rows th:nth-child(1) { width: 8%; }
+.card-actions .card-table.action-rows th:nth-child(2) { width: 8%; }
+.card-actions .card-table.action-rows th:nth-child(3) { width: 13%; }
+.card-actions .card-table.action-rows th:nth-child(4) { width: 7%; }
+.card-actions .card-table.action-rows th:nth-child(5) { width: 9%; }
+.card-actions .card-table.action-rows th:nth-child(6) { width: 9%; }
+.card-actions .card-table.action-rows th:nth-child(7) { width: 7%; }
+
 .card-desc { font-size: 9pt; margin: .2rem 0 .4rem; }
 .card-muted { color: #6b7280; }
 .card-checklist { list-style: none; padding: 0; margin: 0; font-size: 9pt; }
