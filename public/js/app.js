@@ -47,6 +47,9 @@ function parseHash() {
 async function showView(name, params) {
   const section = document.getElementById(`view-${name}`);
   if (!section) return;
+  // 換頁時把開啟中的彈出面板關掉：樹木詳情、QR 面板等都掛在同一個 #modal 上，
+  // 不關的話使用者換到別頁還會看到上一頁的內容（v1.0.0 修正）。
+  try { closeModal(); } catch { /* 尚未建立 modal 時忽略 */ }
   document.querySelectorAll('.view').forEach((v) => { v.hidden = v !== section; });
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
   document.title = `${TITLES[name]}｜澳門古樹保育研究平台`;

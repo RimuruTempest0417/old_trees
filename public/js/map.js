@@ -8,6 +8,24 @@ import {
 const MACAU_CENTER = [22.1630, 113.5540];
 let state = null;
 
+/**
+ * 把視野移到某一株並打開它的資訊泡泡。
+ *
+ * 為什麼不用 markercluster 內建的 zoomToShowLayer：那個函式會在分群圖層上註冊
+ * moveend／animationend 回呼。使用者之後按「套用篩選」，我們會 clearLayers 再重新
+ * 加入標記，那些回呼就會拿到已經被移除的標記，丟出
+ * `TypeError: Cannot use 'in' operator to search for '_leaflet_id' in undefined`
+ * （v1.0.0 分頁稽核實測、只有在「網址指定單株」進入地圖後再改篩選時才會出現）。
+ * 自己 setView 到 17 級（叢集在此級已展開）再開泡泡，效果一樣但不會留下隱患。
+ */
+function openMarker(m, delay = 200) {
+  if (!m || !state || !state.map) return;
+  if (state.map.getZoom() < 17) state.map.setView(m.getLatLng(), 17, { animate: false });
+  setTimeout(() => {
+    try { m.openPopup(); } catch { /* 標記可能已被新一輪篩選移除，忽略 */ }
+  }, delay);
+}
+
 function markerIcon(tree) {
   const cls = { 健康: 'good', 一般: 'fair', 瀕危: 'bad' }[tree.health] || 'fair';
   const big = tree.age_years >= 300;
@@ -131,7 +149,13 @@ export async function render(section, params) {
   state.map = map;
 
   state.layer = window.L.markerClusterGroup
-    ? window.L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 46, disableClusteringAtZoom: 17 })
+    // animate／animateAddingMarkers 關掉：分群動畫只是裝飾，但動畫期間的
+    // moveend／animationend 回呼會在「剛好此時按了套用篩選」時拿到已經被 clearLayers
+    // 移除的標記而丟錯（詳見 openMarker 的說明）。關掉動畫讓重新篩選永遠不會出錯。
+    ? window.L.markerClusterGroup({
+      showCoverageOnHover: false, maxClusterRadius: 46, disableClusteringAtZoom: 17,
+      animate: false, animateAddingMarkers: false,
+    })
     : window.L.layerGroup();
   map.addLayer(state.layer);
 
@@ -202,7 +226,7 @@ export async function render(section, params) {
       list.querySelectorAll('.tree-item').forEach((x) => x.classList.toggle('active', x === item));
       if (state.markers.has(no)) {
         map.setView([lat, lon], Math.max(map.getZoom(), 16), { animate: true });
-        state.layer.zoomToShowLayer(state.markers.get(no), () => state.markers.get(no).openPopup());
+        openMarker(state.markers.get(no));
       }
     }));
 
@@ -480,7 +504,10 @@ export async function render(section, params) {
   if (focus) {
     await showDetail(focus);
     const m = state.markers.get(String(focus));
-    if (m) state.layer.zoomToShowLayer(m, () => m.openPopup());
+    if (m) {
+      map.setView(m.getLatLng(), Math.max(map.getZoom(), 17), { animate: false });
+      openMarker(m);
+    }
   }
 
   // 由網址指定半徑

@@ -12,6 +12,7 @@
  *   node scripts/cdp-check.mjs <url> --wait "<片段>" [--wait "<片段>"…]
  *        [--timeout 20000] [--width 1440] [--height 2200]
  *        [--selector "#chem-body"] [--screenshot <檔案>] [--dump <文字檔>] [--json]
+ *        [--waitjs "<JS 運算式>"]  ← 條件為真才繼續（例如 iframe 內容載入完成、圖表已畫好）
  *        [--eval "<JS 運算式>"]   ← 等畫面定案後在頁面裡求值，結果以 JSON 印出（驗 DOM 狀態用）
  * 離開碼：0 全部等到、1 有片段沒出現、2 執行錯誤。
  */
@@ -28,10 +29,11 @@ if (!url) {
   console.error('用法：node scripts/cdp-check.mjs <url> --wait "<片段>" [--screenshot file.png]');
   process.exit(2);
 }
-const opt = { wait: [], timeout: 20000, width: 1440, height: 2200, selector: null, screenshot: null, json: false, dump: null, eval: null, geo: null, print: false };
+const opt = { wait: [], timeout: 20000, width: 1440, height: 2200, selector: null, screenshot: null, json: false, dump: null, eval: null, geo: null, print: false, waitjs: null };
 for (let i = 1; i < argv.length; i += 1) {
   const a = argv[i];
   if (a === '--wait') opt.wait.push(argv[++i]);
+  else if (a === '--waitjs') opt.waitjs = argv[++i];   // 任意 JS 運算式為真才繼續（iframe 內容、圖表就緒等）
   else if (a === '--timeout') opt.timeout = Number(argv[++i]);
   else if (a === '--width') opt.width = Number(argv[++i]);
   else if (a === '--height') opt.height = Number(argv[++i]);
@@ -143,6 +145,15 @@ async function main() {
     const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: false });
     text = r?.result?.value?.text || '';
     missing = opt.wait.filter((w) => !text.includes(w));
+    if (opt.waitjs) {
+      // 自訂等待條件：截圖必須在「判定成立」之後，否則會拍到載入中的畫面
+      const ok = await send('Runtime.evaluate', { expression: opt.waitjs, returnByValue: true, awaitPromise: true });
+      if (ok?.exceptionDetails) {
+        errors.push(`--waitjs 例外：${ok.exceptionDetails.exception?.description || ok.exceptionDetails.text}`);
+      } else if (!ok?.result?.value) {
+        missing = missing.length ? missing : ['（自訂等待條件尚未成立）'];
+      }
+    }
     if (!missing.length) break;
     await sleep(250);
   }

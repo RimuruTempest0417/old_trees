@@ -49,8 +49,23 @@ export function destroyAll(container) {
   });
 }
 
+/**
+ * 建立圖表前先清掉同一塊 canvas 上的舊圖表。
+ *
+ * Chart.js 不允許同一個 canvas 同時掛兩個圖表；直接 new Chart() 會丟出
+ * 「Canvas is already in use」，舊圖表還留在畫面上 —— 使用者看到的就是
+ * 「切換模型／切換線條沒有任何反應」（v0.16.0 的擬合模型切換即為此症狀）。
+ */
+function mount(canvas, config) {
+  if (!canvas) return null;
+  if (canvas._chart) { canvas._chart.destroy(); canvas._chart = null; }
+  const chart = new window.Chart(canvas, config);
+  canvas._chart = chart;
+  return chart;
+}
+
 export function barChart(canvas, labels, values, opts = {}) {
-  const chart = new window.Chart(canvas, {
+  return mount(canvas, {
     type: 'bar',
     data: {
       labels,
@@ -64,17 +79,14 @@ export function barChart(canvas, labels, values, opts = {}) {
     },
     options: baseOptions({
       xTitle: opts.xTitle, yTitle: opts.yTitle,
-      scales: opts.horizontal ? undefined : undefined,
       root: opts.horizontal ? { indexAxis: 'y' } : {},
       plugins: opts.plugins,
     }),
   });
-  canvas._chart = chart;
-  return chart;
 }
 
 export function stackedBar(canvas, labels, datasets, opts = {}) {
-  const chart = new window.Chart(canvas, {
+  return mount(canvas, {
     type: 'bar',
     data: { labels, datasets },
     options: baseOptions({
@@ -82,13 +94,11 @@ export function stackedBar(canvas, labels, datasets, opts = {}) {
       x: { stacked: true }, y: { stacked: true },
     }),
   });
-  canvas._chart = chart;
-  return chart;
 }
 
 export function doughnut(canvas, labels, values, colors) {
   const ink = cssVar('--ink', '#18231c');
-  const chart = new window.Chart(canvas, {
+  return mount(canvas, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: cssVar('--card', '#fff') }] },
     options: {
@@ -98,8 +108,6 @@ export function doughnut(canvas, labels, values, colors) {
       plugins: { legend: { position: 'bottom', labels: { color: ink, boxWidth: 12, font: { size: 11 } } } },
     },
   });
-  canvas._chart = chart;
-  return chart;
 }
 
 export function scatterWithFit(canvas, points, fitCurve, opts = {}) {
@@ -124,7 +132,7 @@ export function scatterWithFit(canvas, points, fitCurve, opts = {}) {
       tension: 0.2,
     });
   }
-  const chart = new window.Chart(canvas, {
+  const chart = mount(canvas, {
     type: 'scatter',
     data: { datasets },
     options: baseOptions({
@@ -134,12 +142,11 @@ export function scatterWithFit(canvas, points, fitCurve, opts = {}) {
     }),
   });
   chart.options.scales.x.ticks.color = mute;
-  canvas._chart = chart;
   return chart;
 }
 
 export function lineChart(canvas, labels, datasets, opts = {}) {
-  const chart = new window.Chart(canvas, {
+  return mount(canvas, {
     type: 'line',
     data: { labels, datasets },
     options: baseOptions({
@@ -148,6 +155,4 @@ export function lineChart(canvas, labels, datasets, opts = {}) {
       ...opts.extra,
     }),
   });
-  canvas._chart = chart;
-  return chart;
 }

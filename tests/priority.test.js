@@ -342,7 +342,7 @@ test('前端名單：不得把陣列直接內插進 HTML（會變成一整排逗
   }
   const bad = exprs.filter((e) => e.includes('.map(') && !e.includes('.join('));
   assert.equal(bad.length, 0, `發現未 join 的內插：${bad.map((e) => e.slice(0, 60)).join('｜')}`);
-  assert.match(src, /r\.reasons\.map\(\(x\) => esc\(x\)\)\.join\('<br>'\)/, '理由要逐條跳脫後 join');
+  assert.match(src, /r\.reasons\.map\(\(x\) => `<li>\$\{esc\(x\)\}<\/li>`\)\.join\(''\)/, '理由要逐條跳脫後 join（v1.0.0 起改用清單標記，方便用手機閱讀）');
   // 分頁與模組必須在 service worker 的預載清單內（離線時才開得起來）
   const sw = read('public/sw.js');
   assert.match(sw, /\/js\/priority\.js/);

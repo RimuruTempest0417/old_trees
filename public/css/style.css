@@ -161,8 +161,12 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
 .page-head p { color: var(--ink-soft); max-width: 78ch; margin: 0; }
 
 .grid { display: grid; gap: 1rem; }
-.grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-.grid-4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+/* 每一欄最小 320px（四欄 190px），但絕不讓欄寬超過容器：
+   直接用 minmax(320px, 1fr) 時，容器只要比 320px×欄數＋gap 窄一點點，
+   整排就會橫向溢出（實測地圖／路綫頁的篩選表單各溢出 30px）。
+   minmax(min(320px, 100%), 1fr) 讓欄位在窄容器裡可以縮到容器寬度。 */
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); }
 .split { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; align-items: start; }
 @media (max-width: 940px) { .split { grid-template-columns: minmax(0, 1fr); } }
 
@@ -201,10 +205,12 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
 label.field { display: block; margin-bottom: .6rem; }
 label.field > span { display: block; font-size: .8rem; color: var(--ink-mute); margin-bottom: .18rem; font-weight: 600; }
 select, input[type="text"], input[type="number"], input[type="search"], textarea {
-  width: 100%; padding: .45rem .6rem; border: 1px solid var(--line-strong);
+  width: 100%; max-width: 100%; min-width: 0; padding: .45rem .6rem; border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm); background: var(--card); color: var(--ink);
   font-family: inherit; font-size: .92rem;
 }
+/* 下拉選單的固有寬度會依最長選項而定，即使 width:100% 也可能比容器寬幾個 px，
+   把 label 撐出 4px（路綫頁實測）。max-width:100% + min-width:0 讓它乖乖縮在容器內。 */
 select:focus, input:focus, textarea:focus { outline: 2px solid var(--green-500); outline-offset: 1px; }
 input[type="range"] { width: 100%; accent-color: var(--green-600); }
 
@@ -251,6 +257,42 @@ table.data th { background: color-mix(in srgb, var(--green-100) 55%, transparent
 table.data tbody tr:hover { background: color-mix(in srgb, var(--green-100) 40%, transparent); }
 table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute); padding-bottom: .35rem; }
+
+/* ---------------------------------------------------------------
+   一般資料表格（優先保育名單）：欄位多、每格內容又長，
+   靠「列線＋欄線＋斑馬紋」把視線切開，否則整片看起來是糊在一起的。
+   --------------------------------------------------------------- */
+table.table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+table.table th, table.table td {
+  padding: .5rem .6rem; border-bottom: 1px solid var(--line);
+  text-align: left; vertical-align: top;
+}
+table.table th {
+  background: color-mix(in srgb, var(--green-100) 55%, transparent);
+  font-weight: 700; position: sticky; top: 0;
+  border-bottom: 2px solid var(--line);
+}
+table.table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--green-100) 20%, transparent); }
+table.table tbody tr:hover { background: color-mix(in srgb, var(--green-100) 42%, transparent); }
+table.table td.num, table.table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 欄與欄之間的分隔線 */
+table.table th + th, table.table td + td { border-left: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+
+.cell-reasons, .cell-advice { max-width: 21rem; }
+.reason-list, .advice-list {
+  list-style: none; margin: 0; padding: 0;
+  font-size: .78rem; line-height: 1.55;
+}
+.reason-list li { position: relative; padding: .08rem 0 .08rem .75rem; }
+.reason-list li::before { content: '・'; position: absolute; left: 0; color: var(--ink-mute); }
+.parts-line {
+  margin-top: .38rem; padding-top: .38rem; border-top: 1px dashed var(--line);
+  font-size: .72rem; color: var(--ink-mute); line-height: 1.5;
+}
+.advice-list li + li { margin-top: .5rem; padding-top: .5rem; border-top: 1px solid var(--line); }
+.advice-head { display: flex; align-items: baseline; gap: .35rem; flex-wrap: wrap; }
+.advice-label { font-size: .8rem; font-weight: 600; }
+.advice-why { font-size: .74rem; color: var(--ink-mute); margin-top: .15rem; line-height: 1.5; }
 
 /* ── 圖表 ─────────────────────────────────────────────────── */
 .chart-box { position: relative; height: 300px; }
@@ -389,6 +431,9 @@ table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute)
 button.badge {
   font: inherit; font-size: .76rem; font-weight: 700; cursor: pointer;
   border: 1px solid transparent; line-height: 1.5;
+  /* 這是真的可以按的按鈕（開離線狀態面板），不是純標籤：給足高度比較好按。
+     原本只有 23px 高，手機上偏低於好按的尺寸。 */
+  min-height: 28px; display: inline-flex; align-items: center; padding: .22rem .5rem;
 }
 button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset: 2px; }
 #pwa-banner-host:not(:empty) { margin-bottom: .9rem; }
@@ -523,6 +568,40 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
   .table-wrap { margin: 0 -.15rem; }
   table.data { font-size: .84rem; }
   table.data th, table.data td { padding: .4rem .45rem; }
+
+  /* 優先保育名單在手機改成一株一張卡：
+     11 欄的寬表格在手機上只能左右滑，讀不完一列；
+     改用 data-label 當欄位名，理由與建議行動才看得清楚。
+     桌面版不受影響（這條只在 700px 以下生效）。 */
+  table.table { display: block; font-size: .9rem; }
+  table.table thead { display: none; }
+  table.table tbody { display: block; }
+  table.table tr {
+    display: block; margin: 0 0 .75rem; padding: .7rem .8rem;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+  }
+  table.table tbody tr:nth-child(even) { background: var(--card); }
+  table.table tbody tr:hover { background: var(--card); }
+  table.table td, table.table th {
+    display: grid; grid-template-columns: 5.8rem minmax(0, 1fr);
+    gap: .1rem .5rem; align-items: baseline;
+    border: 0; border-left: 0; padding: .28rem 0;
+  }
+  table.table td::before {
+    content: attr(data-label); color: var(--ink-mute);
+    font-size: .76rem; line-height: 1.7; grid-column: 1;
+  }
+  table.table td:not([data-label])::before { content: ''; }
+  /* 值一律放第二欄，且不被拉寬（徽章才不會變成整條色塊） */
+  table.table td > * { grid-column: 2; justify-self: start; }
+  table.table td.cell-reasons, table.table td.cell-advice {
+    display: block; max-width: none; margin-top: .4rem; padding-top: .5rem;
+    border-top: 1px dashed var(--line);
+  }
+  table.table td.cell-reasons::before, table.table td.cell-advice::before {
+    display: block; margin-bottom: .3rem;
+  }
+  table.table .reason-list, table.table .advice-list { font-size: .86rem; }
 
   .photo-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: .6rem; }
   .photo-card img { height: 104px; }
@@ -663,6 +742,9 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
 .kpi .kpi-value { color: var(--link); }
 
 .src-link { color: var(--link); text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
+/* 長網址、長英數字串不會自動斷行，會把容器撐破：檔案卡的照片來源圖說實測溢出 97px。
+   overflow-wrap:anywhere 只在「這一行真的放不下」時才斷，中文段落不受影響。 */
+figcaption, .src-link, .note, .card-hint, .muted, .tiny, .small { overflow-wrap: anywhere; }
 
 /* 科普「數據導讀」（v0.16.0）：文章開頭的一小段「用本站數據讀懂這篇」 */
 .guide-card { border-left: 4px solid var(--green-700); background: var(--green-100); }

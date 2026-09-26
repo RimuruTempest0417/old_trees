@@ -240,22 +240,27 @@ export async function render(section, params) {
             <tbody>
               ${rows.map((r) => `
                 <tr>
-                  <td><strong>${num(r.rank)}</strong></td>
-                  <td><a href="#/map?tree=${encodeURIComponent(r.tree_no)}">#${esc(r.tree_no)}</a>
+                  <td data-label="名次"><strong>${num(r.rank)}</strong></td>
+                  <td data-label="古樹"><a href="#/map?tree=${encodeURIComponent(r.tree_no)}">#${esc(r.tree_no)}</a>
                     <div class="tiny muted">${esc(r.loc || '')}</div></td>
-                  <td>${esc(r.species)}</td>
-                  <td>${num(r.age_years)} 年</td>
-                  <td>${healthBadge(r.health)}</td>
-                  <td>${gradeBadge(r.grade)}</td>
-                  <td>${r.diameter_cm == null ? '—' : `${num(r.diameter_cm, 2)} cm`}</td>
-                  <td><span class="badge badge-${r.risk_level === 'high' ? 'bad' : (r.risk_level === 'low' ? 'info' : 'muted')}">${esc(({ high: '高', mid: '中', low: '低' })[r.risk_level] || '中')}</span></td>
-                  <td><strong>${num(r.score)}</strong></td>
-                  <td class="tiny">
-                    ${r.reasons.map((x) => esc(x)).join('<br>')}
-                    <div class="tiny muted" style="margin-top:.2rem">配分：樹齡 ${num(r.parts.age)}／健康 ${num(r.parts.health)}／分級 ${num(r.parts.grade)}／稀有 ${num(r.parts.rarity)}／區位 ${num(r.parts.risk)}</div>
+                  <td data-label="樹種">${esc(r.species)}</td>
+                  <td data-label="樹齡">${num(r.age_years)} 年</td>
+                  <td data-label="健康（官方）">${healthBadge(r.health)}</td>
+                  <td data-label="分級（官方）">${gradeBadge(r.grade)}</td>
+                  <td data-label="胸徑">${r.diameter_cm == null ? '—' : `${num(r.diameter_cm, 2)} cm`}</td>
+                  <td data-label="區位風險"><span class="badge badge-${r.risk_level === 'high' ? 'bad' : (r.risk_level === 'low' ? 'info' : 'muted')}">${esc(({ high: '高', mid: '中', low: '低' })[r.risk_level] || '中')}</span></td>
+                  <td data-label="分數"><strong>${num(r.score)}</strong></td>
+                  <td class="cell-reasons" data-label="主要理由">
+                    <ul class="reason-list">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+                    <div class="parts-line">配分：樹齡 ${num(r.parts.age)}／健康 ${num(r.parts.health)}／分級 ${num(r.parts.grade)}／稀有 ${num(r.parts.rarity)}／區位 ${num(r.parts.risk)}</div>
                   </td>
-                  <td class="tiny">
-                    ${(r.advice || []).map((a) => `<div>${urgencyBadge(a.urgency)} ${esc(a.label)}<div class="tiny muted">${esc(a.why)}</div></div>`).join('') || '<span class="muted">—</span>'}
+                  <td class="cell-advice" data-label="建議行動">
+                    ${(r.advice || []).length
+    ? `<ul class="advice-list">${r.advice.map((a) => `<li>
+                        <div class="advice-head">${urgencyBadge(a.urgency)}<span class="advice-label">${esc(a.label)}</span></div>
+                        <div class="advice-why">${esc(a.why)}</div>
+                      </li>`).join('')}</ul>`
+    : '<span class="muted">—</span>'}
                   </td>
                 </tr>`).join('') || '<tr><td colspan="11" class="muted">沒有符合條件的古樹，請調整篩選條件。</td></tr>'}
             </tbody>
