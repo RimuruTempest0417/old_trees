@@ -77,7 +77,20 @@
 .card-table th, .card-table td { border: 1px solid #cbd5e1; padding: .16rem .32rem; text-align: left; vertical-align: top; }
 .card-table th { background: #f1f5f9; font-weight: 600; color: #0f172a; width: 30%; }
 .card-form th { width: auto; }
-.card-form td { height: 7.5mm; }
+/* 現場量測與觀察：填寫空間不足（2026-09-27 使用者回報）。
+   ① 這張紙的左欄原本固定 60mm，四欄的表每格只有約 13mm 寬，手寫數字寫不下；
+      改成 95mm（左欄）＋1fr（右欄：勾選／照片／素描）。
+   ② 表格改成固定欄寬：標籤 23%、填寫格 27%，四個欄位正好 100%（標籤欄變窄，
+      填寫格變寬；標籤字級 8.5pt，長標籤換行但不影響填寫）。
+   ③ 填寫格高度 7.5mm → 13mm（約可寫兩行手寫字），七列共多出約 39mm；紙上仍留約 30mm 空白。 */
+.card-form-page .card-body { grid-template-columns: 95mm 1fr; }
+.card-form { table-layout: fixed; }
+/* 標籤欄字級略小：欄寬變窄後長標籤（例如「健康狀況（健康／一般／需關注／瀕危）」）
+   才不會換成四行；填寫格維持 9pt 不動。 */
+.card-form th { font-size: 8.5pt; }
+.card-form th:nth-child(odd) { width: 23%; }
+.card-form td:nth-child(even) { width: 27%; }
+.card-form td { height: 13mm; }
 .card-list th { width: auto; text-align: left; }
 
 /* 行動清單（v0.16.0）

@@ -56,6 +56,17 @@ test('深色模式下列印仍然用淺色（否則整張黑、又吃碳粉）',
   assert.match(viewBlock, /:root\s*\{[^}]*color-scheme:\s*light/);
 });
 
+test('實地考察單：現場量測與觀察的填寫格要夠大（每人回報過填寫空間不足）', () => {
+  // 2026-09-27 使用者回報。原本左欄固定 60mm、填寫格只有約 13mm × 7.5mm，手寫寫不下。
+  assert.match(print, /\.card-form-page \.card-body \{ grid-template-columns: 95mm 1fr; \}/);
+  assert.match(print, /\.card-form \{ table-layout: fixed; \}/);
+  assert.match(print, /\.card-form th:nth-child\(odd\) \{ width: 23%; \}/);
+  assert.match(print, /\.card-form td:nth-child\(even\) \{ width: 27%; \}/);
+  const height = print.match(/\.card-form td \{ height: ([\d.]+)mm; \}/);
+  assert.ok(height, '要有填寫格高度設定');
+  assert.ok(Number(height[1]) >= 13, `填寫格高度至少 13mm（實際 ${height[1]}mm）`);
+});
+
 test('cdp-check 支援 --pdf（用瀏覽器自己的列印引擎驗紙上結果）', () => {
   assert.match(check, /a === '--pdf'/);
   assert.match(check, /Page\.printToPDF/);
