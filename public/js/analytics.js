@@ -60,9 +60,10 @@ function anovaBlock(a, unit) {
 }
 
 export async function render(section, params) {
-  section.innerHTML = `<div class="page-head"><h1>數據分析</h1>
-    <p>本頁所有數字皆由資料庫即時計算，採用的演算法（最小平方法、牛頓法非線性擬合、F 與卡方分佈函數）
-    皆實作於 <code>lib/analysis.js</code>，並有單元測試驗證。</p></div>
+  section.innerHTML = `<div class="page-head">
+      <h1>數據分析</h1>
+      <p>本頁所有數字皆由資料庫即時計算，採用的演算法（最小平方法、牛頓法非線性擬合、F 與卡方分佈函數）皆實作於 <code>lib/analysis.js</code>，並有單元測試驗證。</p>
+    </div>
     <div id="an-body">${loading('正在計算統計模型…')}</div>`;
 
   const stats = await cached('stats', () => api.stats());

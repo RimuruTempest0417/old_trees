@@ -316,7 +316,28 @@ const OVERFLOW = `
       }
     });
   }
-  return { scrollX, items, clipped, small };
+  // 中文句子裡多餘的半角空白：樣板換行會被瀏覽器收成一個空格，
+  // 正常情況應該被 ui.js 的執行期清理（normalizeCjkSpacing）處理掉，
+  // 這裡守門：只要還看得到就是漏了（v1.0.1 新增）。
+  const spacing = [];
+  {
+    const visible = document.querySelector('.view:not([hidden])') || document.body;
+    const re = /[\\u4e00-\\u9fff][ \\t]+[\\u4e00-\\u9fff]|[，。、；：）】》][ \\t]+[\\u4e00-\\u9fff]/;
+    const walker = document.createTreeWalker(visible, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if (re.test(node.nodeValue)) {
+        const el = node.parentElement;
+        spacing.push({
+          tag: el ? el.tagName.toLowerCase() : '',
+          cls: el ? (el.className || '').toString().slice(0, 40) : '',
+          text: node.nodeValue.replace(/\\s+/g, ' ').trim().slice(0, 50),
+        });
+      }
+      node = walker.nextNode();
+    }
+  }
+  return { scrollX, items, clipped, small, spacing };
 })()
 `;
 
@@ -370,7 +391,7 @@ async function main() {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: INJECT });
 
   const views = VIEWS.filter((v) => !opt.views || opt.views.includes(v.name));
-  const report = { base, mode: opt.mode, views: [], overflow: [], errors: [], noop: [], small: [] };
+  const report = { base, mode: opt.mode, views: [], overflow: [], errors: [], noop: [], small: [], spacing: [] };
 
   if (opt.mode === 'all' || opt.mode === 'overflow') {
     for (const w of OW) {
@@ -391,6 +412,10 @@ async function main() {
         }
         if (res && res.small && res.small.length) {
           report.small.push({ view: v.name, width: w, items: res.small });
+        }
+        // 文字排版只算一次（內容不隨寬度改變）：抓中文句子裡多餘的半角空白
+        if (w === OW[0] && res && res.spacing && res.spacing.length) {
+          report.spacing.push({ view: v.name, items: res.spacing });
         }
       }
     }
@@ -534,6 +559,12 @@ async function main() {
     L.push(`- **${s.view} @ ${s.width}px**：${s.items.length} 項`);
     for (const it of s.items.slice(0, 10)) L.push(`  - ${it.tag}.${it.cls} ${it.w}×${it.h}px｜${it.text}`);
   }
+  L.push('', '## 文字排版（中文句子裡多餘的半角空白）', '');
+  if (!report.spacing.length) L.push('未發現中文句子裡多餘的半角空白。', '');
+  for (const s of report.spacing) {
+    L.push(`- **${s.view}**：${s.items.length} 處`);
+    for (const it of s.items.slice(0, 8)) L.push(`  - ${it.tag}.${it.cls}｜${it.text}`);
+  }
   L.push('', '## JS 錯誤', '');
   if (!report.errors.length) L.push('無。', '');
   const seen = new Set();
@@ -551,7 +582,7 @@ async function main() {
   } else {
     console.log(text);
   }
-  const bad = report.errors.length + report.noop.length + report.overflow.length
+  const bad = report.errors.length + report.noop.length + report.overflow.length + report.spacing.length
     + report.views.reduce((a, v) => a + v.candidates.filter((r) => r.status === 'fail' || r.status === 'missing').length, 0);
   console.log(bad ? `\n⚠️ 共 ${bad} 項待處理` : '\n✅ 全部通過');
   ws.close();

@@ -43,8 +43,7 @@ export async function render(section, params) {
   section.innerHTML = `
     <div class="page-head">
       <h1>路綫推薦</h1>
-      <p>選擇精選路綫，或以堂區／品種／主題即時生成一條古樹參觀路綫。系統會把 150 公尺內的古樹合併為同一停靠點，
-      再用「最近鄰法 ＋ 2-opt 改良」求近似最短步行路徑，並估算時間與沿綫樹種組成。</p>
+      <p>選擇精選路綫，或以堂區／品種／主題即時生成一條古樹參觀路綫。系統會把 150 公尺內的古樹合併為同一停靠點，再用「最近鄰法 ＋ 2-opt 改良」求近似最短步行路徑，並估算時間與沿綫樹種組成。</p>
     </div>
     <div class="map-layout">
       <div class="stack">

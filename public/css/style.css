@@ -158,7 +158,13 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
   box-shadow: var(--shadow);
 }
 .page-head h1 { margin-bottom: .3rem; }
-.page-head p { color: var(--ink-soft); max-width: 78ch; margin: 0; }
+/* 頁首說明文字：不要固定行寬。固定 78ch 時，只要多出一兩個字就會擠到第二行，
+   最後一行只剩幾個字（像斷行沒斷好）。放寬讓短句一行到底、長句自然換行，
+   再用 text-wrap: pretty 避免最後一行孤零零（不支援的瀏覽器就照一般規則換行）。 */
+.page-head p { color: var(--ink-soft); margin: 0; max-width: none; text-wrap: pretty; }
+/* 卡片與清單裡的段落也一樣：只避免孤行，不動字距（text-wrap: pretty 支援的
+   瀏覽器才會生效，其餘瀏覽器維持原本的自動斷行）。 */
+.card > p, .card li, .note, figcaption { text-wrap: pretty; }
 
 .grid { display: grid; gap: 1rem; }
 /* 每一欄最小 320px（四欄 190px），但絕不讓欄寬超過容器：
@@ -257,6 +263,22 @@ table.data th { background: color-mix(in srgb, var(--green-100) 55%, transparent
 table.data tbody tr:hover { background: color-mix(in srgb, var(--green-100) 40%, transparent); }
 table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.data caption { text-align: left; font-size: .82rem; color: var(--ink-mute); padding-bottom: .35rem; }
+
+/* 政策依據表（五欄）：不指定欄寬時瀏覽器會依內容自動分配，結果「可引用數字」
+   被撐得很寬、而「主管」被壓到只剩幾個字，出現「核准」拆成兩行這種斷行。
+   固定欄寬把空間依內容性質分配（v1.0.1）。 */
+table.policy-table { table-layout: fixed; }
+table.policy-table th, table.policy-table td { vertical-align: top; overflow-wrap: anywhere; }
+table.policy-table td:nth-child(2) { line-height: 1.5; }
+/* 欄寬只在平板以上生效：手機改成一張一張卡片（見 700px 以下的規則），
+   若把百分比欄寬帶進手機，卡片裡的每格會只剩幾十像素寬、文字被拉成長條。 */
+@media (min-width: 701px) {
+  table.policy-table th:nth-child(1), table.policy-table td:nth-child(1) { width: 16%; }
+  table.policy-table th:nth-child(2), table.policy-table td:nth-child(2) { width: 15%; }
+  table.policy-table th:nth-child(3), table.policy-table td:nth-child(3) { width: 36%; }
+  table.policy-table th:nth-child(4), table.policy-table td:nth-child(4) { width: 13%; }
+  table.policy-table th:nth-child(5), table.policy-table td:nth-child(5) { width: 20%; }
+}
 
 /* ---------------------------------------------------------------
    一般資料表格（優先保育名單）：欄位多、每格內容又長，
@@ -573,27 +595,34 @@ button.badge:focus-visible { outline: 2px solid var(--green-900); outline-offset
      11 欄的寬表格在手機上只能左右滑，讀不完一列；
      改用 data-label 當欄位名，理由與建議行動才看得清楚。
      桌面版不受影響（這條只在 700px 以下生效）。 */
-  table.table { display: block; font-size: .9rem; }
-  table.table thead { display: none; }
-  table.table tbody { display: block; }
-  table.table tr {
+  /* 優先保育名單與政策依據表在手機都改成一張一張卡片。 */
+  :is(table.table, table.policy-table) { display: block; font-size: .9rem; }
+  :is(table.table, table.policy-table) thead { display: none; }
+  :is(table.table, table.policy-table) tbody { display: block; }
+  :is(table.table, table.policy-table) tr {
     display: block; margin: 0 0 .75rem; padding: .7rem .8rem;
     border: 1px solid var(--line); border-radius: 12px; background: var(--card);
   }
-  table.table tbody tr:nth-child(even) { background: var(--card); }
-  table.table tbody tr:hover { background: var(--card); }
-  table.table td, table.table th {
+  :is(table.table, table.policy-table) tbody tr:nth-child(even),
+  :is(table.table, table.policy-table) tbody tr:hover { background: var(--card); }
+  :is(table.table, table.policy-table) td,
+  :is(table.table, table.policy-table) th {
     display: grid; grid-template-columns: 5.8rem minmax(0, 1fr);
     gap: .1rem .5rem; align-items: baseline;
     border: 0; border-left: 0; padding: .28rem 0;
   }
-  table.table td::before {
+  /* 卡片標題（政策名稱就是那一列的 th[scope=row]）：佔滿整張卡，不和欄位名擠同一行 */
+  :is(table.table, table.policy-table) th[scope="row"] {
+    display: block; padding-bottom: .4rem; margin-bottom: .3rem;
+    border-bottom: 1px solid var(--line);
+  }
+  :is(table.table, table.policy-table) td::before {
     content: attr(data-label); color: var(--ink-mute);
     font-size: .76rem; line-height: 1.7; grid-column: 1;
   }
-  table.table td:not([data-label])::before { content: ''; }
+  :is(table.table, table.policy-table) td:not([data-label])::before { content: ''; }
   /* 值一律放第二欄，且不被拉寬（徽章才不會變成整條色塊） */
-  table.table td > * { grid-column: 2; justify-self: start; }
+  :is(table.table, table.policy-table) td > * { grid-column: 2; justify-self: start; }
   table.table td.cell-reasons, table.table td.cell-advice {
     display: block; max-width: none; margin-top: .4rem; padding-top: .5rem;
     border-top: 1px dashed var(--line);
@@ -757,6 +786,11 @@ figcaption, .src-link, .note, .card-hint, .muted, .tiny, .small { overflow-wrap:
 }
 .src-list { padding-left: 1.2rem; }
 .src-list li { margin-bottom: .3rem; }
+
+/* <summary>（「展開來源清單」「這份行動清單怎麼來的」）是可點的東西，
+   只給行高時高度只有 24px，手指不好按；補到 28px 以上（v1.0.1）。
+   用 padding 而不是 flex，才不會動到瀏覽器內建的展開三角形。 */
+summary { min-height: 28px; padding: .25rem 0; }
 
 .policy-direction { margin-bottom: 1rem; }
 .policy-direction > h2 { border-bottom: 2px solid var(--green-100); padding-bottom: .3rem; }

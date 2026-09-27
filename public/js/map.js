@@ -55,8 +55,7 @@ export async function render(section, params) {
   section.innerHTML = `
     <div class="page-head">
       <h1>地圖查詢</h1>
-      <p>以堂區、品種、分級、健康狀況、樹齡區間與關鍵字篩選 658 株古樹；可在地圖上任意點擊設定中心並做半徑搜尋，
-      標記顏色代表健康狀況（綠＝健康、黃＝一般、紅＝瀕危）。</p>
+      <p>以堂區、品種、分級、健康狀況、樹齡區間與關鍵字篩選 658 株古樹；可在地圖上任意點擊設定中心並做半徑搜尋，標記顏色代表健康狀況（綠＝健康、黃＝一般、紅＝瀕危）。</p>
     </div>
     <div class="map-layout">
       <div class="card">
@@ -125,7 +124,7 @@ export async function render(section, params) {
       <label class="field"><span>最多年齡</span><input type="number" id="f-max-age" min="0" max="600" value="${esc(f.max_age)}" placeholder="例如 300"></label>
     </div>
     <label class="field"><span>關鍵字（品種／地點／古樹編號）</span>
-      <input type="search" id="f-keyword" value="${esc(f.keyword)}" placeholder="例如 白鴿巢、榕樹、544"></label>
+      <input type="search" id="f-keyword" value="${esc(f.keyword)}" placeholder="例如：白鴿巢、榕樹、544"></label>
     <div class="field">
       <span>半徑搜尋（在地圖上點擊設定中心）</span>
       <div class="row-tight">

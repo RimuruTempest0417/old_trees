@@ -3,7 +3,9 @@
  * 檢視模組採動態 import，第一次進入某個分頁才載入對應程式碼。
  */
 import { api, cached, healthRaw } from './api.js';
-import { esc, errText, errDetail, toast, closeModal } from './ui.js';
+import {
+  esc, errText, errDetail, toast, closeModal, normalizeCjkSpacing, watchCjkSpacing,
+} from './ui.js';
 import { initPwa } from './pwa.js';
 
 const VIEWS = {
@@ -37,6 +39,7 @@ const TITLES = {
 };
 
 let current = null;
+let spacingObserver = null;
 
 function parseHash() {
   const raw = (window.location.hash || '#/overview').replace(/^#\/?/, '');
@@ -59,10 +62,20 @@ async function showView(name, params) {
   }
   current = { name, destroy: null };
 
+  // 中文排版：樣板裡的換行會被瀏覽器收成半角空格，中文句中就多出空白。
+  // 進頁時先清一次，之後用 MutationObserver 持續清理動態載入的內容（v1.0.1）。
+  if (spacingObserver) {
+    try { spacingObserver.disconnect(); } catch { /* 忽略 */ }
+    spacingObserver = null;
+  }
+  normalizeCjkSpacing(section);
+
   try {
     const mod = await VIEWS[name]();
     const ctl = await mod.render(section, params) || {};
     if (current && current.name === name) current.destroy = ctl.destroy || null;
+    normalizeCjkSpacing(section);
+    spacingObserver = watchCjkSpacing(section);
   } catch (err) {
     console.error(err);
     section.innerHTML = `

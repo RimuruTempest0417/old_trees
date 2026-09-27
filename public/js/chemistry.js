@@ -115,9 +115,7 @@ export function summaryText(d) {
 export async function render(section) {
   section.innerHTML = `<div class="page-head">
       <h1>化學視角</h1>
-      <p>這一頁把澳門官方的<strong>空氣監測與降雨酸鹼度</strong>數據，和本站的古樹資料放在一起看，
-      並列出<strong>酸雨、土壤酸鹼、水泥與鋪面</strong>影響樹木的化學機制與出處。
-      每一項數字都標明來源；官方沒有公開的，就明說沒有。</p>
+      <p>這一頁把澳門官方的<strong>空氣監測與降雨酸鹼度</strong>數據，和本站的古樹資料放在一起看，並列出<strong>酸雨、土壤酸鹼、水泥與鋪面</strong>影響樹木的化學機制與出處。每一項數字都標明來源；官方沒有公開的，就明說沒有。</p>
     </div>
     <div id="chem-notice"></div>
     <div id="chem-body">${loading('讀取官方環境數據…')}</div>`;

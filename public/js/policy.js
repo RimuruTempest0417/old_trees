@@ -18,13 +18,17 @@ function sourceLink(s) {
 }
 
 function policyRow(p) {
+  // 名稱常見格式是「第xxx號…批示《名錄名稱》」兩段，在《之前斷行比讓瀏覽器隨機
+  // 斷在字中間自然；主管單位用「；」分段，一段一行，避免「核准」被拆成兩行（v1.0.1）。
+  const name = esc(p.name || '').replace(/《/g, (m, i) => (i > 0 ? `<br>${m}` : m));
+  const dept = esc(p.dept || '—').split('；').map((x) => x.trim()).filter(Boolean).join('<br>');
   return `
     <tr>
-      <th scope="row">${esc(p.name)}${p.year ? `<br><span class="muted tiny">${esc(p.year)}</span>` : ''}</th>
-      <td>${esc(p.dept || '—')}</td>
-      <td>${esc(p.key || '')}</td>
-      <td>${p.numbers && p.numbers !== '－' ? `<strong>${esc(p.numbers)}</strong>` : '<span class="muted">－</span>'}</td>
-      <td class="tiny">${sourceLink(p.source)}</td>
+      <th scope="row" data-label="政策／法規">${name}${p.year ? `<br><span class="muted tiny">${esc(p.year)}</span>` : ''}</th>
+      <td data-label="主管">${dept}</td>
+      <td data-label="與古樹相關的內容">${esc(p.key || '')}</td>
+      <td data-label="可引用數字">${p.numbers && p.numbers !== '－' ? `<strong>${esc(p.numbers)}</strong>` : '<span class="muted">－</span>'}</td>
+      <td class="tiny" data-label="出處">${sourceLink(p.source)}</td>
     </tr>`;
 }
 
@@ -63,7 +67,7 @@ function directionBlock(d) {
 
       <h3>政策依據（每一條都附官方出處）</h3>
       <div class="table-wrap">
-        <table class="data">
+        <table class="data policy-table">
           <thead><tr><th>政策／法規</th><th>主管</th><th>與古樹相關的內容</th><th>可引用數字</th><th>出處</th></tr></thead>
           <tbody>${d.policies.map(policyRow).join('')}</tbody>
         </table>
@@ -125,10 +129,7 @@ function actionRows(d) {
 export async function render(section) {
   section.innerHTML = `<div class="page-head">
       <h1>政策方案</h1>
-      <p>這一頁把古樹保育接上澳門<strong>現行的政策與法規</strong>，分成
-      <strong>城市綠化</strong>、<strong>環保節能</strong>、<strong>文旅文創</strong>三個方向，
-      每個方向都寫出：政策依據（可點開原始文件）、具體行動（誰負責、做什麼、在哪裡、怎麼算成功、期程、成本概念），
-      以及<strong>為什麼先做這幾項</strong>——優先順序來自本站 658 株古樹的官方資料。</p>
+      <p>這一頁把古樹保育接上澳門<strong>現行的政策與法規</strong>，分成<strong>城市綠化</strong>、<strong>環保節能</strong>、<strong>文旅文創</strong>三個方向，每個方向都寫出：政策依據（可點開原始文件）、具體行動（誰負責、做什麼、在哪裡、怎麼算成功、期程、成本概念），以及<strong>為什麼先做這幾項</strong>——優先順序來自本站 658 株古樹的官方資料。</p>
       <p class="tiny muted">每一項都附出處；官方查不到的一律寫在「本頁沒有的東西」，不臆造、不拿外國數字當澳門數字。</p>
     </div>
     <div id="policy-body">${loading('政策方案資料載入中…')}</div>`;

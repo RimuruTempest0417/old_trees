@@ -225,8 +225,7 @@ export async function render(section, params = new URLSearchParams()) {
   section.innerHTML = `
     <div class="page-head">
       <h1>實地考察</h1>
-      <p>帶著手機或紙本走到樹下，把「現場看到的」記下來：樹況、立地環境、病蟲害與人為干擾，並拍下環境特徵照片。
-      這裡是本站為實地考察預留的空間——官方名錄的資料不會被覆寫，考察紀錄另存於 <code>field_records</code> 表。</p>
+      <p>帶著手機或紙本走到樹下，把「現場看到的」記下來：樹況、立地環境、病蟲害與人為干擾，並拍下環境特徵照片。這裡是本站為實地考察預留的空間——官方名錄的資料不會被覆寫，考察紀錄另存於 <code>field_records</code> 表。</p>
     </div>
     <div id="field-notice"></div>
 
@@ -247,7 +246,7 @@ export async function render(section, params = new URLSearchParams()) {
             </label>
           </div>
           <label class="small">記錄者（班級＋座號或姓名）
-            <input type="text" name="observer" placeholder="例如 高三甲 12 號" maxlength="60" required>
+            <input type="text" name="observer" placeholder="例如：高三甲 12 號" maxlength="60" required>
           </label>
           <label class="small">健康狀況（現場判斷）
             <select name="health">

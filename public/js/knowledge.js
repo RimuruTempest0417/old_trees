@@ -29,9 +29,10 @@ export function guideBlock(guide) {
 }
 
 export async function render(section, params) {
-  section.innerHTML = `<div class="page-head"><h1>保育科普</h1>
-    <p>回答「為什麼要保育古樹」「分佈與歷史」「何時立法」「如何應對未來」等問題，並附可查證的來源。
-    每篇文章下方均列出參考出處。</p></div>
+  section.innerHTML = `<div class="page-head">
+      <h1>保育科普</h1>
+      <p>回答「為什麼要保育古樹」「分佈與歷史」「何時立法」「如何應對未來」等問題，並附可查證的來源。每篇文章下方均列出參考出處。</p>
+    </div>
     <div class="split">
       <div class="stack">
         <div class="card card-tight">
