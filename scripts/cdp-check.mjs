@@ -44,6 +44,7 @@ for (let i = 1; i < argv.length; i += 1) {
   else if (a === '--eval') opt.eval = argv[++i];
   else if (a === '--geo') opt.geo = argv[++i];   // 模擬定位：--geo 22.205,113.541[,8]
   else if (a === '--print') opt.print = true;    // 以列印媒體量測（A4 版面檢查用）
+  else if (a === '--pdf') opt.pdf = argv[++i];   // 真的輸出 PDF（檢查列印分頁與紙張尺寸；只寫到指定路徑）
   else { console.error(`未知參數：${a}`); process.exit(2); }
 }
 
@@ -167,6 +168,20 @@ async function main() {
   if (opt.dump) {
     fs.mkdirSync(path.dirname(path.resolve(opt.dump)), { recursive: true });
     fs.writeFileSync(opt.dump, text, 'utf8');
+  }
+
+  // --pdf：用瀏覽器自己的列印引擎輸出 PDF，才驗得到「紙上真正的樣子」——
+  // 分頁數、紙張尺寸（A4 應為 595×842pt）、有沒有被壓成一張超長紙。
+  // preferCSSPageSize 讓 print.css 的 @page { size: A4 } 生效（否則會用預設 Letter）。
+  if (opt.pdf) {
+    const pdf = await send('Page.printToPDF', {
+      printBackground: true,
+      preferCSSPageSize: true,
+      marginTop: 0, marginBottom: 0, marginLeft: 0, marginRight: 0,
+    });
+    fs.mkdirSync(path.dirname(path.resolve(opt.pdf)), { recursive: true });
+    fs.writeFileSync(opt.pdf, Buffer.from(pdf.data, 'base64'));
+    console.log(`  PDF：${opt.pdf}（${(Buffer.from(pdf.data, 'base64').length / 1024).toFixed(0)} KB）`);
   }
 
   // --eval：把頁面「跑完之後」的真實 DOM 狀態取回來（例如勾選欄有幾格、input 有哪些屬性），

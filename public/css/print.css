@@ -175,7 +175,10 @@
      少了這幾條，橫幅會佔掉第一頁，卡片被擠到第二頁、再多出一張空白頁。 */
   body > *:not(main) { display: none !important; }
   main > *:not(section.view) { display: none !important; }
-  main > section.view:not(#view-card) { display: none !important; }
+  /* 只印「目前顯示」的那一個分頁就好：其他分頁本來就掛著 hidden 屬性（display:none），
+     不需要、也不該寫死成「只印列印分頁」——那樣在政策方案／優先保育等分頁按 ⌘P，
+     會得到一張完全空白的 A4（2026-09-27 實測：595×842pt、文字 0 字）。 */
+  main > section.view[hidden] { display: none !important; }
   #view-card > *:not(.card-sheet-wrap) { display: none !important; }
   #view-card { padding: 0 !important; }
   .card-sheet-wrap { overflow: visible !important; padding: 0; }
@@ -187,4 +190,70 @@
   .card-page:last-child { page-break-after: auto; break-after: auto; }
   .card-body, .book-cover, .book-stop { page-break-inside: avoid; }
   .card-table { page-break-inside: avoid; }
+}
+
+/* ── 一般分頁列印（v1.0.3）─────────────────────────────────
+   在政策方案、優先保育、監測等分頁直接按 ⌘P 時，紙上也要看得懂：
+   ① 一律用淺色輸出 —— 深色模式（prefers-color-scheme: dark）下變數是深底淺字，
+      直接印會整張黑（還很吃碳粉），這裡把變數覆蓋回淺色。
+   ② 互動元件不印：按鈕、篩選器、頁籤、排序列、彈出面板、提示。
+   ③ 紙邊留白：A4 頁面卡自己留 12mm（@page 邊界是 0），一般分頁用卡片 margin 類比。
+   ④ 表格可跨頁、表頭每頁重印、單列不切斷；長表格不會被裁掉。
+   ⑤ 陰影／圓角／模糊等螢幕效果不印（紙上只會變髒）。 */
+@media print {
+  :root {
+    --ink: #111; --ink-soft: #333; --ink-mute: #555;
+    --paper: #fff; --card: #fff; --line: #bbb; --line-strong: #999;
+    --link: #166534; --shadow: none;
+    --green-100: #e8f5ec; --amber-100: #fdf3d7; --red-100: #fdeaea; --blue-100: #e8effd;
+    color-scheme: light;
+  }
+  main > section.view:not(#view-card) {
+    padding: 0 !important; max-width: none !important; font-size: 11pt;
+  }
+  main > section.view:not(#view-card) :is(
+    .btn, .btn-row, .chips, .chip, .pager, .toolbar, .search-box, #filters, .filters,
+    .sort-bar, .card-controls, .card-hint, #modal, .modal, .modal-backdrop, .toast,
+    .notice, .demo-banner, nav.tabs, .tabs, button, select, .leaflet-control-container
+  ) { display: none !important; }
+  /* 篩選欄位本身也印不出東西（下拉、輸入框都是互動元件），
+     只留下「符合條件 50 株／共 658 株」這種結果摘要。少了這條會印出一堆空標籤。 */
+  main > section.view:not(#view-card) .field { display: none !important; }
+
+  main > section.view:not(#view-card) :is(.card, .page-head, figure, .note, .callout) {
+    box-shadow: none !important; border-radius: 0 !important;
+    background: #fff !important; border-color: #bbb !important;
+    margin: 6mm 12mm !important; padding: 3mm 4mm !important;
+  }
+  main > section.view:not(#view-card) .table-wrap { overflow: visible !important; }
+  /* 螢幕樣式把「每一張卡片」都設成不跨頁（style.css 的 @media print 裡 .card 有
+     page-break-inside: avoid），紙上就會出現大片空白：整張政策依據表放不進剩下的
+     版面，只好整張跳到下一頁。這裡把「大容器」改回可跨頁；小的行動卡、表格列維持
+     整塊不切斷，閱讀上比較清楚。 */
+  main > section.view:not(#view-card) :is(.card, .table-wrap, table, tbody) {
+    break-inside: auto !important; page-break-inside: auto !important;
+  }
+  main > section.view:not(#view-card) table {
+    width: 100% !important; margin: 0 !important; border-collapse: collapse;
+    font-size: 10pt;
+  }
+  main > section.view:not(#view-card) thead { display: table-header-group; }
+  main > section.view:not(#view-card) tfoot { display: table-footer-group; }
+  main > section.view:not(#view-card) tr { break-inside: avoid; page-break-inside: avoid; }
+  main > section.view:not(#view-card) :is(h2, h3) { break-after: avoid; page-break-after: avoid; }
+  /* 紙上寬度是 A4（約 793px），三欄的格線會把每欄壓到 260px 左右，
+     中文變成每行兩三個字就斷行（實測政策方案的行動卡就是這樣壞掉）。
+     所以列印時多欄一律收成單欄，小的卡片（統計數字、照片、QR）兩欄。 */
+  main > section.view:not(#view-card) :is(.grid, .grid-2, .grid-3, .split, .map-layout, .policy-actions) {
+    grid-template-columns: 1fr !important;
+  }
+  main > section.view:not(#view-card) :is(.grid-4, .photo-grid, .qr-sheet) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  main > section.view:not(#view-card) .stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  /* 標籤／數值兩欄的表：固定欄寬，數值欄才不會被擠成一條細長條。 */
+  main > section.view:not(#view-card) table.kv { table-layout: fixed; }
+  main > section.view:not(#view-card) table.kv th { width: 15%; }
+  main > section.view:not(#view-card) table.kv td { width: 85%; }
+  main > section.view:not(#view-card) a[href^="http"]::after { content: "" !important; }
 }

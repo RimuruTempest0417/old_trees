@@ -1336,6 +1336,77 @@ node scripts/page-audit.mjs http://127.0.0.1:3000 --mode overflow --budget 1500
 
 `npm test`：26 組、376 項全過（新增一項守門：901px 以上的頁首必須是兩欄、手機不受影響）。
 
+## 二十七、列印：紙上的樣子（v1.0.3）
+
+### 27.1 起因：Safari 印出來是一張 5 公尺長的紙
+
+2026-09-27 使用者把「政策方案」存成 PDF 回報「排版和文字都有問題」。實測那份 PDF：
+**1 頁、402×14400pt**（約 5 公尺長、比 A4 窄）、表格欄位被壓成一條條細長條。
+追下去找到兩個真的原因（兩個都在紙上才會看到，螢幕完全正常）：
+
+1. **`print.css` 寫死「只印 A4 列印分頁」**：`main > section.view:not(#view-card) { display: none }`。
+   在政策方案、優先保育等分頁按 ⌘P，其他分頁本來就帶 `hidden`，於是整份文件**沒有任何可見內容**
+   → 得到一張完全空白的 A4（實測 595×842pt、文字 0 字）。
+2. **列印寬度只有 A4（約 793px）**：行動卡用的是三欄格線 `repeat(auto-fit, minmax(320px, 1fr))`，
+   在 793px 下每欄只剩約 260px，中文變成每行兩三個字就斷行；加上 `style.css` 的
+   `@media print { .card { page-break-inside: avoid } }`，整張政策依據表放不進剩下的版面時
+   就整張跳到下一頁，紙上出現大片空白。
+
+### 27.2 修法
+
+| 問題 | 修法 |
+|---|---|
+| 只印列印分頁 → 空白紙 | 改成 `main > section.view[hidden] { display: none !important }`（只印目前顯示的分頁） |
+| 深色模式印出來整張黑 | 列印時把色彩變數覆蓋回淺色（`--card: #fff`、`color-scheme: light`） |
+| 三欄格線在 A4 壓成細長條 | 列印時 `.policy-actions`／`.grid*`／`.split`／`.map-layout` 一律單欄；`.stat-row` 四欄、`.grid-4`／`.photo-grid`／`.qr-sheet` 兩欄 |
+| 空篩選框印出一堆標籤 | 列印時隱藏 `.field`（下拉、輸入框都是互動元件），只留「符合條件 50 株／共 658 株」 |
+| 大容器不跨頁 → 大片空白 | 列印時 `.card`／`.table-wrap`／`table`／`tbody` 可跨頁；表頭每頁重印、單列不切斷 |
+| 標籤／數值表被擠成細條 | 列印時 `table.kv { table-layout: fixed }`＋標籤 15%／數值 85% |
+
+A4 列印分頁（`#/card?mode=…`、行動清單、路綫冊）的規則**完全沒動**，
+頁數與文字量與 v1.0.2 逐項相同（見 27.4）。
+
+### 27.3 怎麼驗（用瀏覽器自己的列印引擎）
+
+`scripts/cdp-check.mjs` 新增 `--pdf <路徑>`（CDP `Page.printToPDF`＋`preferCSSPageSize: true`），
+再用 PyMuPDF 讀回來看頁數、紙張尺寸、文字量與內容：
+
+```bash
+node scripts/cdp-check.mjs "http://127.0.0.1:3000/#/policy" --waitjs "$(cat <<'JS'
+(function(){var s=document.querySelector('#view-policy');
+return !!(s && !s.hidden && s.querySelector('table.policy-table tbody tr'));})()
+JS
+)" --pdf /tmp/policy.pdf
+~/.hermes/cache/scratch/report-venv/bin/python -c "
+import pymupdf; d=pymupdf.open('/tmp/policy.pdf')
+print(d.page_count, '頁', d[0].rect)"
+```
+
+**一定要等內容渲染完再印**：沒加 `--waitjs` 會在 JS 畫完之前就輸出，得到 0 字的空白 PDF
+（這也是 27.1 那份空白紙以外，驗證時最容易踩的坑）。
+
+### 27.4 v1.0.3 實測結果（PyMuPDF 讀回，單位：頁／字）
+
+| 分頁 | v1.0.2 | v1.0.3 |
+|---|---|---|
+| 政策方案 | 1 頁／0 字（空白） | **12 頁／12,730 字** |
+| 總覽 | 1 頁／0 字 | 6 頁／3,092 字 |
+| 地圖查詢 | 1 頁／0 字 | 2 頁／336 字 |
+| 路綫 | — | 2 頁／1,420 字 |
+| 數據分析 | — | 7 頁／4,250 字 |
+| 優先保育名單 | — | 26 頁／14,823 字 |
+| 實地考察 | — | 2 頁／1,381 字 |
+| 監測時間序列 | — | 2 頁／818 字 |
+| 化學視角 | — | 6 頁／3,702 字 |
+| 科普導讀 | — | 3 頁／2,060 字 |
+| A4 列印分頁：檔案卡 | 1 頁／804 字 | 1 頁／804 字（不變） |
+| A4 列印分頁：考察單 | 1 頁／658 字 | 1 頁／658 字（不變） |
+| A4 列印分頁：政策摘要 | 9 頁／12,784 字 | 9 頁／12,784 字（不變） |
+| A4 列印分頁：行動清單 | 4 頁／4,406 字 | 4 頁／4,406 字（不變） |
+| A4 列印分頁：路綫冊 | 11 頁／3,148 字 | 11 頁／3,148 字（不變） |
+
+守門測試：`tests/print.test.js`（6 項）——規則被誤刪時，網頁看起來完全正常，只有印出來才發現。
+
 ## 授權
 
 程式碼以 MIT 授權釋出。資料與相片之權利依其原始來源標示。
