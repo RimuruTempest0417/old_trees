@@ -67,3 +67,14 @@ test('頁首說明的行寬已放寬，短句不再被硬擠成兩行', () => {
   assert.match(css, /\.page-head p \{[^}]*text-wrap: pretty/);
   assert.ok(!/\.page-head p \{[^}]*max-width: 78ch/.test(css), '不應再限制 78ch 行寬');
 });
+
+test('桌機頁首：標題與說明同一列（不使用右側空著的兩行版面）', () => {
+  const css = readFileSync(`${ROOT}public/css/style.css`, 'utf8');
+  const block = css.match(/@media \(min-width: 901px\) \{([\s\S]*?)\n\}/);
+  assert.ok(block, '應有 901px 以上的頁首規則');
+  assert.match(block[1], /\.page-head \{[^}]*display: grid/);
+  assert.match(block[1], /grid-template-columns: minmax\(0, 15rem\) minmax\(0, 1fr\)/);
+  assert.match(block[1], /\.page-head h1 \{[^}]*grid-column: 1/);
+  assert.match(block[1], /\.page-head p \{[^}]*grid-column: 2/);
+  assert.ok(!/max-width: 900px[\s\S]*\.page-head/.test(css), '手機維持上下堆疊，不受桌機規則影響');
+});

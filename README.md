@@ -1324,6 +1324,18 @@ node scripts/page-audit.mjs http://127.0.0.1:3000 --mode overflow --budget 1500
 | 單元測試 | `npm test` | 26 組、375 項全過 |
 | Service Worker | `build-sw.mjs` | 預載 60 項、版本 `v1.0.1` |
 
+### 26.5 v1.0.2：桌機頁首改成兩欄（右側空間不再空著）
+
+只把標題與說明放進同一列：`@media (min-width: 901px)` 下 `.page-head` 變成
+`grid-template-columns: minmax(0, 15rem) minmax(0, 1fr)`，標題在左欄、說明在右欄（`align-items: baseline`），
+卡片因此少一行高度，說明也用到右半邊的空間。**901px 以下維持原本上下堆疊的版本（手機不變）。**
+
+實測（1440px，9 個分頁）：說明文字的右緣 1163–1357px、卡片內緣 1363px
+→ 右側只剩 6–14px 的正常換行餘量（改前說明只佔左半，右半整片空白）；
+390px 與 900px 實測 `display: block`（上下堆疊）、1024px 起為 `grid`。
+
+`npm test`：26 組、376 項全過（新增一項守門：901px 以上的頁首必須是兩欄、手機不受影響）。
+
 ## 授權
 
 程式碼以 MIT 授權釋出。資料與相片之權利依其原始來源標示。

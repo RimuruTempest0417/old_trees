@@ -162,6 +162,14 @@ main { max-width: var(--maxw); margin: 0 auto; padding: 1.4rem 1.1rem 3rem; }
    最後一行只剩幾個字（像斷行沒斷好）。放寬讓短句一行到底、長句自然換行，
    再用 text-wrap: pretty 避免最後一行孤零零（不支援的瀏覽器就照一般規則換行）。 */
 .page-head p { color: var(--ink-soft); margin: 0; max-width: none; text-wrap: pretty; }
+/* 桌機：標題與說明同一列（標題在左、說明在右，填滿整張卡的寬度）。
+   只有標題＋一行說明疊在一起時，整張卡右半邊會空著；改成兩欄之後右側的空間
+   就被說明用掉，也少一行高度。手機維持原本上下堆疊的版本（≤900px）。 */
+@media (min-width: 901px) {
+  .page-head { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: .2rem 1.5rem; align-items: baseline; }
+  .page-head h1 { margin-bottom: 0; grid-column: 1; }
+  .page-head p { grid-column: 2; }
+}
 /* 卡片與清單裡的段落也一樣：只避免孤行，不動字距（text-wrap: pretty 支援的
    瀏覽器才會生效，其餘瀏覽器維持原本的自動斷行）。 */
 .card > p, .card li, .note, figcaption { text-wrap: pretty; }
