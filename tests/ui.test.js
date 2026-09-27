@@ -14,6 +14,15 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const html = readFileSync(`${ROOT}public/index.html`, 'utf8');
 const css = readFileSync(`${ROOT}public/css/style.css`, 'utf8');
 
+test('監測與政策方案兩頁要有呼吸空間（使用者回報元素太密集）', () => {
+  // 2026-09-27 使用者：「監察和政策方案頁面的元素太密集了，可以分散一點」。
+  // 這兩頁的區塊原本 margin-bottom 是 0（上下相黏），監測頁的 5 張 KPI 卡還直直疊成一欄。
+  assert.match(css, /#view-monitoring > \* \+ \*,[\s\S]{0,80}#view-policy > \* \+ \*[\s\S]{0,60}margin-top: 1\.75rem/);
+  assert.match(css, /#policy-body > \* \+ \* \{ margin-top: 1\.75rem; \}/);
+  assert.match(css, /#view-monitoring \.kpi-grid \{\s*display: grid;/);
+  assert.match(css, /:is\(#view-policy, #view-monitoring\) \.card,[\s\S]{0,60}padding: 1\.4rem 1\.5rem;/);
+});
+
 test('viewport 支援瀏海螢幕（viewport-fit=cover）', () => {
   assert.match(html, /<meta name="viewport"[^>]*width=device-width[^>]*viewport-fit=cover/);
   assert.match(html, /<meta name="color-scheme" content="light dark">/);

@@ -827,3 +827,35 @@ summary { min-height: 28px; padding: .25rem 0; }
   .tag { background: transparent; border: 1px solid #999; }
 }
 
+/* ── v1.0.5：監測時間序列與政策方案兩頁的呼吸空間 ─────────────────
+   使用者：「監察和政策方案頁面的元素太密集了，可以分散一點」。
+   實測到的兩個原因：
+   ① 這兩頁的區塊是「上下相黏」的 —— 監測頁的 KPI 區與三張卡片的 margin-bottom 都是 0，
+      政策方案頁的一般卡片也是 0（只有方向區塊有 16px），所以看起來一團一團擠在一起。
+   ② 監測頁的 .kpi-grid 沒有任何 display 規則，5 張 KPI 卡直直疊成一欄（整區 623px 高）。
+   這裡只加間距與內距（不動字級、欄寬與顏色），其他分頁與 A4 列印頁面不受影響。 */
+#view-monitoring > * + *,
+#view-policy > * + *,
+#policy-body > * + * { margin-top: 1.75rem; }
+
+:is(#view-policy, #view-monitoring) .card,
+:is(#view-policy, #view-monitoring) .kpi { padding: 1.4rem 1.5rem; }
+:is(#view-policy, #view-monitoring) h2 { margin: 0 0 1rem; }
+:is(#view-policy, #view-monitoring) h3 { margin: 1.15rem 0 .85rem; }
+:is(#view-policy, #view-monitoring) :is(h2, h3):first-child { margin-top: 0; }
+:is(#view-policy, #view-monitoring) p + p { margin-top: .8rem; }
+:is(#view-policy, #view-monitoring) .lead { margin-bottom: .9rem; }
+:is(#view-policy, #view-monitoring) li + li { margin-top: .4rem; }
+:is(#view-policy, #view-monitoring) table th,
+:is(#view-policy, #view-monitoring) table td { padding: .62rem .72rem; }
+:is(#view-policy, #view-monitoring) .kv th,
+:is(#view-policy, #view-monitoring) .kv td { padding: .45rem .55rem .45rem 0; }
+:is(#view-policy, #view-monitoring) .policy-actions { gap: 1.3rem; }
+
+/* 監測頁：5 張 KPI 卡改成分欄排（桌機一列放得下，手機自動變一欄）。 */
+#view-monitoring .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+

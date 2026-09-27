@@ -1431,6 +1431,51 @@ print(d.page_count, '頁', d[0].rect)"
 
 守門測試：`tests/print.test.js` 新增 1 項（填寫格高度不得小於 13mm、欄寬規則不得被改回自動）。
 
+## 二十八、頁面的呼吸空間（v1.0.5）
+
+使用者：「監察和政策方案頁面的元素太密集了，可以分散一點」。
+
+### 28.1 量到的兩個原因
+
+| 原因 | 實測 |
+|---|---|
+| 區塊「上下相黏」 | 監測頁：頁首下 19.2px，但 KPI 區與三張卡片的 margin-bottom 都是 **0**；政策方案：一般卡片也是 **0**（只有方向區塊有 16px） |
+| KPI 卡沒有排成格線 | `.kpi-grid` 完全沒有 `display` 規則（monitoring.js 只加 class），5 張 KPI 卡直直疊成一欄 = **623px 高** |
+
+### 28.2 改法（只影響這兩頁）
+
+```css
+#view-monitoring > * + *, #view-policy > * + *, #policy-body > * + * { margin-top: 1.75rem; }
+:is(#view-policy, #view-monitoring) .card, … .kpi { padding: 1.4rem 1.5rem; }
+:is(#view-policy, #view-monitoring) h3 { margin: 1.15rem 0 .85rem; }
+:is(#view-policy, #view-monitoring) p + p { margin-top: .8rem; }
+:is(#view-policy, #view-monitoring) li + li { margin-top: .4rem; }
+:is(#view-policy, #view-monitoring) table th, td { padding: .62rem .72rem; }
+:is(#view-policy, #view-monitoring) .kv th, .kv td { padding: .45rem .55rem .45rem 0; }
+:is(#view-policy, #view-monitoring) .policy-actions { gap: 1.3rem; }
+#view-monitoring .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; }
+```
+
+字級、欄寬、顏色都沒有動；其他分頁與 A4 列印頁面不受影響。
+
+### 28.3 實測
+
+| 項目 | 改前 | 改後 |
+|---|---|---|
+| 監測頁區塊間距 | 0px | **28px** |
+| 監測頁 KPI 區 | 623px（直疊一欄） | **161px（5 欄一列）** |
+| 政策方案區塊間距 | 16px／0px | **28px** |
+| 卡片內距 | 17.6 × 19.2px | **22.4 × 24px** |
+| 表格格內距 | 6.72 × 8.8px | **9.92 × 11.52px** |
+| 政策方案頁總高 | 7,520px | 8,458px（自然變高） |
+
+- 手機 390px：KPI 自動變 2 欄、區塊間距 28px、橫向溢出 **0px**。
+- 其他分頁卡片內距不變（總覽 17.6／19.2px、優先保育 17.6／19.2px）。
+- 版面稽核 12 分頁 × 5 寬度：**✅ 全部通過**；介面稽核 **120/120**。
+- A4 列印頁面逐項不變：檔案卡 1 頁／804 字、考察單 1 頁、政策摘要 9 頁／12,784 字、
+  行動清單 4 頁／4,406 字、路綫冊 11 頁／3,148 字。
+- `npm test`：28 組、**384 項全過**（`tests/ui.test.js` 新增 1 項守門）。
+
 ## 授權
 
 程式碼以 MIT 授權釋出。資料與相片之權利依其原始來源標示。
