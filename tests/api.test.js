@@ -31,7 +31,8 @@ test('GET /api/health 回報資料來源與筆數', async () => {
   assert.ok(['supabase', 'snapshot'].includes(json.data_source));
   assert.equal(json.tree_count, csvRows.length);
   assert.match(headers.get('content-type'), /application\/json/);
-  assert.equal(headers.get('access-control-allow-origin'), '*');
+  // 未帶 Origin 的請求不需要 CORS 標頭（v1.0.6 起不再回 ACAO: *）
+  assert.equal(headers.get('access-control-allow-origin'), null);
 });
 
 test('GET /api/overview 統計與 CSV 直接計算一致', async () => {

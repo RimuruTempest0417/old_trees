@@ -16,6 +16,31 @@
   ],
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.supabase.co; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(self), microphone=(), payment=(), usb=()" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://old-trees-mylearning.vercel.app" }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(js|css|png|jpg|jpeg|svg|ico|webmanifest)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "https://old-trees-mylearning.vercel.app" }
+      ]
+    },
+    {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" }

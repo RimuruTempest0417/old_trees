@@ -172,7 +172,8 @@ test('回應標頭不洩漏伺服器資訊，且不允許任意來源的憑證',
   const { headers } = await get(base, '/api/health');
   assert.equal(headers.get('x-powered-by'), null);
   assert.equal(headers.get('access-control-allow-credentials'), null);
-  assert.equal(headers.get('access-control-allow-origin'), '*');
+  // 只有白名單來源會被回聲；一般請求不回 CORS 標頭（見 tests/security-headers.test.js）
+  assert.equal(headers.get('access-control-allow-origin'), null);
   assert.match(headers.get('content-type'), /application\/json/);
 });
 

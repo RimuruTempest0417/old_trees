@@ -83,7 +83,7 @@ async function showView(name, params) {
         <h2>載入「${esc(TITLES[name])}」時發生錯誤</h2>
         <p class="muted">${esc(errDetail(err))}</p>
         <p class="small">請確認 Serverless Functions 是否正常運作，或稍後重試。</p>
-        <button class="btn btn-primary" onclick="location.reload()">重新載入</button>
+        <button class="btn btn-primary" data-reload="1">重新載入</button>
       </div>`;
   }
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
@@ -155,6 +155,11 @@ async function checkSchema() {
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#modal [data-close]').forEach((n) => n.addEventListener('click', closeModal));
+  // 行內 onclick 會被 Content-Security-Policy（script-src 'self'）擋下，
+  // 所以「重新載入」改用事件委派處理。
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-reload]')) window.location.reload();
+  });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a[href^="#/"]');

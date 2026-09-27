@@ -237,9 +237,16 @@ test('pwa.js：註冊路徑與 scope 都是站台根目錄', () => {
 });
 
 // ── 4. 離線頁 ──────────────────────────────────────────────
-test('offline.html：可獨立離線顯示（不連外、有重載按鈕、深淺色都適用）', () => {
+test('offline.html：可獨立離線顯示（不連外、有重載入口、深淺色都適用）', () => {
   assert.match(offline, /<html lang="zh-Hant">/);
-  assert.match(offline, /location\.reload\(\)/, '要能重新載入');
+  // v1.0.6 起「重新載入」改用 <a href="./">：離線頁不載入任何 JS，
+  // 且 CSP 的 script-src 不含 unsafe-inline，行內 onclick 會被擋掉。
+  assert.match(offline, /重新載入/, '要能重新載入');
+  assert.ok(
+    /location\.reload\(\)/.test(offline) || /<a[^>]+class="btn primary"[^>]*href="\.\/"/.test(offline),
+    '重新載入必須有可用的入口（連結或 JS）',
+  );
+  assert.ok(!/<[a-z][^>]*\son(click|load|error)\s*=/i.test(offline), '離線頁不得有行內事件處理器（會被 CSP 擋）');
   assert.ok(!/https?:\/\/(?!www\.w3\.org)/.test(offline), '離線頁不得引用外部資源');
   assert.match(offline, /prefers-color-scheme: dark/, '離線頁也要支援深色模式');
   assert.match(offline, /div\(100dvh\)|100dvh/, '用動態視窗高度，手機才不會有白邊');
